@@ -119,7 +119,7 @@ BSC_RPC_URL=... NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SECRET_KEY=... FORGE_BIN=f
 checks each contract on BSC, probes for a USDT route, upserts `assets`, and writes
 `contracts/test/fork-assets.json` and `contracts/deploy/assets.json`. `mark-vault-ok` runs the
 per-token fork test and sets `vault_ok`; only tokens with a route **and** a passing fork test get
-`can_trade`/`can_stack`. `--allow-closed` includes fork-tested tokens whose only quote error is
+`can_trade`/`can_stack`. After seeding, call `/api/cron/mirror-logos` (same bearer secret) to copy token logos into Supabase Storage; `supabase/cron.sql` also runs it daily. `--allow-closed` includes fork-tested tokens whose only quote error is
 "market closed" in the vault allowlist. For preview deployments behind Vercel Authentication, set
 `VERCEL_AUTOMATION_BYPASS_SECRET`.
 

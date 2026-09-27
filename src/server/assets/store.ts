@@ -10,8 +10,9 @@ import type { CatalogAsset } from "./catalog";
  * a passing fork test.
  */
 export async function upsertCatalog(assets: CatalogAsset[]): Promise<{ ok: boolean; count?: number; reason?: string }> {
-  const existing = must(await db().from("assets").select("address, vault_ok")) as Pick<AssetRow, "address" | "vault_ok">[];
+  const existing = must(await db().from("assets").select("address, vault_ok, logo_url")) as Pick<AssetRow, "address" | "vault_ok" | "logo_url">[];
   const vaultOk = new Map(existing.map((a) => [a.address, a.vault_ok]));
+  const mirrored = new Map(existing.filter((a) => a.logo_url?.includes("/storage/v1/object/public/logos/")).map((a) => [a.address, a.logo_url]));
   const now = new Date().toISOString();
 
   const rows = assets.map((a) => {
@@ -23,7 +24,7 @@ export async function upsertCatalog(assets: CatalogAsset[]): Promise<{ ok: boole
       ticker: a.ticker,
       symbol: a.symbol,
       name: a.name,
-      logo_url: a.logoUrl,
+      logo_url: mirrored.get(a.address) ?? a.logoUrl,
       decimals: a.decimals,
       share_multiplier: a.shareMultiplier,
       can_browse: true,

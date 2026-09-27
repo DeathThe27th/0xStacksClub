@@ -21,3 +21,4 @@ $$;
 select cron.schedule('stacksclub-prices', '* * * * *', $$select stacksclub_call('/api/cron/prices')$$);
 select cron.schedule('stacksclub-sync', '* * * * *', $$select stacksclub_call('/api/cron/sync')$$);
 select cron.schedule('stacksclub-index', '*/5 * * * *', $$select stacksclub_call('/api/cron/index')$$);
+select cron.schedule('stacksclub-logos', '17 3 * * *', $$select stacksclub_call('/api/cron/mirror-logos')$$);
