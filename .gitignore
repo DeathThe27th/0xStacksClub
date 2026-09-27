@@ -1,0 +1,21 @@
+node_modules
+.next
+out
+coverage
+*.tsbuildinfo
+next-env.d.ts
+.DS_Store
+
+# env: only .env.example is committed
+.env*
+!.env.example
+.vercel
+
+# local tooling
+.impeccable/
+.claude/skills/impeccable
+
+# foundry
+contracts/out
+contracts/cache
+contracts/broadcast/*/31337

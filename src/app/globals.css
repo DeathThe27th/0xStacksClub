@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* docs/UI_SPEC.md §1, as RGB channels so Tailwind can apply alpha */
+  --bg: 10 10 18; /* #0A0A12 */
+  --surface: 21 21 31; /* #15151F */
+  --surface-2: 30 30 42; /* #1E1E2A */
+  --border: 35 35 47; /* #23232F */
+  --text: 255 255 255;
+  --text-muted: 139 139 154; /* #8B8B9A */
+  --text-dim: 85 85 106; /* #55556A */
+  --primary: 61 90 254; /* #3D5AFE */
+  --primary-press: 47 72 217; /* #2F48D9 */
+  --up: 34 197 94; /* #22C55E */
+  --down: 255 68 48; /* #FF4430 */
+  --warn: 245 165 36; /* #F5A524 */
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  overscroll-behavior-y: none;
+}
+
+@layer utilities {
+  .tnum {
+    font-feature-settings: "tnum";
+    font-variant-numeric: tabular-nums;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* Clears the floating bottom nav: 64px nav + 12px gap + safe area + breathing room */
+  .pb-nav {
+    padding-bottom: calc(64px + 12px + 24px + env(safe-area-inset-bottom));
+  }
+  /* Clears the sticky CTA on detail pages */
+  .pb-cta {
+    padding-bottom: calc(56px + 16px + 48px + env(safe-area-inset-bottom));
+  }
+  .press {
+    transition: transform 120ms ease-out;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
