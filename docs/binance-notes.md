@@ -250,5 +250,8 @@ are collected by the vault contract instead, so we never send fee params.
     runner handles both modes, so nothing depends on the documented split.
 11. **Candle tradeCount can be null.** The docs describe seven numbers per candle; live responses for some
     tokens have `null` as the seventh (tradeCount). The schema accepts it; nothing uses the field.
-12. **Receiver confirmed.** RFQ output goes to `userWalletAddress` (the signer), matching
+12. **`/swap` `tx.gas` can be too low.** On 2026-09-27 a USDT → MSFTB swap came back with `gas` 450,000;
+    replaying it at the prior block reverted at 450k and succeeded with more (`eth_estimateGas` 515,529).
+    The server now simulates each swap from the user's wallet and uses the estimate + 30% when larger.
+13. **Receiver confirmed.** RFQ output goes to `userWalletAddress` (the signer), matching
    `docs/FLOWS.md` §4. The vault is never the swap recipient.
