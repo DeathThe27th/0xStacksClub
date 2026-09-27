@@ -2,7 +2,7 @@
 
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Mark } from "@/components/brand/Mark";
 import { Button } from "@/components/ui/Button";
 
@@ -11,7 +11,16 @@ function Landing() {
   const router = useRouter();
   const next = useSearchParams().get("next");
   const dest = next?.startsWith("/app") ? next : "/app";
-  const { login } = useLogin({ onComplete: () => router.replace(dest) });
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [slow, setSlow] = useState(false);
+  const { login } = useLogin({
+    onComplete: () => router.replace(dest),
+    onError: (e) => setLoginError(e === "exited_auth_flow" ? null : `Sign-in didn't finish (${e}). Try again, or use email.`),
+  });
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), 8000);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     if (ready && authenticated) router.replace(dest);
@@ -27,8 +36,21 @@ function Landing() {
       </div>
       <div className="relative pb-8">
         <Button className="w-full" onClick={() => login()} disabled={!ready} loading={!ready}>
-          Get started
+          {ready && authenticated ? "Opening StacksClub" : "Get started"}
         </Button>
+        {loginError && (
+          <p className="mt-3 text-center text-secondary text-down" role="alert">
+            {loginError}
+          </p>
+        )}
+        {!ready && slow && (
+          <p className="mt-3 text-center text-secondary text-text-muted">
+            Still starting up.{" "}
+            <button className="underline" onClick={() => window.location.reload()}>
+              Reload
+            </button>
+          </p>
+        )}
         <p className="mt-4 text-center text-[12px] leading-5 text-text-dim">
           Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
         </p>

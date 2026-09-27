@@ -13,6 +13,9 @@ export function useMe() {
     queryFn: () => api<MeResponse>("/api/profile"),
     enabled: ready && authenticated,
     staleTime: 30_000,
+    // A brand-new user's embedded wallet can take a moment to exist; the server answers 409 until then.
+    retry: (n, e) => n < 6 && (e as { status?: number }).status !== 401,
+    retryDelay: (n) => Math.min(1000 * 2 ** n, 8000),
   });
 }
 
