@@ -23,7 +23,7 @@ export function UnfinishedBanner() {
     <>
       <button
         onClick={() => setOpen(first.id)}
-        className="press mx-gutter mt-3 flex w-[calc(100%-32px)] items-center gap-3 rounded-card border border-warn/30 bg-warn/10 px-4 py-3 text-left"
+        className="press mx-gutter mt-3 flex w-[calc(100%-32px)] lg:mx-0 lg:mt-6 lg:w-full items-center gap-3 rounded-card border border-warn/30 bg-warn/10 px-4 py-3 text-left"
       >
         <RotateCcw size={18} className="shrink-0 text-warn" />
         <span className="flex-1 text-[15px] font-medium">You have an unfinished {label[first.kind]}</span>

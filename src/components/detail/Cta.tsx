@@ -17,7 +17,7 @@ export function StickyCta({ note, state, onDeposit, onBuy, onSell, disabledReaso
   disabledReason?: string | null;
 }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-app bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-app bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6 lg:hidden" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       {note && <div className="mb-3 flex justify-center">{note}</div>}
       <div className="flex gap-2">
       {onCompare && (

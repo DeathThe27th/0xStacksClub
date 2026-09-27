@@ -30,8 +30,8 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
 
   if (q.isError) return <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />;
   return (
-    <div>
-      <header className="flex items-center gap-3 px-3 pt-3">
+    <div className="lg:mx-auto lg:max-w-[760px] lg:pt-8">
+      <header className="flex items-center gap-3 px-3 pt-3 lg:px-0 lg:pt-0">
         <button onClick={() => router.back()} aria-label="Back" className="press grid h-11 w-9 place-items-center text-text-muted hover:text-text">
           <ChevronLeft size={26} />
         </button>
@@ -46,7 +46,7 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
         </div>
       </header>
 
-      <section className="mt-5 px-gutter">
+      <section className="mt-5 px-gutter lg:px-0">
         {q.isLoading ? (
           <Bar className="h-9 w-40" />
         ) : (
@@ -61,7 +61,7 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
         )}
       </section>
 
-      <div className="mt-6 px-gutter">
+      <div className="mt-6 px-gutter lg:px-0">
         <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 border-b border-border pb-2 text-[13px] text-text-muted">
           <span>Stock</span>
           <span className="text-right">Units</span>
@@ -95,7 +95,7 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
       </div>
 
       {mine && !p?.closed && p && (
-        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-app gap-2 bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto flex max-w-app gap-2 bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6 lg:static lg:mt-8 lg:max-w-none lg:bg-none lg:px-0 lg:pt-0" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
           <Button variant="secondary" className="flex-1" onClick={() => setSheet("redeem")}>
             Redeem stocks
           </Button>

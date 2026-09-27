@@ -35,7 +35,7 @@ export default function CreateStack() {
   };
 
   return (
-    <div className="px-gutter pt-3">
+    <div className="px-gutter pt-3 lg:mx-auto lg:max-w-[640px] lg:px-0 lg:pt-8">
       <header className="flex items-center gap-2">
         <button onClick={() => (step === 1 ? router.back() : setStep((step - 1) as 1 | 2))} aria-label="Back" className="press -ml-2 grid h-11 w-11 place-items-center text-text-muted hover:text-text">
           <ChevronLeft size={26} />
@@ -92,7 +92,7 @@ function PickStep({ picks, setPicks, onNext }: { picks: Pick[]; setPicks: (p: Pi
   };
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-0">
       <h2 className="mt-6 text-[22px] font-bold">Pick 2 to 5 stocks</h2>
       <p className="mt-1 text-secondary text-text-muted">Each is a provider token on BNB Chain. bStocks is picked by default when both exist.</p>
 
@@ -180,7 +180,7 @@ function WeightStep({ picks, weights, setWeights, onEqual, onNext }: { picks: Pi
   const total = weights.reduce((a, b) => a + b, 0);
   const ok = total === 10_000 && weights.every((w) => w > 0);
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-0">
       <h2 className="mt-6 text-[22px] font-bold">Set the weights</h2>
       <p className="mt-1 text-secondary text-text-muted">Each buy splits the money by these weights. They can&apos;t change after launch.</p>
 
@@ -332,7 +332,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
   };
 
   return (
-    <div className="pb-28">
+    <div className="pb-28 lg:pb-0">
       <h2 className="mt-6 text-[22px] font-bold">Name your Stack</h2>
       <div className="mt-5 flex items-center gap-4">
         <button onClick={() => fileRef.current?.click()} className="press grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border border-dashed border-border bg-surface text-text-muted" aria-label="Upload image">
@@ -430,7 +430,7 @@ function Labeled({ label, hint, hintTone, children }: { label: string; hint?: st
 
 function Footer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-app bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
+    <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-app bg-gradient-to-t from-bg via-bg to-transparent px-gutter pt-6 lg:static lg:mt-8 lg:max-w-none lg:bg-none lg:px-0 lg:pt-0" style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       {children}
     </div>
   );

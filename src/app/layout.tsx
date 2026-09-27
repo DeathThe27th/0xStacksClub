@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.variable}>
       <body className="min-h-dvh bg-bg font-sans text-text antialiased">
         <Providers>
-          <div className="mx-auto min-h-dvh w-full max-w-app">{children}</div>
+          <div className="min-h-dvh w-full">{children}</div>
         </Providers>
       </body>
     </html>

@@ -51,7 +51,7 @@ export default function SearchPage() {
   const empty = res.data && !res.data.assets.length && !res.data.stacks.length && !res.data.people.length;
 
   return (
-    <div className="px-gutter pt-4">
+    <div className="px-gutter pt-4 lg:mx-auto lg:max-w-[760px] lg:px-0 lg:pt-8">
       <label className="flex h-12 items-center gap-2 rounded-chip border border-border bg-surface px-3 focus-within:border-primary">
         <SearchIcon size={18} className="text-text-muted" />
         <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stocks, Stacks, people" aria-label="Search" className="h-full flex-1 bg-transparent text-[16px] outline-none" />

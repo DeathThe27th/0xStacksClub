@@ -22,7 +22,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <Ctx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] mx-auto flex max-w-app flex-col gap-2 px-gutter pt-[calc(env(safe-area-inset-top)+8px)]" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] mx-auto flex max-w-app flex-col gap-2 px-gutter pt-[calc(env(safe-area-inset-top)+8px)] lg:left-auto lg:right-6 lg:top-4 lg:mx-0 lg:w-[380px] lg:px-0" aria-live="polite">
         <AnimatePresence>
           {toasts.map((t) => (
             <motion.div
@@ -34,7 +34,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className="pointer-events-auto flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.8)]"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-text">
-                <Mark size={18} />
+                <Mark variant="glyph" size={16} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className={`truncate text-[15px] font-semibold ${t.tone === "up" ? "text-up" : t.tone === "down" ? "text-down" : "text-text"}`}>{t.title}</p>

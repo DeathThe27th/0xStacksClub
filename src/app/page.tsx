@@ -27,10 +27,10 @@ function Landing() {
   }, [ready, authenticated, router, dest]);
 
   return (
-    <main className="relative flex min-h-dvh flex-col px-gutter pb-safe pt-safe">
+    <main className="relative mx-auto flex min-h-dvh max-w-app flex-col px-gutter pb-safe pt-safe">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[55dvh] bg-[radial-gradient(60%_60%_at_50%_30%,rgb(var(--primary)/0.22),transparent_70%)]" />
       <div className="relative flex flex-1 flex-col items-center justify-center text-center">
-        <Mark size={72} className="text-text" />
+        <Mark size={88} />
         <h1 className="mt-6 text-[34px] font-bold leading-tight tracking-[-0.02em]">StacksClub</h1>
         <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Build and share your own Stacks.</p>
       </div>

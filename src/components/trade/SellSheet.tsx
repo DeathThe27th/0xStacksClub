@@ -13,22 +13,43 @@ import { IntentSheet } from "./IntentSheet";
 
 type Target = { kind: "stock"; holding: Holding } | { kind: "stack"; ticker: string; positions: Position[]; initialPositionId?: number; initialMode?: "sell" | "redeem" };
 
-/** Sell sheet (UI_SPEC §6.3). Estimates are indicative; actual proceeds come from the fills. */
+/** Sell sheet (UI_SPEC §6.3): the sell form in a sheet, then the progress checklist. */
 export function SellSheet({ open, onClose, target }: { open: boolean; onClose: () => void; target: Target }) {
+  const [intentId, setIntentId] = useState<string | null>(null);
+  if (intentId) {
+    return (
+      <IntentSheet
+        intentId={intentId}
+        open={open}
+        onClose={() => {
+          setIntentId(null);
+          onClose();
+        }}
+      />
+    );
+  }
+  return (
+    <Sheet open={open} onClose={onClose} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`}>
+      <SellForm target={target} onStarted={setIntentId} active={open} />
+    </Sheet>
+  );
+}
+
+/** Percent selector and estimate. Estimates are indicative; actual proceeds come from the fills. */
+export function SellForm({ target, onStarted, active = true }: { target: Target; onStarted: (intentId: string) => void; active?: boolean }) {
   const api = useApi();
   const [pct, setPct] = useState(50);
   const [mode, setMode] = useState<"sell" | "redeem">(target.kind === "stack" ? (target.initialMode ?? "sell") : "sell");
   const [positionId, setPositionId] = useState<number | null>(target.kind === "stack" ? (target.initialPositionId ?? target.positions[0]?.id ?? null) : null);
-  const [intentId, setIntentId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open) {
+    if (!active) {
       setPct(50);
       setError(null);
     }
-  }, [open]);
+  }, [active]);
 
   const position = target.kind === "stack" ? target.positions.find((p) => p.id === positionId) : undefined;
   const grossValue = target.kind === "stock" ? target.holding.valueUsd : (position?.valueUsd ?? null);
@@ -45,7 +66,7 @@ export function SellSheet({ open, onClose, target }: { open: boolean; onClose: (
           ? { kind: "sell_stock", assetAddress: target.holding.address, bps }
           : { kind: mode === "sell" ? "sell_stack" : "redeem", positionId, bps };
       const intent = await api<Intent>("/api/intents", { method: "POST", json: body });
-      setIntentId(intent.id);
+      onStarted(intent.id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start");
     } finally {
@@ -53,21 +74,8 @@ export function SellSheet({ open, onClose, target }: { open: boolean; onClose: (
     }
   };
 
-  if (intentId) {
-    return (
-      <IntentSheet
-        intentId={intentId}
-        open={open}
-        onClose={() => {
-          setIntentId(null);
-          onClose();
-        }}
-      />
-    );
-  }
-
   return (
-    <Sheet open={open} onClose={onClose} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`}>
+    <div>
       {target.kind === "stack" && (
         <>
           <div role="tablist" className="mb-4 grid grid-cols-2 rounded-chip bg-surface-2 p-1">
@@ -159,6 +167,6 @@ export function SellSheet({ open, onClose, target }: { open: boolean; onClose: (
       <Button className="mt-5 w-full" loading={busy} disabled={target.kind === "stack" && !position} onClick={confirm}>
         {mode === "sell" ? `Sell ${pct}%` : `Redeem ${pct}%`}
       </Button>
-    </Sheet>
+    </div>
   );
 }

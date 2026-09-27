@@ -43,14 +43,18 @@ export default function Home() {
 
   return (
     <PullToRefresh onRefresh={() => qc.invalidateQueries()}>
-      <header className="px-gutter pt-4">
-        <Mark size={32} className="text-text" />
+      <header className="px-gutter pt-4 lg:hidden">
+        <Mark size={34} />
       </header>
 
-      <Balance onDeposit={() => setDepositOpen(true)} />
-      <TopTrades />
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-8 lg:pt-6">
+        <div className="min-w-0">
+      <div className="lg:hidden">
+        <Balance onDeposit={() => setDepositOpen(true)} />
+        <TopTrades />
+      </div>
 
-      <div className="mt-6 px-gutter">
+      <div className="mt-6 px-gutter lg:mt-0 lg:px-0">
         <Tabs<TabId>
           tabs={[
             { id: "watchlist", label: (<><Star size={16} /> Watchlist</>) },
@@ -65,6 +69,17 @@ export default function Home() {
         <div className={cn(tab === "watchlist" && "pt-2")}>
           {tab === "stacks" ? <StackList filter={stackFilter} /> : <AssetList tab={tab} filter={stockFilter} sort={sort} />}
         </div>
+      </div>
+        </div>
+
+        <aside className="sticky top-6 hidden space-y-6 lg:block">
+          <div className="rounded-card border border-border bg-surface pb-5">
+            <Balance onDeposit={() => setDepositOpen(true)} />
+          </div>
+          <div className="-mx-4">
+            <TopTrades />
+          </div>
+        </aside>
       </div>
 
       <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="Sort by">

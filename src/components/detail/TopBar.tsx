@@ -44,7 +44,7 @@ export function DetailTopBar({
     else await navigator.clipboard.writeText(url);
   };
   return (
-    <header className="flex items-center gap-3 px-3 pt-3">
+    <header className="flex items-center gap-3 px-3 pt-3 lg:px-0 lg:pt-0">
       <button onClick={() => (history.length > 1 ? router.back() : router.push("/app"))} aria-label="Back" className="press grid h-11 w-9 place-items-center text-text-muted hover:text-text">
         <ChevronLeft size={26} />
       </button>

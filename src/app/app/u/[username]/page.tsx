@@ -69,7 +69,8 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   return (
     <PullToRefresh onRefresh={() => q.refetch()}>
-      <header className="px-gutter pt-5">
+      <div className="lg:mx-auto lg:max-w-[760px] lg:pt-4">
+      <header className="px-gutter pt-5 lg:px-0">
         <div className="flex items-start justify-between">
           {u ? <Avatar src={u.profile.avatar_url} name={u.profile.username} size={72} /> : <Bar className="h-[72px] w-[72px] rounded-full" />}
           {u?.isSelf && (
@@ -119,7 +120,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       </header>
 
       {u && (
-        <section className="mt-5 grid grid-cols-3 gap-2 px-gutter">
+        <section className="mt-5 grid grid-cols-3 gap-2 px-gutter lg:px-0">
           <Stat label="Total value" value={u.isSelf ? usd(u.stats.totalUsd) : "Private"} />
           <Stat label="Stacks created" value={String(u.stats.stacksCreated)} />
           <Stat label="Creator earnings" value={usd(Number(BigInt(u.stats.creatorEarnedRaw)) / 1e18)} />
@@ -128,7 +129,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
       {u?.isSelf && claimable > 0n && <ClaimCard raw={claimable} onDone={() => q.refetch()} />}
 
-      <div className="mt-5 px-gutter">
+      <div className="mt-5 px-gutter lg:px-0">
         <Tabs
           tabs={[
             { id: "holdings", label: "Holdings" },
@@ -176,6 +177,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           }}
         />
       )}
+      </div>
     </PullToRefresh>
   );
 }
@@ -250,7 +252,7 @@ function ClaimCard({ raw, onDone }: { raw: bigint; onDone: () => void }) {
     }
   };
   return (
-    <section className="mx-gutter mt-4 flex items-center gap-3 rounded-card border border-up/30 bg-up/10 p-4">
+    <section className="mx-gutter mt-4 flex items-center gap-3 rounded-card border border-up/30 bg-up/10 p-4 lg:mx-0">
       <Gift size={22} className="shrink-0 text-up" />
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold">Creator fees ready</p>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
+import { TradePanel } from "@/components/trade/TradePanel";
 import { FeedTab } from "@/components/detail/Feed";
 import { HoldersTab } from "@/components/detail/Holders";
 import { DetailTopBar } from "@/components/detail/TopBar";
@@ -100,6 +101,8 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
 
   return (
     <div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8 lg:pt-6">
+        <div className="min-w-0">
       <DetailTopBar
         logo={a?.logo_url ?? null}
         title={a?.ticker ?? "…"}
@@ -110,7 +113,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         onHistory={() => setSheet("history")}
       />
 
-      <section className="mt-4 flex items-start justify-between gap-4 px-gutter">
+      <section className="mt-4 flex items-start justify-between gap-4 px-gutter lg:mt-6 lg:px-0">
         <div className="min-w-0">
           {detail.isLoading ? <Bar className="h-9 w-40" /> : <p className="text-detail-price tnum">{fmtPrice(shown)}</p>}
           <p className="mt-1 flex items-center gap-2">
@@ -130,7 +133,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
 
       <div className="mt-4">
         {candles.isLoading ? (
-          <Bar className="mx-gutter h-[320px]" />
+          <Bar className="mx-gutter h-[320px] lg:mx-0 lg:h-[420px]" />
         ) : candles.isError ? (
           <ErrorState message="Chart data isn't available right now." onRetry={() => candles.refetch()} />
         ) : points.length ? (
@@ -141,7 +144,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         <ChartControls value={tf} onChange={setTf} mode={mode} onMode={setMode} />
       </div>
 
-      <div className="mt-4 px-gutter">
+      <div className="mt-4 px-gutter lg:px-0">
         <Tabs
           tabs={[
             { id: "holders", label: `Holders (${holders.data?.items.length ?? 0})` },
@@ -179,6 +182,22 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
             </p>
           </dl>
         )}
+      </div>
+
+        </div>
+        <TradePanel
+          buy={
+            a
+              ? { kind: "stock", component: { address: a.address, ticker: a.ticker, provider: a.provider, logoUrl: a.logo_url, price: detail.data?.price ?? null, decimals: a.decimals, weightBps: 10_000 } }
+              : null
+          }
+          sell={holding ? { kind: "stock", holding } : null}
+          minBuyUsd={MIN_BUY_USD_SMALL}
+          disabledReason={disabled}
+          onDeposit={() => setSheet("deposit")}
+          onCompare={multiProvider ? () => setSheet("compare") : undefined}
+          note={a && <>Issued by {PROVIDER_LABEL[a.provider as Provider]}</>}
+        />
       </div>
 
       <StickyCta

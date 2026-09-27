@@ -184,7 +184,7 @@ export function PriceChart({
     chart.current?.timeScale().fitContent();
   }, [points, mode, up]);
 
-  return <div ref={el} className="h-[320px] w-full touch-pan-y select-none" />;
+  return <div ref={el} className="h-[320px] w-full touch-pan-y select-none lg:h-[420px]" />;
 }
 
 /** Controls row under the chart (UI_SPEC §4.3), right-aligned. */
@@ -202,7 +202,7 @@ export function ChartControls({
   timeframes?: Timeframe[];
 }) {
   return (
-    <div className="flex items-center justify-end gap-1 px-gutter pt-2">
+    <div className="flex items-center justify-end gap-1 px-gutter pt-2 lg:px-0">
       {timeframes.map((t) => (
         <button
           key={t}

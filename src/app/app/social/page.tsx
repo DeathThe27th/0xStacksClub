@@ -36,7 +36,7 @@ export default function Social() {
 
   return (
     <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["activity"] })}>
-      <div className="px-gutter pt-4">
+      <div className="px-gutter pt-4 lg:mx-auto lg:max-w-[760px] lg:px-0 lg:pt-8">
         <h1 className="text-[28px] font-bold">Social</h1>
         <Tabs
           className="mt-3"

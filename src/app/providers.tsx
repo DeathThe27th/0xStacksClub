@@ -19,7 +19,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       appId={publicEnv().NEXT_PUBLIC_PRIVY_APP_ID}
       config={{
         loginMethods: ["email", "google", "twitter", "wallet"],
-        appearance: { theme: "dark", accentColor: "#3D5AFE", logo: "/mark-white.svg", walletChainType: "ethereum-only" },
+        appearance: { theme: "dark", accentColor: "#3D5AFE", logo: "/mark.svg", walletChainType: "ethereum-only" },
         defaultChain: bsc,
         supportedChains: [bsc],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, showWalletUIs: false },

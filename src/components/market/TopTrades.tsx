@@ -34,7 +34,7 @@ export function TopTrades() {
   const go = (i: number) => pager.current?.scrollTo({ left: i * pager.current.clientWidth, behavior: "smooth" });
 
   return (
-    <section className="mt-6">
+    <section className="mt-6 lg:mt-0">
       <div className="flex items-center justify-between px-gutter">
         <h2 className="flex items-center gap-2 text-section">
           {page === 0 ? <Trophy size={18} className="text-warn" /> : <Crown size={18} className="text-warn" />}

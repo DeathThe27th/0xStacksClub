@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
+import { TradePanel } from "@/components/trade/TradePanel";
 import { FeedTab } from "@/components/detail/Feed";
 import { HoldersTab } from "@/components/detail/Holders";
 import { SharePrompt } from "@/components/detail/SharePrompt";
@@ -73,6 +74,8 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div>
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8 lg:pt-6">
+        <div className="min-w-0">
       <DetailTopBar
         logo={s?.image_url ?? null}
         title={s ? `$${s.ticker}` : "…"}
@@ -96,7 +99,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         onHistory={() => setSheet("history")}
       />
 
-      <section className="mt-4 flex items-start justify-between gap-4 px-gutter">
+      <section className="mt-4 flex items-start justify-between gap-4 px-gutter lg:mt-6 lg:px-0">
         <div className="min-w-0">
           {q.isLoading ? <Bar className="h-9 w-40" /> : <p className="text-detail-price tnum">{indexValue(current)}</p>}
           <p className="mt-1 flex items-center gap-2">
@@ -117,7 +120,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
 
       <div className="mt-4">
         {series.isLoading ? (
-          <Bar className="mx-gutter h-[320px]" />
+          <Bar className="mx-gutter h-[320px] lg:mx-0 lg:h-[420px]" />
         ) : points.length > 1 ? (
           <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => indexValue(n)} showReference={points.some((p) => p.reference != null)} />
         ) : (
@@ -126,7 +129,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         <ChartControls value={tf} onChange={setTf} />
       </div>
 
-      <div className="mt-4 px-gutter">
+      <div className="mt-4 px-gutter lg:px-0">
         <Tabs
           tabs={[
             { id: "holders", label: `Holders (${s?.holders ?? 0})` },
@@ -186,6 +189,34 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
             <p className="text-secondary text-text-muted">Buying creates your own position with the exact tokens bought. Weights are not rebalanced.</p>
           </div>
         )}
+      </div>
+
+        </div>
+        <TradePanel
+          buy={
+            q.data
+              ? {
+                  kind: "stack",
+                  stackId: Number(id),
+                  ticker: q.data.stack.ticker,
+                  components: q.data.components.map((c) => ({
+                    address: c.address,
+                    ticker: c.ticker,
+                    provider: c.provider,
+                    logoUrl: c.logo_url,
+                    price: c.price?.price_usd ? Number(c.price.price_usd) : null,
+                    decimals: c.decimals,
+                    weightBps: c.weightBps,
+                  })),
+                }
+              : null
+          }
+          sell={s && positions.length ? { kind: "stack", ticker: s.ticker, positions } : null}
+          minBuyUsd={min}
+          disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
+          onDeposit={() => setSheet("deposit")}
+          note={s && <>Created by {creator ? `@${creator}` : shortAddress(s.creator_address)} · 0.25% creator fee</>}
+        />
       </div>
 
       <StickyCta

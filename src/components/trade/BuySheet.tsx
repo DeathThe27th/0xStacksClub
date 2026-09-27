@@ -22,14 +22,39 @@ type Target = { kind: "stock"; component: BuyComponent } | { kind: "stack"; stac
 
 type Preview = { expectedOut: string; minOut: string; mode: string; expiresAt: number };
 
-/** Buy sheet (UI_SPEC §6.2): amount, breakdown, review with fresh quotes, then the checklist. */
+/** Buy sheet (UI_SPEC §6.2): the buy form in a sheet, then the progress checklist. */
 export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; onClose: () => void; target: Target; onDeposit: () => void }) {
+  const [intentId, setIntentId] = useState<string | null>(null);
+  if (intentId) {
+    return (
+      <IntentSheet
+        intentId={intentId}
+        open={open}
+        onClose={() => {
+          setIntentId(null);
+          onClose();
+        }}
+      />
+    );
+  }
+  const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
+  return (
+    <Sheet open={open} onClose={onClose} title={title}>
+      <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} />
+    </Sheet>
+  );
+}
+
+/**
+ * Amount, breakdown, review with fresh quotes (UI_SPEC §6.2). Used in the mobile sheet and inline in
+ * the desktop trade panel. Calls onStarted with the new intent; the caller shows the checklist.
+ */
+export function BuyForm({ target, onDeposit, onStarted, active = true }: { target: Target; onDeposit: () => void; onStarted: (intentId: string) => void; active?: boolean }) {
   const api = useApi();
   const portfolio = usePortfolio();
   const dec = useUsdtDecimals();
   const [amount, setAmount] = useState("");
   const [step, setStep] = useState<"amount" | "review">("amount");
-  const [intentId, setIntentId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -40,12 +65,12 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
   const decimals = dec.data;
 
   useEffect(() => {
-    if (!open) {
+    if (!active) {
       setStep("amount");
       setAmount("");
       setError(null);
     }
-  }, [open]);
+  }, [active]);
   useEffect(() => {
     if (step !== "review") return;
     const id = setInterval(() => setNow(Date.now()), 500);
@@ -66,7 +91,7 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
   const gas = useQuery({
     queryKey: ["gas", isStack ? "buy_stack" : "buy_stock", components.length],
     queryFn: () => gasNeededWei(isStack ? "buy_stack" : "buy_stock", components.length),
-    enabled: open,
+    enabled: active,
     staleTime: 60_000,
   });
 
@@ -113,7 +138,9 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
         method: "POST",
         json: target.kind === "stock" ? { kind: "buy_stock", assetAddress: target.component.address, grossAmount: gross.toString() } : { kind: "buy_stack", stackId: target.stackId, grossAmount: gross.toString() },
       });
-      setIntentId(intent.id);
+      setStep("amount");
+      setAmount("");
+      onStarted(intent.id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start the buy");
     } finally {
@@ -126,23 +153,8 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
     setAmount(formatUnits(usdtBal, decimals).replace(/(\.\d{2})\d+$/, "$1"));
   };
 
-  if (intentId) {
-    return (
-      <IntentSheet
-        intentId={intentId}
-        open={open}
-        onClose={() => {
-          setIntentId(null);
-          onClose();
-        }}
-      />
-    );
-  }
-
-  const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
-
   return (
-    <Sheet open={open} onClose={onClose} title={step === "amount" ? title : "Review"}>
+    <div>
       {step === "amount" ? (
         <>
           <label className="flex items-baseline justify-center gap-1 py-4">
@@ -216,7 +228,7 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
       ) : (
         <>
           <div className="mb-4 flex items-center justify-between text-secondary">
-            <span className="text-text-muted">Fresh quotes</span>
+            <span className="font-semibold text-text">Review · fresh quotes</span>
             <span className={cn("tnum", quoteAge !== null && quoteAge < 8 ? "text-warn" : "text-text-muted")}>
               {previews.isFetching ? "Refreshing…" : quoteAge !== null ? `Refreshes in ${quoteAge}s` : ""}
             </span>
@@ -263,7 +275,7 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
           {previewError && <p className="mt-3 text-center text-[13px] text-text-muted">Can&apos;t buy right now: {previewError.error}</p>}
         </>
       )}
-    </Sheet>
+    </div>
   );
 }
 
