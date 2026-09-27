@@ -35,7 +35,7 @@ const PROBE_WALLET = "0x000000000000000000000000000000000000dEaD";
  * Pull bStocks and Ondo tokens on BSC from Binance, verify each against the chain, and check for a
  * USDT route. Nothing here trusts client input.
  */
-export async function buildCatalog(opts: { checkRoutes: boolean }): Promise<{
+export async function buildCatalog(opts: { checkRoutes: boolean; only?: Set<string> }): Promise<{
   assets: CatalogAsset[];
   skipped: { address: string; symbol: string; reason: string }[];
 }> {
@@ -80,7 +80,7 @@ export async function buildCatalog(opts: { checkRoutes: boolean }): Promise<{
 
     let canTrade = false;
     let routeCheck = "not checked";
-    if (opts.checkRoutes) {
+    if (opts.checkRoutes && (!opts.only || opts.only.has(m.address.toLowerCase()))) {
       try {
         const routes = await getQuote({ from: USDT_ADDRESS, to: m.address, amount: probeAmount, userAddress: PROBE_WALLET });
         const modes = [...new Set(routes.map((r) => r.executionMode))].sort();

@@ -1,8 +1,832 @@
 {
-  "generatedAt": "2026-09-27T18:32:17.716Z",
+  "generatedAt": "2026-09-27T19:21:47.687Z",
   "source": "binance-web3:rwa/tokens via /api/cron/seed-assets",
-  "assets": [],
-  "addresses": [],
-  "providers": [],
-  "symbols": []
+  "assets": [
+    {
+      "provider": "bstock",
+      "symbol": "INTWB",
+      "ticker": "INTW",
+      "address": "0x0735D9904b7e34e6fe39B0f66E00c111b3f2b681",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "INTCB",
+      "ticker": "INTC",
+      "address": "0xe614E2fc6C787035FF51f452e8E826Bfd32D5283",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MUUB",
+      "ticker": "MUU",
+      "address": "0x0bB3fA77E0809f42948E435F04883C25415e8263",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SOXLB",
+      "ticker": "SOXL",
+      "address": "0xd97d097a89113fa59b76c572E5b2Eb647E8eefaf",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "GLWB",
+      "ticker": "GLW",
+      "address": "0x740e075cBbEa22a082B9d6679e65e82767875b6A",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MSTRB",
+      "ticker": "MSTR",
+      "address": "0xE87afb3076AeB0f9B14E368DE8145ae6a2826A14",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MVLLB",
+      "ticker": "MVLL",
+      "address": "0x7C26a12f20507E2ceE22CeEBed9e88FDA47f866c",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "DRAMB",
+      "ticker": "DRAM",
+      "address": "0x93862d63fd9Fd488B1328E9b47717d75e994a84B",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "AXTIB",
+      "ticker": "AXTI",
+      "address": "0x9BDC8B470dbf89DbCb123587C6f5E49cCA3463BE",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "NBISB",
+      "ticker": "NBIS",
+      "address": "0xE256BC2A4F5297F8ba6f043F180a46300eCbCbB1",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "AMDB",
+      "ticker": "AMD",
+      "address": "0x75Fd4cF6f8392E41E70391D60c90C0D5211603a1",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "KORUB",
+      "ticker": "KORU",
+      "address": "0x1FFAD32d69c5FEAd99f88C25ca0191Edc3757636",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SNXXB",
+      "ticker": "SNXX",
+      "address": "0x9e82e3da8f1115B73d24bB24113ab836FfDAb6b6",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MUB",
+      "ticker": "MU",
+      "address": "0xcdf2f3e0fa43C47A6662a91C9E4a7C5f69762699",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "CRCLB",
+      "ticker": "CRCL",
+      "address": "0x80f3D493EBCe97e343c53D29a137942416B4ffC0",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "NOKB",
+      "ticker": "NOK",
+      "address": "0x7c4d7a180D737Dd5A70d8065a90E6746a69C37EA",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "QCOMB",
+      "ticker": "QCOM",
+      "address": "0x5F7A56e877B9130608Bf8BE962621011182fEfE1",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SKHYB",
+      "ticker": "SKHY",
+      "address": "0xCA750eF65f295BBECd685Abf54e82CAf297BDB61",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SNDKB",
+      "ticker": "SNDK",
+      "address": "0x3eE4dF61bd4F867E349BEaE8bFE07bc31b4850fb",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "ARMB",
+      "ticker": "ARM",
+      "address": "0xD42A79ebb7F527F40fAecD196FFB47aD5e8D6f8C",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "HOODB",
+      "ticker": "HOOD",
+      "address": "0xA394dCEa3fd3847fD793afBFd163E2e3858B7c65",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MRVLB",
+      "ticker": "MRVL",
+      "address": "0x16cd4fe7e8880ECc3ba222795229E20489fc2C76",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "CRWVB",
+      "ticker": "CRWV",
+      "address": "0x33E7317e17838fEE56b10Fe8D0B9cA6CA3090c95",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "COINB",
+      "ticker": "COIN",
+      "address": "0x585BDE7C54ABB5cCD7791F923D6c2187635f3952",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "PLTRB",
+      "ticker": "PLTR",
+      "address": "0x0Ca5D51D0277Bd006fd9607d3E560785EBad8222",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "IBMB",
+      "ticker": "IBM",
+      "address": "0xfA273B076Feb8c0FB34e554ae341082323D016A3",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "TQQQB",
+      "ticker": "TQQQ",
+      "address": "0x462B5F13B7C7748279358962925c5De83BB9E598",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "EWYB",
+      "ticker": "EWY",
+      "address": "0xBE82F76637DBA2C114C41Df856c2C51e522E2Cb8",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "TSMB",
+      "ticker": "TSM",
+      "address": "0xAB78b89B5bb00236Be0B4B20704cBfa04EfC711c",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "NVDAB",
+      "ticker": "NVDA",
+      "address": "0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "METAB",
+      "ticker": "META",
+      "address": "0x7425889FE94F9d693E8daefE88BCCed6AcFEf4c0",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "QNTB",
+      "ticker": "QNT",
+      "address": "0xd721c192d612Db77621DF57A9fAb38418033c02E",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "TSLAB",
+      "ticker": "TSLA",
+      "address": "0x5b1910eAaD6450E50f816082Aa078C41F10C292f",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "CBRSB",
+      "ticker": "CBRS",
+      "address": "0xe81C6bB0266cd68B4F17278531Dd03eA1F12dA4E",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "BABAB",
+      "ticker": "BABA",
+      "address": "0x4eF9d3062c7F6ebA4AAE4990c5036598C6eff4ec",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "QQQB",
+      "ticker": "QQQ",
+      "address": "0x205812CdBed920aFf76C6580abD681a46D11efc7",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "LITEB",
+      "ticker": "LITE",
+      "address": "0x64748BeA17b6D19e242ADf20425DE2440c656142",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SPCXB",
+      "ticker": "SPCX",
+      "address": "0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "GOOGLB",
+      "ticker": "GOOGL",
+      "address": "0x3F53De71c126BdaBAe20f9cD64848d317f6C3238",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "SPYB",
+      "ticker": "SPY",
+      "address": "0x7138b48df7D98D7e3cc221BfE7192D0a178182D8",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "MSFTB",
+      "ticker": "MSFT",
+      "address": "0x80106cb3EAD06659A5ad19DF39D9b4733863B9b0",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "AAOIB",
+      "ticker": "AAOI",
+      "address": "0x10343EF7da3301493D7Ecb647d68A288C6c1Db2F",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "ORCLB",
+      "ticker": "ORCL",
+      "address": "0x4684D9887fC1c71cBa7baB8E88835CEC217eB598",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "RKLBB",
+      "ticker": "RKLB",
+      "address": "0xC8Da12cbCCE7c45180692a6420b0076e03a5179a",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "WDCB",
+      "ticker": "WDC",
+      "address": "0xebe29695F8047C13d36e7a790ca8c1b239FfAD1C",
+      "decimals": 18
+    },
+    {
+      "provider": "bstock",
+      "symbol": "AVGOB",
+      "ticker": "AVGO",
+      "address": "0x76682c454467b3A1150Ad8b6a92FC5eE2C21d7eD",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "INTCon",
+      "ticker": "INTC",
+      "address": "0xA528CaaA2f96090e379d43F90834C75dF54D6E74",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "GLWon",
+      "ticker": "GLW",
+      "address": "0x25a4DbAE9a0Cd8C75656D6b50FFDf4900CC20d8f",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "DRAMon",
+      "ticker": "DRAM",
+      "address": "0x087b5761b161429013d41eA54cd2fb6022A21564",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "AMDon",
+      "ticker": "AMD",
+      "address": "0x9f16E46c73b43BDB70861247d537bEE4eA18F639",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "MUon",
+      "ticker": "MU",
+      "address": "0x8b6ACf6041A81567f012Ff6A4C6D96d5818d74bF",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "CRCLon",
+      "ticker": "CRCL",
+      "address": "0x992879Cd8ce0c312d98648875B5A8D6D042cbF34",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "SNDKon",
+      "ticker": "SNDK",
+      "address": "0x4Fd67CB8CFEdc718BAc984b5936abE3330d0a2A4",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "MRVLon",
+      "ticker": "MRVL",
+      "address": "0x1501EC83FFEf405B4331CC4f73277a40fb0C627d",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "COINon",
+      "ticker": "COIN",
+      "address": "0xf8589b526FdD65F7F301c605a6e04F0F1b4B3620",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "TSMon",
+      "ticker": "TSM",
+      "address": "0xC37042A7a4fa510D8884a433762aB87257B91965",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "TQQQon",
+      "ticker": "TQQQ",
+      "address": "0xe42CfB20e00912409B77A602B5BDcfF3c7aCC5F4",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "NVDAon",
+      "ticker": "NVDA",
+      "address": "0xA9eE28C80f960B889dFbd1902055218cBa016F75",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "TSLAon",
+      "ticker": "TSLA",
+      "address": "0x2494b603319d4D9F9715c9f4496d9E0364B59d93",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "METAon",
+      "ticker": "META",
+      "address": "0xD7dF5863A3e742F0c767768cDfcb63f09E0422f6",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "GOOGLon",
+      "ticker": "GOOGL",
+      "address": "0x091FC7778e6932d4009B087B191D1EE3bac5729A",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "SPCXon",
+      "ticker": "SPCX",
+      "address": "0xd0a58BC9D88D3FF48C0294Cb7e45937d0E41A928",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "QQQon",
+      "ticker": "QQQ",
+      "address": "0x0cdE6936d305d5B34667fC46425E852efd73559a",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "SPYon",
+      "ticker": "SPY",
+      "address": "0x6a708EAD771238919D85930b5a0f10454E1C331a",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "MSFTon",
+      "ticker": "MSFT",
+      "address": "0x6Bfe75D1ad432050eA973C3A3DcD88F02e2444C3",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "AVGOon",
+      "ticker": "AVGO",
+      "address": "0x0ED2E3180EDf393e6bf8Db124bD15DDD54dE150A",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "SOXLon",
+      "ticker": "SOXL",
+      "address": "0xb943c8a0d77b656Daf5244Da060D647Fd9152289",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "QCOMon",
+      "ticker": "QCOM",
+      "address": "0xfBD4D681C92ead6Af0E49950c8B2e47EeAcbB2dB",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "AXTIon",
+      "ticker": "AXTI",
+      "address": "0x0C50323AF81D5C33822c6Add256Fb9093D42BC74",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "EWYon",
+      "ticker": "EWY",
+      "address": "0x12B7aDC48416A103F63E7e6210f62C81dfB91fD0",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "LITEon",
+      "ticker": "LITE",
+      "address": "0x0fAcaFB97ffDbA3cAe88512070AF49bd30674cD9",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "WDCon",
+      "ticker": "WDC",
+      "address": "0xcEb29848d04Ad3Cb46E1fE8E45B82ffAc39D797d",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "CBRSon",
+      "ticker": "CBRS",
+      "address": "0x441a4D4Fc23f17F4cf23E3d60F12d2BD6F176728",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "AAOIon",
+      "ticker": "AAOI",
+      "address": "0x149Bda9e7251DC36f536d1fE7F92A5ea203F4F3D",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "RKLBon",
+      "ticker": "RKLB",
+      "address": "0xb4D695569236273745B4CD54B539b1b9Cc1513af",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "IBMon",
+      "ticker": "IBM",
+      "address": "0xE8ff70859Ce4cbd72E4352b4fb45F5BF39d07464",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "BABAon",
+      "ticker": "BABA",
+      "address": "0xd5964f3fcee8D649995AB88F04b8982539c282D2",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "NOKon",
+      "ticker": "NOK",
+      "address": "0xE9518CB0010C717DB69001F1418EFF9e97330137",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "PLTRon",
+      "ticker": "PLTR",
+      "address": "0x9351AbD19f42101dD36025E495B98E910b255d78",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "HOODon",
+      "ticker": "HOOD",
+      "address": "0x19601179A60f55Ff6636F5D1A8b6671053Bd60a8",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "NBISon",
+      "ticker": "NBIS",
+      "address": "0xee268780473E7a0e47baC41547C6E01512555A16",
+      "decimals": 18
+    },
+    {
+      "provider": "ondo",
+      "symbol": "CRWVon",
+      "ticker": "CRWV",
+      "address": "0x76E39171Cb665a35981e744e2CEB7012F76caEAc",
+      "decimals": 18
+    }
+  ],
+  "addresses": [
+    "0x0735D9904b7e34e6fe39B0f66E00c111b3f2b681",
+    "0xe614E2fc6C787035FF51f452e8E826Bfd32D5283",
+    "0x0bB3fA77E0809f42948E435F04883C25415e8263",
+    "0xd97d097a89113fa59b76c572E5b2Eb647E8eefaf",
+    "0x740e075cBbEa22a082B9d6679e65e82767875b6A",
+    "0xE87afb3076AeB0f9B14E368DE8145ae6a2826A14",
+    "0x7C26a12f20507E2ceE22CeEBed9e88FDA47f866c",
+    "0x93862d63fd9Fd488B1328E9b47717d75e994a84B",
+    "0x9BDC8B470dbf89DbCb123587C6f5E49cCA3463BE",
+    "0xE256BC2A4F5297F8ba6f043F180a46300eCbCbB1",
+    "0x75Fd4cF6f8392E41E70391D60c90C0D5211603a1",
+    "0x1FFAD32d69c5FEAd99f88C25ca0191Edc3757636",
+    "0x9e82e3da8f1115B73d24bB24113ab836FfDAb6b6",
+    "0xcdf2f3e0fa43C47A6662a91C9E4a7C5f69762699",
+    "0x80f3D493EBCe97e343c53D29a137942416B4ffC0",
+    "0x7c4d7a180D737Dd5A70d8065a90E6746a69C37EA",
+    "0x5F7A56e877B9130608Bf8BE962621011182fEfE1",
+    "0xCA750eF65f295BBECd685Abf54e82CAf297BDB61",
+    "0x3eE4dF61bd4F867E349BEaE8bFE07bc31b4850fb",
+    "0xD42A79ebb7F527F40fAecD196FFB47aD5e8D6f8C",
+    "0xA394dCEa3fd3847fD793afBFd163E2e3858B7c65",
+    "0x16cd4fe7e8880ECc3ba222795229E20489fc2C76",
+    "0x33E7317e17838fEE56b10Fe8D0B9cA6CA3090c95",
+    "0x585BDE7C54ABB5cCD7791F923D6c2187635f3952",
+    "0x0Ca5D51D0277Bd006fd9607d3E560785EBad8222",
+    "0xfA273B076Feb8c0FB34e554ae341082323D016A3",
+    "0x462B5F13B7C7748279358962925c5De83BB9E598",
+    "0xBE82F76637DBA2C114C41Df856c2C51e522E2Cb8",
+    "0xAB78b89B5bb00236Be0B4B20704cBfa04EfC711c",
+    "0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436",
+    "0x7425889FE94F9d693E8daefE88BCCed6AcFEf4c0",
+    "0xd721c192d612Db77621DF57A9fAb38418033c02E",
+    "0x5b1910eAaD6450E50f816082Aa078C41F10C292f",
+    "0xe81C6bB0266cd68B4F17278531Dd03eA1F12dA4E",
+    "0x4eF9d3062c7F6ebA4AAE4990c5036598C6eff4ec",
+    "0x205812CdBed920aFf76C6580abD681a46D11efc7",
+    "0x64748BeA17b6D19e242ADf20425DE2440c656142",
+    "0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1",
+    "0x3F53De71c126BdaBAe20f9cD64848d317f6C3238",
+    "0x7138b48df7D98D7e3cc221BfE7192D0a178182D8",
+    "0x80106cb3EAD06659A5ad19DF39D9b4733863B9b0",
+    "0x10343EF7da3301493D7Ecb647d68A288C6c1Db2F",
+    "0x4684D9887fC1c71cBa7baB8E88835CEC217eB598",
+    "0xC8Da12cbCCE7c45180692a6420b0076e03a5179a",
+    "0xebe29695F8047C13d36e7a790ca8c1b239FfAD1C",
+    "0x76682c454467b3A1150Ad8b6a92FC5eE2C21d7eD",
+    "0xA528CaaA2f96090e379d43F90834C75dF54D6E74",
+    "0x25a4DbAE9a0Cd8C75656D6b50FFDf4900CC20d8f",
+    "0x087b5761b161429013d41eA54cd2fb6022A21564",
+    "0x9f16E46c73b43BDB70861247d537bEE4eA18F639",
+    "0x8b6ACf6041A81567f012Ff6A4C6D96d5818d74bF",
+    "0x992879Cd8ce0c312d98648875B5A8D6D042cbF34",
+    "0x4Fd67CB8CFEdc718BAc984b5936abE3330d0a2A4",
+    "0x1501EC83FFEf405B4331CC4f73277a40fb0C627d",
+    "0xf8589b526FdD65F7F301c605a6e04F0F1b4B3620",
+    "0xC37042A7a4fa510D8884a433762aB87257B91965",
+    "0xe42CfB20e00912409B77A602B5BDcfF3c7aCC5F4",
+    "0xA9eE28C80f960B889dFbd1902055218cBa016F75",
+    "0x2494b603319d4D9F9715c9f4496d9E0364B59d93",
+    "0xD7dF5863A3e742F0c767768cDfcb63f09E0422f6",
+    "0x091FC7778e6932d4009B087B191D1EE3bac5729A",
+    "0xd0a58BC9D88D3FF48C0294Cb7e45937d0E41A928",
+    "0x0cdE6936d305d5B34667fC46425E852efd73559a",
+    "0x6a708EAD771238919D85930b5a0f10454E1C331a",
+    "0x6Bfe75D1ad432050eA973C3A3DcD88F02e2444C3",
+    "0x0ED2E3180EDf393e6bf8Db124bD15DDD54dE150A",
+    "0xb943c8a0d77b656Daf5244Da060D647Fd9152289",
+    "0xfBD4D681C92ead6Af0E49950c8B2e47EeAcbB2dB",
+    "0x0C50323AF81D5C33822c6Add256Fb9093D42BC74",
+    "0x12B7aDC48416A103F63E7e6210f62C81dfB91fD0",
+    "0x0fAcaFB97ffDbA3cAe88512070AF49bd30674cD9",
+    "0xcEb29848d04Ad3Cb46E1fE8E45B82ffAc39D797d",
+    "0x441a4D4Fc23f17F4cf23E3d60F12d2BD6F176728",
+    "0x149Bda9e7251DC36f536d1fE7F92A5ea203F4F3D",
+    "0xb4D695569236273745B4CD54B539b1b9Cc1513af",
+    "0xE8ff70859Ce4cbd72E4352b4fb45F5BF39d07464",
+    "0xd5964f3fcee8D649995AB88F04b8982539c282D2",
+    "0xE9518CB0010C717DB69001F1418EFF9e97330137",
+    "0x9351AbD19f42101dD36025E495B98E910b255d78",
+    "0x19601179A60f55Ff6636F5D1A8b6671053Bd60a8",
+    "0xee268780473E7a0e47baC41547C6E01512555A16",
+    "0x76E39171Cb665a35981e744e2CEB7012F76caEAc"
+  ],
+  "providers": [
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "bstock",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo",
+    "ondo"
+  ],
+  "symbols": [
+    "INTWB",
+    "INTCB",
+    "MUUB",
+    "SOXLB",
+    "GLWB",
+    "MSTRB",
+    "MVLLB",
+    "DRAMB",
+    "AXTIB",
+    "NBISB",
+    "AMDB",
+    "KORUB",
+    "SNXXB",
+    "MUB",
+    "CRCLB",
+    "NOKB",
+    "QCOMB",
+    "SKHYB",
+    "SNDKB",
+    "ARMB",
+    "HOODB",
+    "MRVLB",
+    "CRWVB",
+    "COINB",
+    "PLTRB",
+    "IBMB",
+    "TQQQB",
+    "EWYB",
+    "TSMB",
+    "NVDAB",
+    "METAB",
+    "QNTB",
+    "TSLAB",
+    "CBRSB",
+    "BABAB",
+    "QQQB",
+    "LITEB",
+    "SPCXB",
+    "GOOGLB",
+    "SPYB",
+    "MSFTB",
+    "AAOIB",
+    "ORCLB",
+    "RKLBB",
+    "WDCB",
+    "AVGOB",
+    "INTCon",
+    "GLWon",
+    "DRAMon",
+    "AMDon",
+    "MUon",
+    "CRCLon",
+    "SNDKon",
+    "MRVLon",
+    "COINon",
+    "TSMon",
+    "TQQQon",
+    "NVDAon",
+    "TSLAon",
+    "METAon",
+    "GOOGLon",
+    "SPCXon",
+    "QQQon",
+    "SPYon",
+    "MSFTon",
+    "AVGOon",
+    "SOXLon",
+    "QCOMon",
+    "AXTIon",
+    "EWYon",
+    "LITEon",
+    "WDCon",
+    "CBRSon",
+    "AAOIon",
+    "RKLBon",
+    "IBMon",
+    "BABAon",
+    "NOKon",
+    "PLTRon",
+    "HOODon",
+    "NBISon",
+    "CRWVon"
+  ]
 }

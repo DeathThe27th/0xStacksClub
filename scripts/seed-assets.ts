@@ -40,7 +40,15 @@ async function fetchCatalog(): Promise<Catalog> {
   const base = process.env.SEED_BASE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
   const secret = process.env.CRON_SECRET;
   if (!base || !secret) throw new Error("Set SEED_BASE_URL (or NEXT_PUBLIC_APP_URL) and CRON_SECRET");
-  const url = `${base.replace(/\/$/, "")}/api/cron/seed-assets${flag("--no-routes") ? "?routes=0" : ""}`;
+  // Route-check only tokens that passed the vault fork test (contracts/test/fork-assets.json).
+  let check = "";
+  try {
+    const fork = JSON.parse(readFileSync(join(root, "contracts/test/fork-assets.json"), "utf8")) as { addresses?: string[] };
+    if (fork.addresses?.length) check = `&check=${fork.addresses.join(",")}`;
+  } catch {
+    /* first run: no fork set yet */
+  }
+  const url = `${base.replace(/\/$/, "")}/api/cron/seed-assets?routes=${flag("--no-routes") ? "0" : "1"}${check}`;
   const headers: Record<string, string> = { Authorization: `Bearer ${secret}` };
   if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
     headers["x-vercel-protection-bypass"] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -91,7 +99,12 @@ async function main() {
   if (catalog.stored) console.log("supabase:", JSON.stringify(catalog.stored));
 
   write("contracts/test/fork-assets.json", forkSet(assets));
-  write("contracts/deploy/assets.json", assets.filter((a) => a.canTrade));
+  // Vault allowlist: the fork-tested set with a route, or (with --allow-closed) whose only problem
+  // is that the market is closed right now. can_trade in Supabase still requires a live route.
+  const closed = /^(40367|40369)\b/;
+  const fork = new Set(forkSet(assets).map((a) => a.address));
+  const allow = assets.filter((a) => fork.has(a.address) && (a.canTrade || (flag("--allow-closed") && closed.test(a.routeCheck))));
+  write("contracts/deploy/assets.json", allow);
 }
 
 main().catch((e) => {

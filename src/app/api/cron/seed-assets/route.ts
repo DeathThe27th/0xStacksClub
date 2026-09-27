@@ -15,10 +15,14 @@ export const maxDuration = 300;
  */
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const checkRoutes = new URL(req.url).searchParams.get("routes") !== "0";
+  const params = new URL(req.url).searchParams;
+  const checkRoutes = params.get("routes") !== "0";
+  // Optional comma-separated addresses to route-check (the fork-tested set); others are skipped.
+  const only = params.get("check") ? new Set(params.get("check")!.toLowerCase().split(",")) : undefined;
   try {
-    const catalog = await buildCatalog({ checkRoutes });
-    const stored = await upsertCatalog(catalog.assets);
+    const catalog = await buildCatalog({ checkRoutes, only });
+    // Report, don't fail, if Supabase isn't ready: the Foundry files are still useful.
+    const stored = await upsertCatalog(catalog.assets).catch((e: Error) => ({ ok: false, reason: e.message }));
     return NextResponse.json({ ...catalog, stored });
   } catch (e) {
     return NextResponse.json(publicError(e), { status: 502 });

@@ -243,5 +243,10 @@ are collected by the vault contract instead, so we never send fee params.
    parameter docs both say `quoteId` = `rfq.orderId`, but the connector's `/swap` response type does
    not declare `orderId`. The client treats it as optional and stops with a clear error if a live
    response lacks it.
-10. **Receiver confirmed.** RFQ output goes to `userWalletAddress` (the signer), matching
+10. **Ondo routes are not always RFQ.** `trading-intro` says Ondo "always" returns `executionMode=RFQ`.
+    A live route probe on 2026-09-27 (USDT → token, $25, from the `sin1` preview) returned `SWAP`
+    for 20 of 40 Ondo tokens, `40367` market closed for 16 and `40374` insufficient liquidity for 4.
+    All 46 bStocks returned `SWAP`; no RFQ route came back for either provider that day. The leg
+    runner handles both modes, so nothing depends on the documented split.
+11. **Receiver confirmed.** RFQ output goes to `userWalletAddress` (the signer), matching
    `docs/FLOWS.md` §4. The vault is never the swap recipient.
