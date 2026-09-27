@@ -20,3 +20,6 @@ contracts/out
 contracts/cache
 contracts/broadcast/*/31337
 contracts/lib
+
+# filled-in copies with secrets
+supabase/*.local.sql
