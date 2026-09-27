@@ -315,6 +315,7 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
     if (!tx) throw new HttpError(502, "Binance returned a SWAP route without a transaction");
     if (getAddress(tx.from) !== wallet) throw new HttpError(502, "Swap transaction sender doesn't match your wallet");
     const minOut = tx.minReceiveAmount ? BigInt(tx.minReceiveAmount) : (expected * 99n) / 100n;
+    const gas = await swapGasLimit(wallet, getAddress(tx.to), tx.data as `0x${string}`, BigInt(tx.value ?? "0"), tx.gas);
     await setLeg(intent.id, legIndex, {
       mode: "SWAP",
       vendor: route.vendorName,
@@ -334,7 +335,7 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
       expectedOut: expected.toString(),
       minOut: minOut.toString(),
       expiresAt,
-      tx: { to: getAddress(tx.to), data: tx.data as `0x${string}`, value: tx.value ?? "0", gas: tx.gas ?? null, gasPrice: tx.gasPrice ?? null },
+      tx: { to: getAddress(tx.to), data: tx.data as `0x${string}`, value: tx.value ?? "0", gas: gas.toString(), gasPrice: tx.gasPrice ?? null },
     };
   }
 
@@ -361,6 +362,24 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
     order_id: null,
   });
   return { status: "ready", mode: "RFQ", expectedOut: expected.toString(), minOut: minOut.toString(), expiresAt, typedData };
+}
+
+/**
+ * Gas limit for a SWAP leg. Binance's `tx.gas` has proven too low for some routes (a bStock swap
+ * estimated at 450k needed ~516k and reverted out of gas), so we simulate the exact transaction
+ * from the user's wallet and add 30%. If the simulation reverts, don't send it at all.
+ */
+async function swapGasLimit(from: Address, to: Address, data: `0x${string}`, value: bigint, binanceGas: string | null | undefined): Promise<bigint> {
+  let estimate: bigint;
+  try {
+    estimate = await publicClient().estimateGas({ account: from, to, data, value });
+  } catch (e) {
+    const msg = (e as { shortMessage?: string }).shortMessage ?? (e as Error).message.split("\n")[0]!;
+    throw new HttpError(422, `This swap would fail right now (${msg}). Try again in a moment.`, "simulation_failed");
+  }
+  const padded = (estimate * 13n) / 10n;
+  const fromBinance = binanceGas ? BigInt(binanceGas) : 0n;
+  return padded > fromBinance ? padded : fromBinance;
 }
 
 // ---------------------------------------------------------------------------
