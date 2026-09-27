@@ -70,9 +70,6 @@ export function PortfolioBento({ onDeposit }: { onDeposit: () => void }) {
           <p className="max-w-[26ch] text-[14px] text-white/70">
             {d ? `${d.holdings.length} stock${d.holdings.length === 1 ? "" : "s"} and ${d.positions.length} Stack position${d.positions.length === 1 ? "" : "s"}, valued at live onchain marks.` : " "}
           </p>
-          <button onClick={onDeposit} className="press h-11 shrink-0 rounded-cta bg-white px-6 text-[15px] font-semibold text-primary hover:bg-white/90">
-            Deposit
-          </button>
         </div>
       </BentoHero>
 
@@ -109,9 +106,13 @@ export function PortfolioBento({ onDeposit }: { onDeposit: () => void }) {
       </BentoTile>
 
       <BentoTile className="flex flex-col justify-center md:col-span-1">
-        <p className="text-[24px] font-semibold leading-none tnum">{d ? d.usdt.display.toFixed(2) : "—"}</p>
-        <p className="mt-2 text-[13px] font-medium text-text-muted">USDT cash</p>
-        <p className="mt-1 text-[12px] text-text-dim tnum">{d ? `${d.bnb.display.toFixed(4)} BNB gas` : ""}</p>
+        <p className={cn("text-[22px] font-semibold leading-none tnum", d && d.bnb.display < 0.0005 && "text-warn")}>{d ? d.bnb.display.toFixed(4) : "—"}</p>
+        <p className="mt-2 text-[13px] font-medium text-text-muted">BNB for gas</p>
+        {d && d.bnb.display < 0.0005 && (
+          <button onClick={onDeposit} className="mt-1 text-left text-[12px] font-semibold text-link">
+            Top up
+          </button>
+        )}
       </BentoTile>
 
       <Link href={me.data?.profile ? `/app/u/${me.data.profile.username}` : "/app"} className="press flex items-center gap-4 rounded-[24px] border border-border bg-surface-2 p-6 hover:bg-border/50 md:col-span-2">

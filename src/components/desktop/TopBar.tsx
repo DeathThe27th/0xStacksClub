@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
-import { price, usd } from "@/lib/format";
+import { price } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import { useMe, usePortfolio } from "@/lib/client/queries";
 import type { AssetItem, ProfileLite, StackSummary } from "@/lib/client/types";
@@ -28,7 +28,6 @@ export function TopBar() {
     { href: "/app", label: "Markets", active: path === "/app" || /^\/app\/(stock|stack|club)\//.test(path) },
     { href: "/app/social", label: "Social", active: path.startsWith("/app/social") },
   ];
-  const change = portfolio.data?.change24hUsd ?? 0;
   return (
     <header className="sticky top-0 z-40 hidden h-16 items-center gap-6 border-b border-border bg-bg/90 px-6 backdrop-blur lg:flex">
       <Link href="/app" className="flex items-center gap-2.5">
@@ -52,12 +51,6 @@ export function TopBar() {
       </nav>
       <SearchBox />
       <div className="ml-auto flex items-center gap-5">
-        <div className="text-right leading-tight">
-          <p className="text-[15px] font-semibold tnum">{usd(portfolio.data?.totalUsd ?? null)}</p>
-          <p className={cn("text-[12px] tnum", change > 0 ? "text-up" : change < 0 ? "text-down" : "text-text-muted")}>
-            {usd(change, { sign: true })} <span className="text-text-muted">24h</span>
-          </p>
-        </div>
         <div className="text-right leading-tight">
           <p className="text-[15px] font-semibold tnum">{portfolio.data ? `${portfolio.data.usdt.display.toFixed(2)}` : "—"}</p>
           <p className="text-[12px] text-text-muted">USDT cash</p>

@@ -1,16 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDown, Info, ShieldCheck } from "lucide-react";
+import { ChevronsUpDown, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
 import { TradePanel } from "@/components/trade/TradePanel";
-import { OverlayToggle, StatsStrip, TradesFeed, useTrades } from "@/components/detail/Trades";
+import { NewsSection } from "@/components/detail/News";
+import { OverlayToggle, StatsStrip, useTrades } from "@/components/detail/Trades";
 import { PositionCard } from "@/components/trade/PositionCard";
-import { FeedTab } from "@/components/detail/Feed";
-import { HoldersTab } from "@/components/detail/Holders";
 import { DetailTopBar } from "@/components/detail/TopBar";
 import { TradesSheet } from "@/components/detail/TradesSheet";
 import { BuySheet } from "@/components/trade/BuySheet";
@@ -21,7 +20,6 @@ import { ProviderPill } from "@/components/ui/ProviderPill";
 import { Sheet } from "@/components/ui/Sheet";
 import { Bar } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
-import { Tabs } from "@/components/ui/Tabs";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 import { MIN_BUY_USD_SMALL, PROVIDER_LABEL, type Provider } from "@/lib/constants";
@@ -60,8 +58,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const [mode, setMode] = useState<"area" | "candles">("area");
   const [scrub, setScrub] = useState<Point | null>(null);
   const [right, setRight] = useState<0 | 1 | 2>(0);
-  const [tab, setTab] = useState<"holders" | "trades" | "feed" | "about">("holders");
-  const trades = useTrades("asset", address);
+    const trades = useTrades("asset", address);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "compare" | "history" | null>(null);
   const watch = useWatch("asset", address);
   const portfolio = usePortfolio();
@@ -78,7 +75,6 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
     enabled: !!detail.data?.asset.ticker,
   });
   const multiProvider = (compare.data?.providers.length ?? 0) > 1;
-  const holders = useQuery({ queryKey: ["holders", "asset", address], queryFn: () => api<{ items: unknown[] }>(`/api/holders?targetType=asset&targetId=${address}`) });
 
   const points: Point[] = useMemo(() => (candles.data?.candles ?? []).map((c) => ({ t: c.t, value: c.c, o: c.o, h: c.h, l: c.l, c: c.c })), [candles.data]);
   const first = points[0]?.o ?? points[0]?.value;
@@ -118,11 +114,11 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
 
       <StatsStrip
         items={[
-          { label: "Price", value: fmtPrice(detail.data?.price) },
           { label: "Market cap", value: detail.data?.marketCap ? `$${compact(detail.data.marketCap)}` : "—" },
           { label: "24h change", value: <Change value={detail.data?.change24h} /> },
           { label: "24h volume", value: detail.data?.volume24h ? `$${compact(detail.data.volume24h)}` : "—" },
-          { label: "Holders (StacksClub)", value: holders.data?.items.length ?? "—" },
+          { label: "Reference price", value: fmtPrice(detail.data?.referencePrice) },
+          { label: "Provider", value: a ? PROVIDER_LABEL[a.provider as Provider] : "—" },
           {
             label: detail.data?.marketOpen === false ? "Market closed" : "Premium",
             value: detail.data?.premiumPct != null ? `${detail.data.premiumPct >= 0 ? "+" : "-"}${pct(detail.data.premiumPct)}` : "—",
@@ -138,7 +134,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
             <span className="text-change text-text-muted">{scrub ? new Date(scrub.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : tfBar[tf].label}</span>
           </p>
         </div>
-        <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
+        <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right lg:hidden" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
           <p className="flex items-center justify-end gap-1 text-[20px] font-semibold tnum">
             <ChevronsUpDown size={16} className="text-text-muted" />
             {rightBlock.value}
@@ -164,23 +160,12 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         </div>
       </div>
 
-      <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
-      <div className="px-gutter lg:px-0">
-        <Tabs
-          tabs={[
-            { id: "holders", label: `Holders (${holders.data?.items.length ?? 0})` },
-            { id: "trades", label: "Trades" },
-            { id: "feed", label: "Feed" },
-            { id: "about", label: "About" },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
-        {tab === "holders" && <HoldersTab targetType="asset" targetId={address} />}
-        {tab === "trades" && <TradesFeed trades={trades.trades} loading={trades.loading} className="pt-3" />}
-        {tab === "feed" && <FeedTab targetType="asset" targetId={address} />}
-        {tab === "about" && a && (
-          <dl className="space-y-4 py-5 text-[15px]">
+      <div className="mt-8 space-y-8">
+        {a && <NewsSection ticker={a.ticker} name={a.name} />}
+        <section className="px-gutter lg:px-0">
+          <h2 className="text-section">About</h2>
+        {a && (
+          <dl className="mt-3 space-y-3 rounded-card border border-border bg-surface p-5 text-[15px]">
             <Item label="Provider">
               <ProviderPill provider={a.provider} />
             </Item>
@@ -205,11 +190,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
             </p>
           </dl>
         )}
-      </div>
-      <section className="hidden rounded-card border border-border bg-surface p-4 lg:block">
-        <h3 className="text-[15px] font-semibold">Live trades</h3>
-        <TradesFeed trades={trades.trades} loading={trades.loading} className="mt-1 max-h-[460px] overflow-y-auto" />
-      </section>
+        </section>
       </div>
 
         </div>
@@ -234,9 +215,9 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
       <StickyCta
         note={
           a && (
-            <button onClick={() => setSheet("compare")} className="flex items-center gap-1.5 text-secondary text-text-muted hover:text-text">
-              <ShieldCheck size={16} /> Issued by {PROVIDER_LABEL[a.provider as Provider]} <Info size={15} />
-            </button>
+            <span className="flex items-center gap-1.5 text-secondary text-text-muted">
+              <ShieldCheck size={16} /> Issued by {PROVIDER_LABEL[a.provider as Provider]}
+            </span>
           )
         }
         state={ctaState}

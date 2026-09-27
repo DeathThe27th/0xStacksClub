@@ -18,7 +18,7 @@ export function Chips<T extends string>({
   return (
     <div className="no-scrollbar -mx-gutter flex gap-2 overflow-x-auto px-gutter py-3">
       {onFilter && (
-        <button onClick={onFilter} aria-label="Sort" className="press grid h-10 w-10 shrink-0 place-items-center rounded-chip border border-border bg-surface text-text-muted hover:text-text">
+        <button onClick={onFilter} aria-label="Sort" className="press grid h-10 w-10 shrink-0 place-items-center rounded-full border border-border bg-surface text-text-muted hover:text-text">
           <SlidersHorizontal size={18} />
         </button>
       )}
@@ -30,8 +30,8 @@ export function Chips<T extends string>({
             onClick={() => onChange(c.id)}
             aria-pressed={active}
             className={cn(
-              "press h-10 shrink-0 whitespace-nowrap rounded-chip border px-4 text-chip transition-colors",
-              active ? "border-surface-2 bg-surface-2 font-semibold text-text" : "border-border bg-surface text-text-muted hover:text-text",
+              "press h-10 shrink-0 whitespace-nowrap rounded-full border px-4 text-chip transition-colors",
+              active ? "pop-soft border-border bg-surface-2 font-semibold text-text" : "border-border bg-surface text-text-muted hover:text-text",
             )}
           >
             {c.label}

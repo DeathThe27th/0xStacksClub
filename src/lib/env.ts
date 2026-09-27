@@ -26,6 +26,8 @@ const serverSchema = z.object({
   PINATA_JWT: z.string().min(1).optional(),
   PINATA_GATEWAY_URL: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(16),
+  // Stock news (company-news endpoint). Optional: without it the News section says so.
+  FINNHUB_API_KEY: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;

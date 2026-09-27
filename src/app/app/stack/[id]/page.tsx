@@ -122,7 +122,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
           </p>
         </div>
         {rightBlock && (
-          <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
+          <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right lg:hidden" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
             <p className="flex items-center justify-end gap-1 text-[20px] font-semibold tnum">
               <ChevronsUpDown size={16} className="text-text-muted" />
               {rightBlock.value}
