@@ -320,7 +320,9 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
       }
       if (stackId === null) throw new Error("Stack created, but its id wasn't found in the receipt");
       setStatus("Indexing");
-      await api("/api/sync", { method: "POST", json: { txHash: hash } });
+      // The Stack exists onchain at this point; a sync hiccup must not strand the creator.
+      // The background sync picks it up if this call fails.
+      await api("/api/sync", { method: "POST", json: { txHash: hash } }).catch(() => undefined);
       router.replace(`/app/stack/${stackId}?created=1`);
     } catch (e) {
       setStatus(null);
