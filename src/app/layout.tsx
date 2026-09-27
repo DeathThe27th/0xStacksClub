@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={inter.variable}>
       <body className="min-h-dvh bg-bg font-sans text-text antialiased">
-        <div className="mx-auto min-h-dvh w-full max-w-app">{children}</div>
+        <Providers>
+          <div className="mx-auto min-h-dvh w-full max-w-app">{children}</div>
+        </Providers>
       </body>
     </html>
   );
