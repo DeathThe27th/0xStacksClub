@@ -90,8 +90,12 @@ export const rwaUnderlyingMarket = z.object({
     .nullish(),
 });
 
-/** [open, high, low, close, volume, timestampMs, tradeCount] */
-export const candles = z.array(z.array(z.union([z.number(), z.string()])).min(6));
+/**
+ * [open, high, low, close, volume, timestampMs, tradeCount]. The docs say all seven are numbers,
+ * but live responses sometimes carry null tradeCount (binance-notes §6); we don't use it.
+ */
+const candleNum = z.union([z.number(), z.string()]);
+export const candles = z.array(z.tuple([candleNum, candleNum, candleNum, candleNum, candleNum, candleNum]).rest(z.union([z.number(), z.string(), z.null()])));
 
 const quoteToken = z.object({
   tokenContractAddress: str,
