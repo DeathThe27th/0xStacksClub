@@ -3,15 +3,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Users, Wallet } from "lucide-react";
 import Link from "next/link";
+import { PortfolioBento } from "@/components/desktop/PortfolioBento";
 import { TopTrades } from "@/components/market/TopTrades";
 import { ActivityItem } from "@/components/social/ActivityItem";
-import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
-import { Button } from "@/components/ui/Button";
 import { Change } from "@/components/ui/Change";
 import { Bar } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/States";
 import { TokenLogo } from "@/components/ui/TokenLogo";
-import { cn } from "@/lib/cn";
 import { PROVIDER_LABEL, type Provider } from "@/lib/constants";
 import { price, units, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
@@ -24,60 +22,10 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
   const p = usePortfolio({ poll: 20_000 });
   const feed = useQuery({ queryKey: ["activity", "following"], queryFn: () => api<{ items: Activity[] }>("/api/activity?tab=following"), refetchInterval: 20_000 });
   const d = p.data;
-  const stocksValue = d?.holdings.reduce((s, h) => s + (h.valueUsd ?? 0), 0) ?? 0;
-  const stacksValue = d?.positions.reduce((s, x) => s + (x.valueUsd ?? 0), 0) ?? 0;
-  const change = d?.change24hUsd ?? 0;
 
   return (
     <div className="space-y-6 py-6">
-      <section className="rounded-card border border-border bg-surface p-6">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <p className="text-[13px] font-medium text-text-muted">Portfolio value</p>
-            {p.isLoading ? (
-              <Bar className="mt-2 h-11 w-48" />
-            ) : (
-              <p className="mt-1 text-[44px] font-bold leading-none tracking-[-0.02em] tnum">
-                {d?.totalUsd == null ? (
-                  "—"
-                ) : (
-                  <AnimatedNumber
-                    value={d.totalUsd}
-                    format={(n) => {
-                      const [a, b] = usd(n).split(".");
-                      return (
-                        <>
-                          {a}
-                          <span className="text-text-dim">.{b}</span>
-                        </>
-                      );
-                    }}
-                  />
-                )}
-              </p>
-            )}
-            <p className={cn("mt-2 text-[15px] font-medium tnum", change > 0 ? "text-up" : change < 0 ? "text-down" : "text-text-muted")}>
-              {usd(change, { sign: true })} <span className="text-text-muted">today</span>
-            </p>
-          </div>
-          <Button onClick={onDeposit} className="w-[160px]">
-            Deposit
-          </Button>
-        </div>
-        <dl className="mt-6 grid grid-cols-4 gap-3">
-          {[
-            ["USDT cash", d ? usd(d.usdt.display) : "—"],
-            ["Stocks", d ? usd(stocksValue) : "—"],
-            ["Stacks", d ? usd(stacksValue) : "—"],
-            ["BNB for gas", d ? `${d.bnb.display.toFixed(4)} BNB` : "—"],
-          ].map(([k, v]) => (
-            <div key={k} className="rounded-chip bg-surface-2 px-4 py-3">
-              <dt className="text-[12px] text-text-muted">{k}</dt>
-              <dd className="mt-0.5 text-[17px] font-semibold tnum">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
+      <PortfolioBento onDeposit={onDeposit} />
 
       <section className="rounded-card border border-border bg-surface">
         <h2 className="px-5 pt-5 text-section">Your holdings</h2>
