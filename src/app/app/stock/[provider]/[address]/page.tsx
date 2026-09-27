@@ -191,6 +191,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         }
         state={ctaState}
         disabledReason={disabled}
+        minBuyUsd={MIN_BUY_USD_SMALL}
         onDeposit={() => setSheet("deposit")}
         onBuy={() => setSheet("buy")}
         onSell={() => setSheet("sell")}

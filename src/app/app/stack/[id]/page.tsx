@@ -192,6 +192,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         note={s && <span className="text-secondary text-text-muted">Created by {creator ? `@${creator}` : shortAddress(s.creator_address)} · 0.25% creator fee</span>}
         state={ctaState}
         disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
+        minBuyUsd={min}
         onDeposit={() => setSheet("deposit")}
         onBuy={() => setSheet("buy")}
         onSell={() => setSheet("sell")}

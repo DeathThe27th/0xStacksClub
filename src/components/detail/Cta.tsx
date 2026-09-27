@@ -4,8 +4,10 @@ import { ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 /** Sticky full-width CTA, 16px from the sides, above the safe area (UI_SPEC §4.5). */
-export function StickyCta({ note, state, onDeposit, onBuy, onSell, disabledReason, onCompare }: {
+export function StickyCta({ note, state, onDeposit, onBuy, onSell, disabledReason, onCompare, minBuyUsd }: {
   note?: React.ReactNode;
+  /** Shown on "Deposit to buy" so users know how much they need. */
+  minBuyUsd?: number;
   /** Shown beside the main action when the same stock is issued by more than one provider. */
   onCompare?: () => void;
   state: "deposit" | "buy" | "both" | "loading";
@@ -34,7 +36,7 @@ export function StickyCta({ note, state, onDeposit, onBuy, onSell, disabledReaso
         </Button>
       ) : state === "deposit" ? (
         <Button className="w-full" onClick={onDeposit}>
-          Deposit to buy
+          Deposit to buy{minBuyUsd ? <span className="font-medium opacity-80">· min ${minBuyUsd}</span> : null}
         </Button>
       ) : state === "buy" ? (
         <Button className="w-full" onClick={onBuy}>
