@@ -6,8 +6,10 @@ import { useState } from "react";
 import { bsc } from "viem/chains";
 import { ToastProvider } from "@/components/ui/Toast";
 import { publicEnv } from "@/lib/env";
+import { useTheme } from "@/lib/client/theme";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const { resolved } = useTheme();
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -19,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       appId={publicEnv().NEXT_PUBLIC_PRIVY_APP_ID}
       config={{
         loginMethods: ["email", "google", "twitter", "wallet"],
-        appearance: { theme: "dark", accentColor: "#3D5AFE", logo: "/mark.svg", walletChainType: "ethereum-only" },
+        appearance: { theme: resolved, accentColor: "#0043FE", logo: "/mark.svg", walletChainType: "ethereum-only" },
         defaultChain: bsc,
         supportedChains: [bsc],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, showWalletUIs: false },

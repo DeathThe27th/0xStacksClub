@@ -1,12 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronRight, ChevronsUpDown, MessagesSquare } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
 import { TradePanel } from "@/components/trade/TradePanel";
+import { OverlayToggle, StatsStrip, TradesFeed, useTrades } from "@/components/detail/Trades";
+import { PositionCard } from "@/components/trade/PositionCard";
 import { FeedTab } from "@/components/detail/Feed";
 import { HoldersTab } from "@/components/detail/Holders";
 import { SharePrompt } from "@/components/detail/SharePrompt";
@@ -37,7 +39,8 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
   const [tf, setTf] = useState<Timeframe>("1D");
   const [scrub, setScrub] = useState<Point | null>(null);
   const [right, setRight] = useState<0 | 1 | 2>(0);
-  const [tab, setTab] = useState<"holders" | "composition" | "feed" | "about">("holders");
+  const [tab, setTab] = useState<"holders" | "composition" | "trades" | "feed" | "about">("holders");
+  const trades = useTrades("stack", id);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "history" | null>(null);
   const watch = useWatch("stack", id);
   const portfolio = usePortfolio();
@@ -74,7 +77,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
 
   return (
     <div>
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-8 lg:pt-6">
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 lg:pt-5">
         <div className="min-w-0">
       <DetailTopBar
         logo={s?.image_url ?? null}
@@ -97,6 +100,17 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         watched={watch.watched}
         onWatch={watch.toggle}
         onHistory={() => setSheet("history")}
+      />
+
+      <StatsStrip
+        items={[
+          { label: "Index", value: indexValue(s?.index) },
+          { label: "Since launch", value: <Change value={s?.change} /> },
+          { label: "24h", value: <Change value={s?.change24h} /> },
+          { label: "Holders", value: s?.holders ?? "—" },
+          { label: "Creator earned", value: s ? usd(Number(BigInt(s.creatorEarnedRaw)) / 1e18) : "—" },
+          { label: "Stocks", value: s?.components.map((c) => c.ticker).join(" · ") ?? "—" },
+        ]}
       />
 
       <section className="mt-4 flex items-start justify-between gap-4 px-gutter lg:mt-6 lg:px-0">
@@ -122,18 +136,37 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         {series.isLoading ? (
           <Bar className="mx-gutter h-[320px] lg:mx-0 lg:h-[420px]" />
         ) : points.length > 1 ? (
-          <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => indexValue(n)} showReference={points.some((p) => p.reference != null)} />
+          <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => indexValue(n)} showReference={points.some((p) => p.reference != null)} markers={trades.markers} />
         ) : (
           <div className="grid h-[320px] place-items-center px-8 text-center text-secondary text-text-muted">The index chart fills in as points are recorded every 5 minutes.</div>
         )}
-        <ChartControls value={tf} onChange={setTf} />
+        <div className="flex flex-wrap items-center justify-between">
+          <OverlayToggle value={trades.overlay} onChange={trades.setOverlay} />
+          <ChartControls value={tf} onChange={setTf} />
+        </div>
       </div>
 
-      <div className="mt-4 px-gutter lg:px-0">
+      <Link
+        href={`/app/club/${id}`}
+        className="press mx-gutter mt-5 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 hover:bg-surface-2 lg:mx-0"
+      >
+        <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/15 text-link">
+          <MessagesSquare size={18} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[15px] font-semibold">{s ? `$${s.ticker} Club` : "Club"}</span>
+          <span className="block truncate text-[13px] text-text-muted">Holders-only chat, run by the creator</span>
+        </span>
+        <ChevronRight size={18} className="text-text-muted" />
+      </Link>
+
+      <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
+      <div className="px-gutter lg:px-0">
         <Tabs
           tabs={[
             { id: "holders", label: `Holders (${s?.holders ?? 0})` },
             { id: "composition", label: "Composition" },
+            { id: "trades", label: "Trades" },
             { id: "feed", label: "Feed" },
             { id: "about", label: "About" },
           ]}
@@ -142,6 +175,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         />
         {tab === "holders" && <HoldersTab targetType="stack" targetId={id} />}
         {tab === "feed" && <FeedTab targetType="stack" targetId={id} />}
+        {tab === "trades" && <TradesFeed trades={trades.trades} loading={trades.loading} className="pt-3" />}
         {tab === "composition" && (
           <ul className="space-y-4 py-5">
             {q.data?.components.map((c) => (
@@ -175,12 +209,12 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
               <Row label="Creator">{creator ? `@${creator}` : shortAddress(s.creator_address)}</Row>
               <Row label="Created">{new Date(s.created_at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}</Row>
               <Row label="Recipe tx">
-                <a href={`https://bscscan.com/tx/${s.tx_hash}`} target="_blank" rel="noreferrer" className="text-primary">
+                <a href={`https://bscscan.com/tx/${s.tx_hash}`} target="_blank" rel="noreferrer" className="text-link">
                   {shortAddress(s.tx_hash)}
                 </a>
               </Row>
               <Row label="Contract">
-                <a href={`https://bscscan.com/address/${safeVault()}`} target="_blank" rel="noreferrer" className="text-primary">
+                <a href={`https://bscscan.com/address/${safeVault()}`} target="_blank" rel="noreferrer" className="text-link">
                   {shortAddress(safeVault())}
                 </a>
               </Row>
@@ -190,8 +224,14 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
           </div>
         )}
       </div>
+      <section className="hidden rounded-card border border-border bg-surface p-4 lg:block">
+        <h3 className="text-[15px] font-semibold">Live trades</h3>
+        <TradesFeed trades={trades.trades} loading={trades.loading} className="mt-1 max-h-[460px] overflow-y-auto" />
+      </section>
+      </div>
 
         </div>
+        <div className="lg:sticky lg:top-20">
         <TradePanel
           buy={
             q.data
@@ -217,6 +257,8 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
           onDeposit={() => setSheet("deposit")}
           note={s && <>Created by {creator ? `@${creator}` : shortAddress(s.creator_address)} · 0.25% creator fee</>}
         />
+        <PositionCard positions={positions} />
+        </div>
       </div>
 
       <StickyCta

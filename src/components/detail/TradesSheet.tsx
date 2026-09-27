@@ -37,7 +37,7 @@ export function TradesSheet({ open, onClose, targetType, targetId }: { open: boo
               <div className="text-right">
                 <p className="text-[15px] tnum">{usd(Number(t.usd_amount))}</p>
                 {t.tx_hash && (
-                  <a href={`https://bscscan.com/tx/${t.tx_hash}`} target="_blank" rel="noreferrer" className="text-[13px] text-primary">
+                  <a href={`https://bscscan.com/tx/${t.tx_hash}`} target="_blank" rel="noreferrer" className="text-[13px] text-link">
                     BscScan
                   </a>
                 )}

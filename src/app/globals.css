@@ -3,20 +3,39 @@
 @tailwind utilities;
 
 :root {
-  /* docs/UI_SPEC.md §1, as RGB channels so Tailwind can apply alpha */
-  --bg: 10 10 18; /* #0A0A12 */
-  --surface: 21 21 31; /* #15151F */
-  --surface-2: 30 30 42; /* #1E1E2A */
-  --border: 35 35 47; /* #23232F */
+  /* Dark (default): pitch black. RGB channels so Tailwind can apply alpha. */
+  --bg: 0 0 0;
+  --surface: 14 14 16; /* #0E0E10 */
+  --surface-2: 26 26 29; /* #1A1A1D */
+  --border: 38 38 42; /* #26262A */
   --text: 255 255 255;
-  --text-muted: 139 139 154; /* #8B8B9A */
-  --text-dim: 85 85 106; /* #55556A */
-  --primary: 61 90 254; /* #3D5AFE */
-  --primary-press: 47 72 217; /* #2F48D9 */
-  --up: 34 197 94; /* #22C55E */
-  --down: 255 68 48; /* #FF4430 */
-  --warn: 245 165 36; /* #F5A524 */
+  --text-muted: 150 150 158; /* #96969E */
+  --text-dim: 92 92 100;
+  --primary: 0 67 254; /* #0043FE, from the logo */
+  --primary-press: 0 54 214;
+  --link: 92 138 255; /* primary lifted for text on black */
+  --up: 34 197 94;
+  --down: 255 68 48;
+  --warn: 245 165 36;
   color-scheme: dark;
+}
+
+/* Light: pure white. Applied when chosen, or when the device prefers light and no choice is saved. */
+:root[data-theme="light"] {
+  --bg: 255 255 255;
+  --surface: 245 246 248; /* #F5F6F8 */
+  --surface-2: 235 237 241;
+  --border: 226 228 233;
+  --text: 10 10 12;
+  --text-muted: 98 102 113; /* #626671, 5.9:1 on white */
+  --text-dim: 158 162 171;
+  --primary: 0 67 254;
+  --primary-press: 0 54 214;
+  --link: 0 67 254;
+  --up: 22 163 74;
+  --down: 220 38 38;
+  --warn: 196 120 6;
+  color-scheme: light;
 }
 
 html,

@@ -19,6 +19,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Bar } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Switch } from "@/components/ui/Switch";
+import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { TokenLogo } from "@/components/ui/TokenLogo";
@@ -294,6 +295,10 @@ function SettingsSheet({
         />
       ) : (
         <div className="space-y-2">
+          <div className="rounded-card bg-surface-2 p-4">
+            <p className="mb-3 text-[15px] font-semibold">Appearance</p>
+            <ThemeSwitch className="bg-surface" />
+          </div>
           <button onClick={() => setMode("edit")} className="press flex h-14 w-full items-center gap-3 rounded-card bg-surface-2 px-4 text-[16px]">
             <Pencil size={18} /> Edit profile
           </button>

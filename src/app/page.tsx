@@ -51,7 +51,7 @@ function Landing() {
             </button>
           </p>
         )}
-        <p className="mt-4 text-center text-[12px] leading-5 text-text-dim">
+        <p className="mt-4 text-center text-[12px] leading-5 text-text-muted">
           Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
         </p>
       </div>

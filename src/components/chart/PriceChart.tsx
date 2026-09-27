@@ -5,28 +5,39 @@ import {
   CandlestickSeries,
   ColorType,
   createChart,
+  createSeriesMarkers,
   CrosshairMode,
   LineSeries,
   LineStyle,
   type IChartApi,
   type IPriceLine,
+  type ISeriesMarkersPluginApi,
+  type Time,
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
 import { CandlestickChart } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
+import { cssColor, useTheme } from "@/lib/client/theme";
 
 export type Point = { t: number; value: number; o?: number; h?: number; l?: number; c?: number; reference?: number | null };
 export type Timeframe = "LIVE" | "1H" | "1D" | "1W" | "ALL";
+/** A StacksClub user's trade, drawn on the chart (buys below the bar, sells above). */
+export type TradeMarker = { t: number; side: "buy" | "sell"; label: string };
 
-const UP = "#22C55E";
-const DOWN = "#FF4430";
-const MUTED = "#8B8B9A";
-
-function hexA(hex: string, a: number) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+/** Chart colours come from the theme tokens, so the canvas follows light and dark mode. */
+function palette() {
+  return {
+    up: cssColor("up"),
+    down: cssColor("down"),
+    muted: cssColor("text-muted"),
+    text: cssColor("text"),
+    bg: cssColor("bg"),
+    crosshair: cssColor("text", 0.35),
+    reference: cssColor("text-muted", 0.55),
+    fill: (token: "up" | "down", a: number) => cssColor(token, a),
+  };
 }
 
 /**
@@ -41,6 +52,7 @@ export function PriceChart({
   onScrub,
   formatPrice,
   showReference,
+  markers,
 }: {
   points: Point[];
   mode: "area" | "candles";
@@ -48,31 +60,34 @@ export function PriceChart({
   onScrub: (p: Point | null) => void;
   formatPrice: (n: number) => string;
   showReference?: boolean;
+  markers?: TradeMarker[];
 }) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<ISeriesApi<"Area"> | ISeriesApi<"Candlestick"> | null>(null);
   const ref = useRef<ISeriesApi<"Line"> | null>(null);
   const line = useRef<IPriceLine | null>(null);
+  const markerApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const byTime = useRef(new Map<number, Point>());
   const scrubCb = useRef(onScrub);
   scrubCb.current = onScrub;
   const fmt = useRef(formatPrice);
   fmt.current = formatPrice;
+  const { resolved: theme } = useTheme();
 
   // Create once
   useEffect(() => {
     if (!el.current) return;
     const c = createChart(el.current, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: MUTED, fontSize: 11, fontFamily: "var(--font-inter), system-ui", attributionLogo: false },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: palette().muted, fontSize: 11, fontFamily: "var(--font-inter), system-ui", attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       leftPriceScale: { visible: false },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
       timeScale: { borderVisible: false, visible: false, timeVisible: true, secondsVisible: false, fixLeftEdge: true, fixRightEdge: true },
       crosshair: {
         mode: CrosshairMode.Magnet,
-        vertLine: { color: "rgba(255,255,255,0.35)", width: 1, style: LineStyle.Solid, labelVisible: false },
+        vertLine: { color: palette().crosshair, width: 1, style: LineStyle.Solid, labelVisible: false },
         horzLine: { visible: false, labelVisible: false },
       },
       handleScroll: false,
@@ -106,39 +121,48 @@ export function PriceChart({
     };
   }, []);
 
+  // Theme change: axis text and crosshair
+  useEffect(() => {
+    const p = palette();
+    chart.current?.applyOptions({ layout: { textColor: p.muted }, crosshair: { vertLine: { color: p.crosshair } } });
+  }, [theme]);
+
   // Series type and colors
   useEffect(() => {
     const c = chart.current;
     if (!c) return;
     if (series.current) {
+      markerApi.current?.detach();
+      markerApi.current = null;
       c.removeSeries(series.current);
       series.current = null;
       line.current = null;
     }
-    const color = up ? UP : DOWN;
+    const p = palette();
+    const color = up ? p.up : p.down;
     series.current =
       mode === "area"
         ? c.addSeries(AreaSeries, {
             lineColor: color,
             lineWidth: 2,
-            topColor: hexA(color, 0.25),
-            bottomColor: hexA(color, 0),
+            topColor: p.fill(up ? "up" : "down", 0.25),
+            bottomColor: p.fill(up ? "up" : "down", 0),
             priceLineVisible: false,
             lastValueVisible: false,
             crosshairMarkerRadius: 4,
-            crosshairMarkerBorderColor: "#0A0A12",
+            crosshairMarkerBorderColor: p.bg,
             crosshairMarkerBackgroundColor: color,
           })
         : c.addSeries(CandlestickSeries, {
-            upColor: UP,
-            downColor: DOWN,
+            upColor: p.up,
+            downColor: p.down,
             borderVisible: false,
-            wickUpColor: UP,
-            wickDownColor: DOWN,
+            wickUpColor: p.up,
+            wickDownColor: p.down,
             priceLineVisible: false,
             lastValueVisible: false,
           });
-  }, [mode, up]);
+  }, [mode, up, theme]);
 
   // Faint dashed reference-index line (Stack charts)
   useEffect(() => {
@@ -146,7 +170,7 @@ export function PriceChart({
     if (!c) return;
     if (showReference && !ref.current) {
       ref.current = c.addSeries(LineSeries, {
-        color: "rgba(139,139,154,0.55)",
+        color: palette().reference,
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         priceLineVisible: false,
@@ -176,13 +200,44 @@ export function PriceChart({
     }
     ref.current?.setData(sorted.filter(([, p]) => p.reference != null).map(([t, p]) => ({ time: t as UTCTimestamp, value: p.reference! })));
     const last = sorted.at(-1)?.[1];
-    const color = up ? UP : DOWN;
+    const color = up ? palette().up : palette().down;
     if (line.current) s.removePriceLine(line.current);
     line.current = last
       ? s.createPriceLine({ price: last.value, color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, axisLabelColor: color, axisLabelTextColor: "#FFFFFF", title: "" })
       : null;
     chart.current?.timeScale().fitContent();
-  }, [points, mode, up]);
+  }, [points, mode, up, theme]);
+
+  // Trade markers, snapped to the candle they fall in (markers must sit on an existing bar).
+  useEffect(() => {
+    const s = series.current;
+    if (!s) return;
+    const times = [...byTime.current.keys()];
+    const first = times[0];
+    const p = palette();
+    const list = (markers ?? [])
+      .map((m) => {
+        const sec = Math.floor(m.t / 1000);
+        if (first === undefined || sec < first) return null;
+        let snap = first;
+        for (const t of times) {
+          if (t <= sec) snap = t;
+          else break;
+        }
+        return {
+          time: snap as UTCTimestamp,
+          position: m.side === "buy" ? ("belowBar" as const) : ("aboveBar" as const),
+          shape: m.side === "buy" ? ("arrowUp" as const) : ("arrowDown" as const),
+          color: m.side === "buy" ? p.up : p.down,
+          text: m.label,
+          size: 1,
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+      .sort((a, b) => a.time - b.time);
+    if (!markerApi.current) markerApi.current = createSeriesMarkers(s, list);
+    else markerApi.current.setMarkers(list);
+  }, [markers, points, mode, up, theme]);
 
   return <div ref={el} className="h-[320px] w-full touch-pan-y select-none lg:h-[420px]" />;
 }

@@ -43,7 +43,7 @@ export function TradePanel({
   const needsDeposit = usdt !== null && usdt < minBuyUsd;
 
   return (
-    <aside className="sticky top-6 hidden rounded-card border border-border bg-surface p-5 lg:block">
+    <aside className="hidden rounded-card border border-border bg-surface p-5 lg:block">
       {canSell && (
         <div role="tablist" className="mb-5 grid grid-cols-2 rounded-chip bg-surface-2 p-1">
           {(["buy", "sell"] as const).map((s) => (

@@ -17,7 +17,7 @@ export function Checklist({ steps }: { steps: ChecklistStep[] }) {
                 <Check size={16} strokeWidth={3} />
               </span>
             )}
-            {s.state === "active" && <Loader2 size={24} className="animate-spin text-primary" />}
+            {s.state === "active" && <Loader2 size={24} className="animate-spin text-link" />}
             {s.state === "failed" && (
               <span className="grid h-7 w-7 place-items-center rounded-full bg-down text-white">
                 <X size={16} strokeWidth={3} />

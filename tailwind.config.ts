@@ -18,6 +18,7 @@ const config: Config = {
         up: "rgb(var(--up) / <alpha-value>)",
         down: "rgb(var(--down) / <alpha-value>)",
         warn: "rgb(var(--warn) / <alpha-value>)",
+        link: "rgb(var(--link) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["var(--font-inter)", "system-ui", "sans-serif"],

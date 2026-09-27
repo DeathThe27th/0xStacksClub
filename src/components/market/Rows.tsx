@@ -12,7 +12,7 @@ import type { AssetItem, StackSummary } from "@/lib/client/types";
 const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
 
 /** 64px list row (UI_SPEC §3.6). No dividers; rows sit on bg. */
-export function AssetRow({ a }: { a: AssetItem }) {
+export function AssetRow({ a, wide = false }: { a: AssetItem; wide?: boolean }) {
   const p = num(a.price?.price_usd);
   const ch = num(a.price?.change_24h);
   const flash = useFlash(p);
@@ -26,19 +26,22 @@ export function AssetRow({ a }: { a: AssetItem }) {
           {a.friends && <AvatarStack people={a.friends.avatars} extra={a.friends.count - a.friends.avatars.length} />}
         </p>
         <p className="mt-0.5 truncate text-secondary text-text-muted">
-          <span className="lg:hidden">{cap ? `$${compact(cap)} MC` : a.name}</span>
-          <span className="hidden lg:inline">{a.name}</span>
+          {wide ? a.name : cap ? `$${compact(cap)} MC` : a.name}
         </p>
       </div>
-      <div className="hidden w-[110px] text-right lg:block">
+      {wide && (
+      <>
+      <div className="w-[110px] text-right">
         <p className="text-[15px] tnum">{cap ? `$${compact(cap)}` : "—"}</p>
         <p className="text-[12px] text-text-muted">Market cap</p>
       </div>
-      <div className="hidden w-[110px] text-right lg:block">
+      <div className="w-[110px] text-right">
         <p className="text-[15px] tnum">{num(a.price?.volume_24h) ? `$${compact(num(a.price?.volume_24h)!)}` : "—"}</p>
         <p className="text-[12px] text-text-muted">24h volume</p>
       </div>
-      <div className={cn("rounded-md px-1 text-right lg:w-[120px]", flash)}>
+      </>
+      )}
+      <div className={cn("rounded-md px-1 text-right", wide && "w-[120px]", flash)}>
         <p className="text-row font-medium tnum">{fmtPrice(p)}</p>
         <Change value={ch} className="mt-0.5 justify-end" />
       </div>

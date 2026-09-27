@@ -43,7 +43,7 @@ export function BottomNav() {
               aria-current={it.active ? "page" : undefined}
               className={cn(
                 "press mx-auto grid h-12 w-[60px] place-items-center rounded-full transition-colors",
-                it.active ? "bg-surface-2 text-text shadow-[inset_0_1px_8px_rgba(255,255,255,0.06)]" : "text-text-muted hover:text-text",
+                it.active ? "bg-surface-2 text-text shadow-[inset_0_1px_8px_rgb(var(--text)/0.06)]" : "text-text-muted hover:text-text",
               )}
             >
               {it.icon}
