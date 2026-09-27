@@ -24,8 +24,6 @@ const stockChips = [
   { id: "trending", label: "Trending" },
   { id: "most_held", label: "Most held" },
   { id: "top_gainers", label: "Top gainers" },
-  { id: "bstock", label: "bStocks" },
-  { id: "ondo", label: "Ondo" },
 ] as const;
 const stackChips = [
   { id: "trending", label: "Trending" },

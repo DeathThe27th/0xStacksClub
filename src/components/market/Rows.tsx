@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useFlash } from "@/components/ui/AnimatedNumber";
 import { AvatarStack } from "@/components/ui/Avatar";
 import { Change } from "@/components/ui/Change";
-import { ProviderPill } from "@/components/ui/ProviderPill";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 import { compact, indexValue, price as fmtPrice } from "@/lib/format";
@@ -26,10 +25,7 @@ export function AssetRow({ a }: { a: AssetItem }) {
           <span className="truncate">{a.ticker}</span>
           {a.friends && <AvatarStack people={a.friends.avatars} extra={a.friends.count - a.friends.avatars.length} />}
         </p>
-        <p className="mt-0.5 flex items-center gap-1.5 truncate text-secondary text-text-muted">
-          <ProviderPill provider={a.provider} />
-          <span className="truncate">{cap ? `$${compact(cap)} MC` : a.name}</span>
-        </p>
+        <p className="mt-0.5 truncate text-secondary text-text-muted">{cap ? `$${compact(cap)} MC` : a.name}</p>
       </div>
       <div className={cn("rounded-md px-1 text-right", flash)}>
         <p className="text-row font-medium tnum">{fmtPrice(p)}</p>

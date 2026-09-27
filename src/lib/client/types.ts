@@ -3,7 +3,7 @@ import type { AssetPriceRow, AssetRow, PublicProfile, StackRow } from "@/lib/sup
 
 export type ProfileLite = Pick<PublicProfile, "id" | "username" | "display_name" | "avatar_url">;
 export type Friends = { avatars: { id: string; username: string; avatar_url: string | null }[]; count: number } | null;
-export type AssetItem = AssetRow & { price: AssetPriceRow | null; friends: Friends };
+export type AssetItem = AssetRow & { price: AssetPriceRow | null; friends: Friends; providerCount?: number };
 
 export type StackSummary = StackRow & {
   creator: Pick<PublicProfile, "id" | "username" | "avatar_url"> | null;

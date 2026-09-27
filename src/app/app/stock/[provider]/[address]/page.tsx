@@ -68,6 +68,12 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
     queryFn: () => api<{ candles: Candle[] }>(`/api/market/candles?address=${address}&bar=${tfBar[tf].bar}`),
     refetchInterval: tfBar[tf].poll,
   });
+  const compare = useQuery({
+    queryKey: ["compare", detail.data?.asset.ticker],
+    queryFn: () => api<{ providers: { address: string }[] }>(`/api/assets/compare/${detail.data!.asset.ticker}`),
+    enabled: !!detail.data?.asset.ticker,
+  });
+  const multiProvider = (compare.data?.providers.length ?? 0) > 1;
   const holders = useQuery({ queryKey: ["holders", "asset", address], queryFn: () => api<{ items: unknown[] }>(`/api/holders?targetType=asset&targetId=${address}`) });
 
   const points: Point[] = useMemo(() => (candles.data?.candles ?? []).map((c) => ({ t: c.t, value: c.c, o: c.o, h: c.h, l: c.l, c: c.c })), [candles.data]);
@@ -188,6 +194,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         onDeposit={() => setSheet("deposit")}
         onBuy={() => setSheet("buy")}
         onSell={() => setSheet("sell")}
+        onCompare={multiProvider ? () => setSheet("compare") : undefined}
       />
 
       {a && sheet === "buy" && (
@@ -222,8 +229,8 @@ function CompareSheet({ open, onClose, ticker, current }: { open: boolean; onClo
   const api = useApi();
   const q = useQuery({ queryKey: ["compare", ticker], queryFn: () => api<{ providers: CompareRow[] }>(`/api/assets/compare/${ticker}`), enabled: open });
   return (
-    <Sheet open={open} onClose={onClose} title={`${ticker} providers`}>
-      <p className="-mt-2 mb-4 text-center text-secondary text-text-muted">Different issuers, different tokens. Compare before you buy.</p>
+    <Sheet open={open} onClose={onClose} title={`Buy ${ticker} from`}>
+      <p className="-mt-2 mb-4 text-center text-secondary text-text-muted">Each provider issues its own {ticker} token. Prices and fees can differ, so pick the one you want.</p>
       <div className="space-y-2">
         {(q.data?.providers ?? []).map((p) => (
           <Link

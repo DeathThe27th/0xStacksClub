@@ -19,8 +19,13 @@ export const GET = handler(async (req: Request) => {
   const prices = assets.length
     ? (must(await db().from("asset_prices").select("*").in("address", assets.map((a) => a.address))) as AssetPriceRow[])
     : [];
+  // One result per stock: tradable bStocks token first, like the Home list.
+  const rank = (a: AssetRow) => (a.can_trade ? 2 : 0) + (a.provider === "bstock" ? 1 : 0);
+  const byTicker = new Map<string, AssetRow[]>();
+  for (const a of assets) byTicker.set(a.ticker, [...(byTicker.get(a.ticker) ?? []), a]);
+  const grouped = [...byTicker.values()].map((g) => ({ rep: [...g].sort((x, y) => rank(y) - rank(x))[0]!, count: g.length }));
   return json({
-    assets: assets.map((a) => ({ ...a, price: prices.find((p) => p.address === a.address) ?? null, friends: null })),
+    assets: grouped.map(({ rep, count }) => ({ ...rep, providerCount: count, price: prices.find((p) => p.address === rep.address) ?? null, friends: null })),
     stacks: await summarize(stacks),
     people,
   });

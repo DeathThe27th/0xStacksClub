@@ -44,11 +44,13 @@ export const POST = handler(async (req: Request) => {
     creator: ctx.wallet,
     external_url: `${publicEnv().NEXT_PUBLIC_APP_URL}/app`,
   };
-  const metaUp = await storage.upload(`${ctx.profile.id}/${id}.json`, new Blob([JSON.stringify(metadata)], { type: "application/json" }), {
+  // Metadata JSON lives in its own bucket: the `stacks` bucket only accepts images.
+  const metaStorage = await metadataBucket();
+  const metaUp = await metaStorage.upload(`${ctx.profile.id}/${id}.json`, new Blob([JSON.stringify(metadata)], { type: "application/json" }), {
     contentType: "application/json",
   });
-  if (metaUp.error) throw new HttpError(500, `Upload failed: ${metaUp.error.message}`);
-  const metadataURI = storage.getPublicUrl(metaUp.data.path).data.publicUrl;
+  if (metaUp.error) throw new HttpError(500, `Metadata upload failed: ${metaUp.error.message}`);
+  const metadataURI = metaStorage.getPublicUrl(metaUp.data.path).data.publicUrl;
 
   must(
     await db().from("stack_metadata").insert({
@@ -62,3 +64,18 @@ export const POST = handler(async (req: Request) => {
   );
   return json({ metadataURI, imageUrl });
 });
+
+let bucketReady = false;
+/** Public, JSON-only bucket for Stack metadata, created on first use. */
+async function metadataBucket() {
+  const storage = db().storage;
+  if (!bucketReady) {
+    const { data } = await storage.getBucket("stack-metadata");
+    if (!data) {
+      const { error } = await storage.createBucket("stack-metadata", { public: true, fileSizeLimit: 16 * 1024, allowedMimeTypes: ["application/json"] });
+      if (error && !/already exists/i.test(error.message)) throw new HttpError(500, `Couldn't create metadata bucket: ${error.message}`);
+    }
+    bucketReady = true;
+  }
+  return storage.from("stack-metadata");
+}

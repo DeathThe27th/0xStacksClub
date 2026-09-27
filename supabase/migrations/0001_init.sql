@@ -360,7 +360,8 @@ alter publication supabase_realtime add table asset_prices;
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values
   ('avatars', 'avatars', true, 2097152, array['image/png','image/jpeg','image/webp','image/gif']),
-  ('stacks', 'stacks', true, 2097152, array['image/png','image/jpeg','image/webp','image/gif'])
+  ('stacks', 'stacks', true, 2097152, array['image/png','image/jpeg','image/webp','image/gif']),
+  ('stack-metadata', 'stack-metadata', true, 16384, array['application/json'])
 on conflict (id) do nothing;
 
 -- ---------------------------------------------------------------------------

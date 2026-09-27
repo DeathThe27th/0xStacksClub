@@ -34,7 +34,7 @@ export function useAssets(tab: "stocks" | "watchlist", filter: string, sort?: st
   const api = useApi();
   return useQuery({
     queryKey: ["assets", tab, filter, sort],
-    queryFn: () => api<{ items: AssetItem[] }>(`/api/assets?tab=${tab}&filter=${filter}${sort ? `&sort=${sort}` : ""}`),
+    queryFn: () => api<{ items: AssetItem[] }>(`/api/assets?tab=${tab}&filter=${filter}&group=ticker&tradable=1${sort ? `&sort=${sort}` : ""}`),
     refetchInterval: 15_000,
   });
 }
