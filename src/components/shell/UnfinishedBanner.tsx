@@ -31,7 +31,7 @@ export function UnfinishedBanner() {
           Resume <ChevronRight size={16} />
         </span>
       </button>
-      {open && <IntentSheet intentId={open} open onClose={() => setOpen(null)} />}
+      {open && <IntentSheet intentId={open} title={`Finishing your ${label[first.kind]}`} open onClose={() => setOpen(null)} />}
     </>
   );
 }

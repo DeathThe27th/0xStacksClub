@@ -7,8 +7,8 @@ import { cn } from "@/lib/cn";
 import { usd } from "@/lib/format";
 import { usePortfolio } from "@/lib/client/queries";
 import type { Holding, Position } from "@/lib/client/types";
-import { BuyForm, type BuyComponent } from "./BuySheet";
-import { IntentSheet } from "./IntentSheet";
+import { BuyForm, buyingTitle, type BuyComponent } from "./BuySheet";
+import { IntentProgress } from "./IntentSheet";
 import { SellForm } from "./SellSheet";
 
 type BuyTarget = { kind: "stock"; component: BuyComponent } | { kind: "stack"; stackId: number; ticker: string; components: BuyComponent[] };
@@ -37,14 +37,15 @@ export function TradePanel({
 }) {
   const portfolio = usePortfolio();
   const [side, setSide] = useState<"buy" | "sell">("buy");
-  const [intentId, setIntentId] = useState<string | null>(null);
+  // While a trade runs, its progress line takes the form's place in the panel.
+  const [started, setStarted] = useState<{ id: string; title: string } | null>(null);
   const usdt = portfolio.data?.usdt.display ?? null;
   const canSell = !!sell;
   const needsDeposit = usdt !== null && usdt < minBuyUsd;
 
   return (
     <aside className="hidden rounded-card border border-border bg-surface p-5 lg:block">
-      {canSell && (
+      {canSell && !started && (
         <div role="tablist" className="mb-5 grid grid-cols-2 rounded-chip bg-surface-2 p-1">
           {(["buy", "sell"] as const).map((s) => (
             <button
@@ -60,8 +61,10 @@ export function TradePanel({
         </div>
       )}
 
-      {side === "sell" && sell ? (
-        <SellForm target={sell} onStarted={setIntentId} />
+      {started ? (
+        <IntentProgress key={started.id} intentId={started.id} title={started.title} onFinished={() => setStarted(null)} />
+      ) : side === "sell" && sell ? (
+        <SellForm target={sell} onStarted={(id, title) => setStarted({ id, title })} />
       ) : disabledReason ? (
         <p className="py-8 text-center text-[15px] text-text-muted">{disabledReason}</p>
       ) : !portfolio.data ? (
@@ -80,7 +83,7 @@ export function TradePanel({
           </Button>
         </div>
       ) : buy ? (
-        <BuyForm target={buy} onDeposit={onDeposit} onStarted={setIntentId} />
+        <BuyForm target={buy} onDeposit={onDeposit} onStarted={(id) => setStarted({ id, title: buyingTitle(buy) })} />
       ) : null}
 
       {(onCompare || note) && (
@@ -94,7 +97,6 @@ export function TradePanel({
         </div>
       )}
 
-      {intentId && <IntentSheet intentId={intentId} open onClose={() => setIntentId(null)} />}
     </aside>
   );
 }

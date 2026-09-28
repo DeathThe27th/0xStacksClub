@@ -54,12 +54,14 @@ export function TopBar() {
           <p className="text-[15px] font-semibold tnum">{portfolio.data ? `${portfolio.data.usdt.display.toFixed(2)}` : "—"}</p>
           <p className="text-[12px] text-text-muted">USDT cash</p>
         </div>
-        <Button size="md" className="h-10" onClick={() => setDeposit(true)}>
-          Deposit
-        </Button>
+        <div className="relative">
+          <Button size="md" className="h-10" onClick={() => setDeposit((o) => !o)}>
+            Deposit
+          </Button>
+          <DepositSheet open={deposit} onClose={() => setDeposit(false)} anchor="right" />
+        </div>
         {me.data?.profile && <AccountMenu username={me.data.profile.username} avatar={me.data.profile.avatar_url} />}
       </div>
-      <DepositSheet open={deposit} onClose={() => setDeposit(false)} />
     </header>
   );
 }

@@ -58,13 +58,55 @@ export function MarketTabs({ className }: { className?: string }) {
         onChange={setTab}
       />
       {tab === "stocks" && (
-        <Chips
-          chips={stockChips}
-          value={stockFilter}
-          onChange={setStockFilter}
-          onFilter={() => setSortOpen(true)}
-          filterActive={sort !== undefined || stockSheetFilters.some((f) => f.id === stockFilter)}
-        />
+        // Desktop shows the filter as a dropdown under this row; phone keeps the bottom sheet.
+        <div className="relative">
+          <Chips
+            chips={stockChips}
+            value={stockFilter}
+            onChange={setStockFilter}
+            onFilter={() => setSortOpen((o) => !o)}
+            filterActive={sort !== undefined || stockSheetFilters.some((f) => f.id === stockFilter)}
+          />
+          <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="Filter" anchor="left" className="w-full">
+            <p className="mb-2 text-secondary font-semibold text-text-muted">Show</p>
+            <div className="space-y-2">
+              {stockSheetFilters.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => {
+                    setStockFilter(stockFilter === f.id ? "trending" : f.id);
+                    setSortOpen(false);
+                  }}
+                  className={cn("press flex h-14 w-full items-center justify-between rounded-card bg-surface-2 px-4 text-[16px] lg:h-11 lg:text-[15px]", stockFilter === f.id && "font-semibold")}
+                >
+                  {f.label}
+                  {stockFilter === f.id && <span className="h-2 w-2 rounded-full bg-primary" />}
+                </button>
+              ))}
+            </div>
+            <p className="mb-2 mt-5 text-secondary font-semibold text-text-muted">Sort by</p>
+            <div className="space-y-2">
+              {([
+                [undefined, "Default"],
+                ["change", "Price change"],
+                ["market_cap", "Market cap"],
+                ["volume", "Volume"],
+              ] as const).map(([v, label]) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    setSort(v);
+                    setSortOpen(false);
+                  }}
+                  className={cn("press flex h-14 w-full items-center justify-between rounded-card bg-surface-2 px-4 text-[16px] lg:h-11 lg:text-[15px]", sort === v && "font-semibold")}
+                >
+                  {label}
+                  {sort === v && <span className="h-2 w-2 rounded-full bg-primary" />}
+                </button>
+              ))}
+            </div>
+          </Sheet>
+        </div>
       )}
       {tab === "stacks" && <Chips chips={[...stackChips]} value={stackFilter} onChange={setStackFilter} />}
       {tab === "clubs" && <p className="py-3 text-secondary text-text-muted">Every Stack has a Club for its holders, run by the creator.</p>}
@@ -79,45 +121,6 @@ export function MarketTabs({ className }: { className?: string }) {
           <AssetList tab="stocks" filter={stockFilter} sort={sort} />
         )}
       </div>
-      <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="Filter">
-        <p className="mb-2 text-secondary font-semibold text-text-muted">Show</p>
-        <div className="space-y-2">
-          {stockSheetFilters.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => {
-                setStockFilter(stockFilter === f.id ? "trending" : f.id);
-                setSortOpen(false);
-              }}
-              className={cn("press flex h-14 w-full items-center justify-between rounded-card bg-surface-2 px-4 text-[16px]", stockFilter === f.id && "font-semibold")}
-            >
-              {f.label}
-              {stockFilter === f.id && <span className="h-2 w-2 rounded-full bg-primary" />}
-            </button>
-          ))}
-        </div>
-        <p className="mb-2 mt-5 text-secondary font-semibold text-text-muted">Sort by</p>
-        <div className="space-y-2">
-          {([
-            [undefined, "Default"],
-            ["change", "Price change"],
-            ["market_cap", "Market cap"],
-            ["volume", "Volume"],
-          ] as const).map(([v, label]) => (
-            <button
-              key={label}
-              onClick={() => {
-                setSort(v);
-                setSortOpen(false);
-              }}
-              className={cn("press flex h-14 w-full items-center justify-between rounded-card bg-surface-2 px-4 text-[16px]", sort === v && "font-semibold")}
-            >
-              {label}
-              {sort === v && <span className="h-2 w-2 rounded-full bg-primary" />}
-            </button>
-          ))}
-        </div>
-      </Sheet>
     </div>
   );
 }

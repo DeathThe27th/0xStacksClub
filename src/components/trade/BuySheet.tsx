@@ -14,7 +14,7 @@ import { ApiError, useApi } from "@/lib/client/api";
 import { usePortfolio, useUsdtDecimals } from "@/lib/client/queries";
 import { gasNeededWei } from "@/lib/client/runner";
 import type { Intent } from "@/lib/client/types";
-import { IntentSheet } from "./IntentSheet";
+import { IntentProgress } from "./IntentSheet";
 
 export type BuyComponent = { address: string; ticker: string; provider: string; logoUrl: string | null; price: number | null; decimals: number; weightBps: number };
 
@@ -25,24 +25,25 @@ type Preview = { expectedOut: string; minOut: string; mode: string; expiresAt: n
 /** Buy sheet (UI_SPEC §6.2): the buy form in a sheet, then the progress checklist. */
 export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; onClose: () => void; target: Target; onDeposit: () => void }) {
   const [intentId, setIntentId] = useState<string | null>(null);
-  if (intentId) {
-    return (
-      <IntentSheet
-        intentId={intentId}
-        open={open}
-        onClose={() => {
-          setIntentId(null);
-          onClose();
-        }}
-      />
-    );
-  }
+  const [running, setRunning] = useState(false);
   const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
+  const close = () => {
+    setIntentId(null);
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title={title}>
-      <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} autoFocus />
+    <Sheet open={open} onClose={close} title={title} dismissable={!running}>
+      {intentId ? (
+        <IntentProgress intentId={intentId} title={buyingTitle(target)} onFinished={close} onRunning={setRunning} />
+      ) : (
+        <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} autoFocus />
+      )}
     </Sheet>
   );
+}
+
+export function buyingTitle(target: Target) {
+  return target.kind === "stock" ? `Buying ${target.component.ticker}` : `Buying $${target.ticker}`;
 }
 
 /**

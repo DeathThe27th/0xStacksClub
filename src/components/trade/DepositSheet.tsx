@@ -14,13 +14,13 @@ import { browserPublicClient, useActiveWallet } from "@/lib/client/wallet";
 type View = "menu" | "crypto";
 
 /** Deposit (UI_SPEC §7, FLOWS §1): crypto or card. No server state; balances polled from chain every 5s. */
-export function DepositSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function DepositSheet({ open, onClose, anchor }: { open: boolean; onClose: () => void; anchor?: "left" | "right" }) {
   const [view, setView] = useState<View>("menu");
   useEffect(() => {
     if (!open) setView("menu");
   }, [open]);
   return (
-    <Sheet open={open} onClose={onClose} title={view === "menu" ? "Deposit" : "Deposit crypto"}>
+    <Sheet open={open} onClose={onClose} title={view === "menu" ? "Deposit" : "Deposit crypto"} anchor={anchor}>
       {view === "menu" ? (
         <div className="space-y-3">
           <Option title="Deposit crypto" icon={<QrCode size={24} />} onClick={() => setView("crypto")} />

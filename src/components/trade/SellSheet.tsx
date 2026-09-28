@@ -9,34 +9,31 @@ import { units as fmtUnits, usd } from "@/lib/format";
 import { percentToBps } from "@/lib/math";
 import { ApiError, useApi } from "@/lib/client/api";
 import type { Holding, Intent, Position } from "@/lib/client/types";
-import { IntentSheet } from "./IntentSheet";
+import { IntentProgress } from "./IntentSheet";
 
 type Target = { kind: "stock"; holding: Holding } | { kind: "stack"; ticker: string; positions: Position[]; initialPositionId?: number; initialMode?: "sell" | "redeem" };
 
 /** Sell sheet (UI_SPEC §6.3): the sell form in a sheet, then the progress checklist. */
 export function SellSheet({ open, onClose, target }: { open: boolean; onClose: () => void; target: Target }) {
-  const [intentId, setIntentId] = useState<string | null>(null);
-  if (intentId) {
-    return (
-      <IntentSheet
-        intentId={intentId}
-        open={open}
-        onClose={() => {
-          setIntentId(null);
-          onClose();
-        }}
-      />
-    );
-  }
+  const [started, setStarted] = useState<{ id: string; title: string } | null>(null);
+  const [running, setRunning] = useState(false);
+  const close = () => {
+    setStarted(null);
+    onClose();
+  };
   return (
-    <Sheet open={open} onClose={onClose} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`}>
-      <SellForm target={target} onStarted={setIntentId} active={open} />
+    <Sheet open={open} onClose={close} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`} dismissable={!running}>
+      {started ? (
+        <IntentProgress intentId={started.id} title={started.title} onFinished={close} onRunning={setRunning} />
+      ) : (
+        <SellForm target={target} onStarted={(id, title) => setStarted({ id, title })} active={open} />
+      )}
     </Sheet>
   );
 }
 
 /** Percent selector and estimate. Estimates are indicative; actual proceeds come from the fills. */
-export function SellForm({ target, onStarted, active = true }: { target: Target; onStarted: (intentId: string) => void; active?: boolean }) {
+export function SellForm({ target, onStarted, active = true }: { target: Target; onStarted: (intentId: string, title: string) => void; active?: boolean }) {
   const api = useApi();
   const [pct, setPct] = useState(50);
   const [mode, setMode] = useState<"sell" | "redeem">(target.kind === "stack" ? (target.initialMode ?? "sell") : "sell");
@@ -66,7 +63,8 @@ export function SellForm({ target, onStarted, active = true }: { target: Target;
           ? { kind: "sell_stock", assetAddress: target.holding.address, bps }
           : { kind: mode === "sell" ? "sell_stack" : "redeem", positionId, bps };
       const intent = await api<Intent>("/api/intents", { method: "POST", json: body });
-      onStarted(intent.id);
+      const what = target.kind === "stock" ? target.holding.ticker : `$${target.ticker}`;
+      onStarted(intent.id, mode === "redeem" ? `Redeeming ${pct}% of ${what}` : `Selling ${pct}% of ${what}`);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start");
     } finally {

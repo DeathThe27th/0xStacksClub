@@ -1,17 +1,17 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2 } from "lucide-react";
-import Link from "next/link";
+import { Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
+import { cn } from "@/lib/cn";
 import { useApi } from "@/lib/client/api";
 import { useAssetLookup } from "@/lib/client/assets";
 import { runIntent, StopError, type StepKey, type StepState } from "@/lib/client/runner";
 import type { Intent } from "@/lib/client/types";
 import { useSigner } from "@/lib/client/wallet";
-import { Checklist, type ChecklistStep } from "./Checklist";
+import { useToast } from "@/components/ui/Toast";
 
 function stepsFor(intent: Intent, label: (a: string) => string): { key: StepKey; label: string }[] {
   const s: { key: StepKey; label: string }[] = [];
@@ -41,23 +41,26 @@ function initialStates(intent: Intent): Partial<Record<StepKey, StepState>> {
   return st;
 }
 
-const doneTitle: Record<Intent["kind"], (i: Intent) => string> = {
-  buy_stock: () => "Bought",
+const doneTitle: Record<Intent["kind"], (i: Intent, label: (a: string) => string) => string> = {
+  buy_stock: (i, l) => `Bought ${l(i.legs[0]?.to_token ?? "")}`.trim(),
   buy_stack: (i) => `Position #${i.position_id} created`,
-  sell_stock: () => "Sold",
+  sell_stock: (i, l) => `Sold ${l(i.legs[0]?.from_token ?? "")}`.trim(),
   sell_stack: () => "Sold",
   redeem: () => "Stocks sent to your wallet",
 };
 
 /**
- * Progress checklist for one intent. Runs it on open, and on failure offers Retry and
- * "Stop and keep tokens" (FLOWS §3 failure handling).
+ * Runs one intent and shows it as a single status line with a progress bar, in place of the form
+ * that started it. Legs still run in sequence and each is persisted server-side; on failure it
+ * offers Retry and "Stop and keep tokens" (FLOWS §3 failure handling). On success it toasts and
+ * calls onFinished.
  */
-export function IntentSheet({ intentId, open, onClose, autoStart = true }: { intentId: string; open: boolean; onClose: () => void; autoStart?: boolean }) {
+export function IntentProgress({ intentId, title, onFinished, onRunning }: { intentId: string; title: string; onFinished: () => void; onRunning?: (running: boolean) => void }) {
   const api = useApi();
   const getSigner = useSigner();
   const assets = useAssetLookup();
   const qc = useQueryClient();
+  const toast = useToast();
   const [intent, setIntent] = useState<Intent | null>(null);
   const [states, setStates] = useState<Partial<Record<StepKey, { state: StepState; note?: string; error?: string }>>>({});
   const [running, setRunning] = useState(false);
@@ -65,6 +68,8 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
   const [confirmStop, setConfirmStop] = useState(false);
   const [stopError, setStopError] = useState<string | null>(null);
   const started = useRef(false);
+
+  useEffect(() => onRunning?.(running), [running, onRunning]);
 
   const run = useCallback(async () => {
     setRunning(true);
@@ -89,6 +94,10 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
         onProgress: (p) => setStates((prev) => ({ ...prev, [p.step]: { state: p.state, note: p.note } })),
       });
       setIntent(final);
+      if (final.status === "done") {
+        toast({ title: doneTitle[final.kind](final, assets.label), tone: "up" });
+        onFinished();
+      }
     } catch (e) {
       const err = e as Error;
       const step = e instanceof StopError ? e.step : ((Object.entries(states).find(([, v]) => v?.state === "active")?.[0] as StepKey) ?? "fee");
@@ -100,14 +109,14 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
       qc.invalidateQueries({ queryKey: ["portfolio"] });
       qc.invalidateQueries({ queryKey: ["intents"] });
     }
-  }, [api, getSigner, intentId, qc, states]);
+  }, [api, getSigner, intentId, qc, states, toast, assets.label, onFinished]);
 
   useEffect(() => {
-    if (open && autoStart && !started.current) {
+    if (!started.current) {
       started.current = true;
       void run();
     }
-  }, [open, autoStart, run]);
+  }, [run]);
 
   const retry = async () => {
     if (!stopped) return;
@@ -132,70 +141,74 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
     }
     qc.invalidateQueries({ queryKey: ["intents"] });
     qc.invalidateQueries({ queryKey: ["portfolio"] });
-    onClose();
+    onFinished();
   };
 
-  const steps: ChecklistStep[] = intent
-    ? stepsFor(intent, assets.label).map((s) => ({ key: s.key, label: s.label, state: states[s.key]?.state ?? "idle", note: states[s.key]?.note, error: states[s.key]?.error }))
-    : [];
-  const done = intent?.status === "done";
+  const steps = intent ? stepsFor(intent, assets.label) : [];
+  const doneCount = steps.filter((s) => states[s.key]?.state === "done").length;
+  const current = steps.find((s) => states[s.key]?.state === "failed") ?? steps.find((s) => states[s.key]?.state === "active") ?? steps.find((s) => states[s.key]?.state !== "done");
+  const note = current ? states[current.key]?.note : undefined;
+  const failed = !!stopped && !running;
   const boughtAny = intent?.legs.some((l) => l.status === "filled") ?? false;
+  const progress = steps.length ? Math.max(0.06, doneCount / steps.length) : 0.06;
 
   return (
-    <Sheet open={open} onClose={onClose} title={done ? undefined : "Working on it"} dismissable={!running}>
-      {done && intent ? (
-        <div className="flex flex-col items-center py-6 text-center">
-          <CheckCircle2 size={72} className="text-up" strokeWidth={1.5} />
-          <p className="mt-4 text-[22px] font-bold">{doneTitle[intent.kind](intent)}</p>
-          {intent.kind === "buy_stack" && (
-            <p className="mt-1 max-w-[32ch] text-secondary text-text-muted">Your position holds the exact tokens bought. Weights aren&apos;t rebalanced.</p>
-          )}
-          <div className="mt-6 flex w-full flex-col gap-2">
-            {intent.kind === "buy_stack" && intent.position_id && (
-              <Link href={`/app/position/${intent.position_id}`} onClick={onClose}>
-                <Button className="w-full">View position</Button>
-              </Link>
-            )}
-            <Button variant="secondary" onClick={onClose}>
-              Done
-            </Button>
-          </div>
+    <div className="py-2">
+      <div className="flex items-center gap-3">
+        <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full", failed ? "bg-down/15 text-down" : "bg-surface-2 text-link")}>
+          {failed ? <X size={18} strokeWidth={2.5} /> : <Loader2 size={18} className="animate-spin" />}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-semibold">{failed ? `${current?.label ?? title} failed` : title}</p>
+          <p className={cn("truncate text-secondary", failed ? "text-down" : "text-text-muted")}>
+            {failed ? stopped.message : current ? `${current.label}${note ? ` · ${note}` : ""}…` : "Starting…"}
+          </p>
         </div>
-      ) : (
-        <>
-          <p className="-mt-2 mb-5 text-center text-secondary text-text-muted">Steps run one after another. Keep this open until they finish.</p>
-          <Checklist steps={steps} />
-          {stopped && !running && (
-            <div className="mt-6 space-y-2">
-              {stopError && <p className="text-center text-secondary text-down">Couldn&apos;t stop: {stopError}</p>}
-              <Button className="w-full" onClick={retry}>
-                Retry
-              </Button>
-              {intent?.kind.startsWith("buy") &&
-                (confirmStop ? (
-                  <div className="rounded-card bg-surface-2 p-4">
-                    <p className="text-secondary text-text">
-                      {boughtAny ? "Tokens already bought stay in your wallet as single stocks." : "Nothing was bought yet."}
-                      {intent.fee_receipt_id ? " The 1% fee isn't refunded." : " No fee was taken."}
-                    </p>
-                    <div className="mt-3 flex gap-2">
-                      <Button variant="secondary" size="md" className="flex-1" onClick={() => setConfirmStop(false)}>
-                        Keep going
-                      </Button>
-                      <Button size="md" className="flex-1 bg-down hover:bg-down/90" onClick={stopAndKeep}>
-                        Stop
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <Button variant="secondary" className="w-full" onClick={() => setConfirmStop(true)}>
-                    Stop and keep tokens
+        {steps.length > 1 && <span className="shrink-0 text-secondary text-text-muted tnum">{Math.min(doneCount + 1, steps.length)}/{steps.length}</span>}
+      </div>
+      <div className="mt-4 h-1 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
+        <div className={cn("h-full rounded-full transition-[width] duration-500", failed ? "bg-down" : "bg-primary")} style={{ width: `${progress * 100}%` }} />
+      </div>
+
+      {failed && (
+        <div className="mt-5 space-y-2">
+          {stopError && <p className="text-center text-secondary text-down">Couldn&apos;t stop: {stopError}</p>}
+          <Button className="w-full" onClick={retry}>
+            Retry
+          </Button>
+          {intent?.kind.startsWith("buy") &&
+            (confirmStop ? (
+              <div className="rounded-card bg-surface-2 p-4">
+                <p className="text-secondary text-text">
+                  {boughtAny ? "Tokens already bought stay in your wallet as single stocks." : "Nothing was bought yet."}
+                  {intent.fee_receipt_id ? " The 1% fee isn't refunded." : " No fee was taken."}
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <Button variant="secondary" size="md" className="flex-1" onClick={() => setConfirmStop(false)}>
+                    Keep going
                   </Button>
-                ))}
-            </div>
-          )}
-        </>
+                  <Button size="md" className="flex-1 bg-down hover:bg-down/90" onClick={stopAndKeep}>
+                    Stop
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button variant="secondary" className="w-full" onClick={() => setConfirmStop(true)}>
+                Stop and keep tokens
+              </Button>
+            ))}
+        </div>
       )}
+    </div>
+  );
+}
+
+/** Resuming an unfinished intent from the banner: the same progress line in a sheet. */
+export function IntentSheet({ intentId, title, open, onClose }: { intentId: string; title: string; open: boolean; onClose: () => void }) {
+  const [running, setRunning] = useState(false);
+  return (
+    <Sheet open={open} onClose={onClose} title="Resume" dismissable={!running}>
+      <IntentProgress intentId={intentId} title={title} onFinished={onClose} onRunning={setRunning} />
     </Sheet>
   );
 }
