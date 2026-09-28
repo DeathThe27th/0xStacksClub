@@ -64,7 +64,7 @@ export default function Social() {
               ))}
             </div>
           ) : (
-            <EmptyState icon={<Users size={24} />} title="Your feed is quiet" body="Follow creators and traders to see their buys, sells and new Stacks here." action={<Button size="md" onClick={() => setTab("discover")}>Discover people</Button>} />
+            <EmptyState icon={<Users size={24} />} title="Your feed is quiet" body="Follow creators and traders to see their buys, sells and new baskets here." action={<Button size="md" onClick={() => setTab("discover")}>Discover people</Button>} />
           )
         ) : discover.isLoading ? (
           <div className="pt-3">
@@ -73,11 +73,11 @@ export default function Social() {
         ) : discover.isError ? (
           <ErrorState message={(discover.error as Error).message} onRetry={() => discover.refetch()} />
         ) : !discover.data?.byEarnings.length ? (
-          <EmptyState icon={<Compass size={24} />} title="No creators yet" body="Creators show up here once their Stacks get bought." />
+          <EmptyState icon={<Compass size={24} />} title="No creators yet" body="Creators show up here once their baskets get bought." />
         ) : (
           <>
             <CreatorList title="Top creators by fees earned" items={discover.data.byEarnings} metric={(c) => `${usd(Number(BigInt(c.earnedRaw)) / 1e18)} earned`} onFollow={(c) => follow.mutate(c)} />
-            <CreatorList title="Most Stack buyers" items={discover.data.byBuyers} metric={(c) => `${c.buyers} buyer${c.buyers === 1 ? "" : "s"}`} onFollow={(c) => follow.mutate(c)} />
+            <CreatorList title="Most basket buyers" items={discover.data.byBuyers} metric={(c) => `${c.buyers} buyer${c.buyers === 1 ? "" : "s"}`} onFollow={(c) => follow.mutate(c)} />
           </>
         )}
       </div>

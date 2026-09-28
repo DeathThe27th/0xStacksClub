@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { encodeFunctionData } from "viem";
 import { Overview } from "@/components/desktop/Overview";
-import { StackRow } from "@/components/market/Rows";
+import { BasketRow } from "@/components/market/Rows";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { ActivityItem } from "@/components/social/ActivityItem";
@@ -136,7 +136,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
       {u && (
         <section className={cn("mt-5 grid grid-cols-3 gap-2 px-gutter lg:px-0", u.isSelf && "lg:hidden")}>
           <Stat label="Total value" value={u.isSelf ? usd(u.stats.totalUsd) : "Private"} />
-          <Stat label="Stacks created" value={String(u.stats.stacksCreated)} />
+          <Stat label="Baskets created" value={String(u.stats.stacksCreated)} />
           <Stat label="Creator earnings" value={usd(Number(BigInt(u.stats.creatorEarnedRaw)) / 1e18)} />
         </section>
       )}
@@ -147,7 +147,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         <Tabs
           tabs={[
             { id: "holdings", label: "Holdings" },
-            { id: "stacks", label: "Stacks" },
+            { id: "stacks", label: "Baskets" },
             { id: "activity", label: "Activity" },
           ]}
           value={tab}
@@ -163,11 +163,11 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           u.stacks.length ? (
             <div className="pt-2">
               {u.stacks.map((s) => (
-                <StackRow key={s.id} s={s} />
+                <BasketRow key={s.id} s={s} />
               ))}
             </div>
           ) : (
-            <EmptyState icon={<Layers size={24} />} title={u.isSelf ? "You haven't made a Stack yet" : "No Stacks yet"} action={u.isSelf ? <Link href="/app/create"><Button size="md">Create a Stack</Button></Link> : undefined} />
+            <EmptyState icon={<Layers size={24} />} title={u.isSelf ? "You haven't made a basket yet" : "No baskets yet"} action={u.isSelf ? <Link href="/app/create"><Button size="md">Create a basket</Button></Link> : undefined} />
           )
         ) : u.activity.length ? (
           <div className="divide-y divide-border">
@@ -271,7 +271,7 @@ function ClaimCard({ raw, onDone }: { raw: bigint; onDone: () => void }) {
       <Gift size={22} className="shrink-0 text-up" />
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold">Creator fees ready</p>
-        <p className="text-[13px] text-text-muted">{error ?? "25% of the buy fee on your Stacks"}</p>
+        <p className="text-[13px] text-text-muted">{error ?? "25% of the buy fee on your baskets"}</p>
       </div>
       <Button size="md" className="bg-up text-bg hover:bg-up/90" loading={busy} onClick={claim}>
         Claim {usd(Number(raw) / 1e18)}

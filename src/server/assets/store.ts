@@ -79,6 +79,6 @@ export async function requireTradable(address: string, purpose: "trade" | "stack
   const a = await getAsset(address);
   if (!a) throw new Error(`Unknown asset ${address}`);
   if (purpose === "trade" && !a.can_trade) throw new Error(`${a.symbol} is not enabled for trading`);
-  if (purpose === "stack" && !a.can_stack) throw new Error(`${a.symbol} is not enabled for Stacks`);
+  if (purpose === "stack" && !a.can_stack) throw new Error(`${a.symbol} is not enabled for baskets`);
   return a;
 }

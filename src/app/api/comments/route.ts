@@ -13,7 +13,7 @@ function normalize(t: z.infer<typeof target>) {
     if (!isAddress(t.targetId)) throw new HttpError(400, "Bad asset address");
     return { type: t.targetType, id: getAddress(t.targetId) };
   }
-  if (!/^\d+$/.test(t.targetId)) throw new HttpError(400, "Bad Stack id");
+  if (!/^\d+$/.test(t.targetId)) throw new HttpError(400, "Bad basket id");
   return { type: t.targetType, id: t.targetId };
 }
 

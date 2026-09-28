@@ -39,7 +39,7 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
         <div className="min-w-0">
           <p className="text-[18px] font-bold">Position #{id}</p>
           {p && (
-            <Link href={`/app/stack/${p.stackId}`} className="text-secondary text-text-muted hover:text-text">
+            <Link href={`/app/basket/${p.stackId}`} className="text-secondary text-text-muted hover:text-text">
               ${p.stackTicker} · bought {new Date(p.openedAt * 1000).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
             </Link>
           )}

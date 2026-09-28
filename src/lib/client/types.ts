@@ -11,6 +11,8 @@ export type StackSummary = StackRow & {
   referenceIndex: number | null;
   change: number | null;
   change24h: number | null;
+  change7d: number | null;
+  valueHeldUsd: number | null;
   holders: number;
   creatorEarnedRaw: string;
   friends?: Friends;

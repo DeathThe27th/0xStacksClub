@@ -10,6 +10,6 @@ export const GET = handler(async (req: Request, { params }: { params: Promise<{ 
   const id = Number((await params).id);
   const { tf } = query.parse(Object.fromEntries(new URL(req.url).searchParams));
   const stack = must(await db().from("stacks").select("*").eq("id", id).maybeSingle()) as StackRow | null;
-  if (!stack) throw new HttpError(404, "Stack not found");
+  if (!stack) throw new HttpError(404, "Basket not found");
   return json({ tf, points: await indexSeries(stack, tf) }, { cacheSeconds: tf === "LIVE" || tf === "1H" ? 5 : 60 });
 });

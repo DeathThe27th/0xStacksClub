@@ -45,7 +45,7 @@ export function TopBar() {
           </Link>
         ))}
         <Link href="/app/create" className={cn("flex items-center gap-1.5 rounded-chip px-3 py-2 text-[15px] font-medium transition-colors", path.startsWith("/app/create") ? "text-text" : "text-text-muted hover:text-text")}>
-          <Plus size={16} /> Create Stack
+          <Plus size={16} /> Create basket
         </Link>
       </nav>
       <SearchBox />
@@ -99,7 +99,7 @@ function SearchBox() {
   };
   const items = [
     ...(res.data?.assets ?? []).slice(0, 6).map((a) => ({ key: a.address, href: `/app/stock/${a.provider}/${a.address}`, logo: a.logo_url, title: a.ticker, sub: a.name, right: price(a.price?.price_usd ? Number(a.price.price_usd) : null) })),
-    ...(res.data?.stacks ?? []).slice(0, 4).map((s) => ({ key: `s${s.id}`, href: `/app/stack/${s.id}`, logo: s.image_url, title: `$${s.ticker}`, sub: s.name, right: "Stack" })),
+    ...(res.data?.stacks ?? []).slice(0, 4).map((s) => ({ key: `s${s.id}`, href: `/app/basket/${s.id}`, logo: s.image_url, title: `$${s.ticker}`, sub: s.name, right: "Basket" })),
     ...(res.data?.people ?? []).slice(0, 4).map((p) => ({ key: p.id, href: `/app/u/${p.username}`, logo: p.avatar_url, title: p.display_name ?? p.username, sub: `@${p.username}`, right: "" })),
   ];
   return (
@@ -119,7 +119,7 @@ function SearchBox() {
             if (e.key === "Enter" && items[0]) go(items[0].href);
             if (e.key === "Escape") input.current?.blur();
           }}
-          placeholder="Search stocks, Stacks, people"
+          placeholder="Search stocks, baskets, people"
           aria-label="Search"
           className="h-full flex-1 bg-transparent text-[14px] outline-none"
         />

@@ -19,6 +19,7 @@ import { squareCrop } from "@/lib/client/image";
 import { vaultAddr } from "@/lib/client/runner";
 import type { AssetItem } from "@/lib/client/types";
 import { browserPublicClient, useSigner } from "@/lib/client/wallet";
+import { normalizeTelegramUrl } from "@/lib/telegram";
 
 type Pick = { ticker: string; options: AssetItem[]; chosen: string };
 const COLORS = ["#3D5AFE", "#22C55E", "#F5A524", "#A855F7", "#06B6D4"];
@@ -40,7 +41,7 @@ export default function CreateStack() {
         <button onClick={() => (step === 1 ? router.back() : setStep((step - 1) as 1 | 2))} aria-label="Back" className="press -ml-2 grid h-11 w-11 place-items-center text-text-muted hover:text-text">
           <ChevronLeft size={26} />
         </button>
-        <h1 className="flex-1 text-[18px] font-bold">Create a Stack</h1>
+        <h1 className="flex-1 text-[18px] font-bold">Create a basket</h1>
         <span className="text-secondary text-text-muted tnum">{step} of 3</span>
       </header>
       <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step}>
@@ -136,7 +137,7 @@ function PickStep({ picks, setPicks, onNext }: { picks: Pick[]; setPicks: (p: Pi
         {assets.isLoading ? (
           <RowSkeleton count={5} />
         ) : !byTicker.size ? (
-          <EmptyState icon={<Lock size={24} />} title="No stocks enabled for Stacks yet" body="Stocks appear here once they pass the vault check and have a USDT route." />
+          <EmptyState icon={<Lock size={24} />} title="No stocks enabled for baskets yet" body="Stocks appear here once they pass the vault check and have a USDT route." />
         ) : (
           results.slice(0, 60).map(([ticker, opts]) => {
             const a = opts[0]!;
@@ -284,6 +285,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
   const [name, setName] = useState("");
   const [ticker, setTicker] = useState("");
   const [description, setDescription] = useState("");
+  const [telegram, setTelegram] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -298,7 +300,8 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
     queryFn: async () => (await browserPublicClient().getGasPrice()) * 450_000n,
   });
   const nameOk = name.trim().length >= 3 && name.trim().length <= 32;
-  const ready = !!image && nameOk && tickerFormat && avail.data?.available === true && description.length <= 280;
+  const telegramOk = !telegram.trim() || normalizeTelegramUrl(telegram) !== null;
+  const ready = !!image && nameOk && tickerFormat && avail.data?.available === true && description.length <= 280 && telegramOk;
 
   const launch = async () => {
     setError(null);
@@ -308,6 +311,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
       form.set("name", name.trim());
       form.set("ticker", ticker);
       form.set("description", description.trim());
+      if (telegram.trim()) form.set("telegram", telegram.trim());
       form.set("image", image!);
       const { metadataURI } = await api<{ metadataURI: string }>("/api/stacks/metadata", { method: "POST", body: form });
 
@@ -330,12 +334,12 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
           /* other logs */
         }
       }
-      if (stackId === null) throw new Error("Stack created, but its id wasn't found in the receipt");
+      if (stackId === null) throw new Error("Basket created, but its id wasn't found in the receipt");
       setStatus("Indexing");
       // The Stack exists onchain at this point; a sync hiccup must not strand the creator.
       // The background sync picks it up if this call fails.
       await api("/api/sync", { method: "POST", json: { txHash: hash } }).catch(() => undefined);
-      router.replace(`/app/stack/${stackId}?created=1`);
+      router.replace(`/app/basket/${stackId}?created=1`);
     } catch (e) {
       setStatus(null);
       const m = (e as Error).message;
@@ -345,7 +349,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
 
   return (
     <div className="pb-28 lg:pb-0">
-      <h2 className="mt-6 text-[22px] font-bold">Name your Stack</h2>
+      <h2 className="mt-6 text-[22px] font-bold">Name your basket</h2>
       <div className="mt-5 flex items-center gap-4">
         <button onClick={() => fileRef.current?.click()} className="press grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border border-dashed border-border bg-surface text-text-muted" aria-label="Upload image">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -374,7 +378,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
             }
           }}
         />
-        <p className="text-secondary text-text-muted">Square image, up to 2MB. This is your Stack&apos;s logo.</p>
+        <p className="text-secondary text-text-muted">Square image, up to 2MB. This is your basket&apos;s logo.</p>
       </div>
 
       <div className="mt-5 space-y-4">
@@ -393,6 +397,13 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
         </Labeled>
         <Labeled label="Description" hint={`${description.length}/280`}>
           <textarea value={description} onChange={(e) => setDescription(e.target.value)} maxLength={280} rows={3} placeholder="What's the thesis?" className="w-full resize-none bg-transparent px-4 py-3 outline-none" />
+        </Labeled>
+        <Labeled
+          label="Telegram group link (optional)"
+          hint={telegram.trim() && !telegramOk ? "Not a Telegram link" : "Only holders see it"}
+          hintTone={telegram.trim() && !telegramOk ? "down" : undefined}
+        >
+          <input value={telegram} onChange={(e) => setTelegram(e.target.value)} maxLength={200} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="t.me/yourgroup" className="h-12 w-full bg-transparent px-4 outline-none" />
         </Labeled>
       </div>
 
@@ -430,7 +441,7 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
       )}
       <Footer>
         <Button className="w-full" disabled={!ready} loading={!!status} onClick={launch}>
-          {status ?? "Launch Stack"}
+          {status ?? "Launch basket"}
         </Button>
       </Footer>
     </div>

@@ -36,7 +36,7 @@ export async function clubRole(stack: StackRow, wallet: Address | null): Promise
 
 export async function requireMember(ctx: AuthContext, stack: StackRow) {
   const role = await clubRole(stack, ctx.wallet);
-  if (!role.isMember) throw new HttpError(403, `Only $${stack.ticker} holders can post in this Club. Buy the Stack to join.`, "not_member");
+  if (!role.isMember) throw new HttpError(403, `Only $${stack.ticker} holders can post in this Club. Buy the basket to join.`, "not_member");
   return role;
 }
 
@@ -78,4 +78,43 @@ export async function memberCounts(stacks: Pick<StackRow, "id" | "creator_id">[]
     out.set(Number(s.id), Math.max(1, ids.size));
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Telegram club link. Only the creator sets it; only holders (onchain) get it back.
+// ---------------------------------------------------------------------------
+
+/** Like clubRole, but a holder on any of the user's Privy-verified wallets counts. */
+export async function clubAccess(stack: StackRow, ctx: AuthContext | null): Promise<{ isOwner: boolean; isMember: boolean }> {
+  if (!ctx) return { isOwner: false, isMember: false };
+  const roles = await Promise.all([...new Set([ctx.wallet, ...ctx.wallets])].map((w) => clubRole(stack, w)));
+  return { isOwner: roles.some((r) => r.isOwner), isMember: roles.some((r) => r.isMember) };
+}
+
+export async function getClubLink(stackId: number): Promise<string | null> {
+  const row = must(await db().from("club_links").select("telegram_url").eq("stack_id", stackId).maybeSingle()) as { telegram_url: string } | null;
+  return row?.telegram_url ?? null;
+}
+
+export async function setClubLink(stackId: number, url: string | null, profileId: string | null) {
+  if (url === null) {
+    must(await db().from("club_links").delete().eq("stack_id", stackId));
+    return;
+  }
+  must(
+    await db()
+      .from("club_links")
+      .upsert({ stack_id: stackId, telegram_url: url, updated_by: profileId, updated_at: new Date().toISOString() }, { onConflict: "stack_id" }),
+  );
+}
+
+export async function reportClubLink(stackId: number, url: string, wallet: Address, profileId: string | null) {
+  must(
+    await db()
+      .from("club_link_reports")
+      .upsert(
+        { stack_id: stackId, telegram_url: url, reporter_wallet: wallet.toLowerCase(), reporter_profile_id: profileId },
+        { onConflict: "stack_id,reporter_wallet,telegram_url", ignoreDuplicates: true },
+      ),
+  );
 }

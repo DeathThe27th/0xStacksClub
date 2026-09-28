@@ -9,13 +9,13 @@ const verb: Record<Activity["type"], string> = { buy: "bought", sell: "sold", re
 /** "@ada bought $120 of AI Kings" with the asset row inline (UI_SPEC §8.3). */
 export function ActivityItem({ a, showActor = true }: { a: Activity; showActor?: boolean }) {
   const name = a.target?.kind === "stack" ? a.target.stack.name : a.target?.kind === "asset" ? a.target.asset.ticker : null;
-  const href = a.target?.kind === "stack" ? `/app/stack/${a.target.stack.id}` : a.target?.kind === "asset" ? `/app/stock/${a.target.asset.provider}/${a.target.asset.address}` : null;
+  const href = a.target?.kind === "stack" ? `/app/basket/${a.target.stack.id}` : a.target?.kind === "asset" ? `/app/stock/${a.target.asset.provider}/${a.target.asset.address}` : null;
   const amount = a.usd_amount != null ? usd(Number(a.usd_amount)) : null;
   const text =
     a.type === "claim"
       ? `claimed ${amount ?? ""} in creator fees`
       : a.type === "create_stack"
-        ? `created ${name ?? "a Stack"}`
+        ? `created ${name ?? "a basket"}`
         : `${verb[a.type]}${amount ? ` ${amount} of` : ""} ${name ?? ""}`;
   return (
     <div className="flex gap-3 py-3">

@@ -206,6 +206,14 @@ async function onStackCreated(log: Log, a: Record<string, unknown>) {
         { onConflict: "id" },
       ),
   );
+  if (meta?.telegram_url) {
+    // Club link from the create form. Never overwrite one the creator has since edited.
+    must(
+      await db()
+        .from("club_links")
+        .upsert({ stack_id: id, telegram_url: meta.telegram_url, updated_by: meta.profile_id }, { onConflict: "stack_id", ignoreDuplicates: true }),
+    );
+  }
   if (units) {
     must(
       await db()

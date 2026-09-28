@@ -72,6 +72,7 @@ export type StackMetadataRow = {
   ticker: string;
   description: string | null;
   image_url: string | null;
+  telegram_url?: string | null; // 0003_club_links
   created_at: string;
 };
 

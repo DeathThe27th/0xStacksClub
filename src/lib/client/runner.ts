@@ -8,6 +8,7 @@ import { sellFee } from "@/lib/math";
 import { ApiError } from "./api";
 import type { Intent, Leg } from "./types";
 import { browserPublicClient, type Signer } from "./wallet";
+import { APP_NAME } from "@/lib/constants";
 
 export type Api = <T>(path: string, init?: RequestInit & { json?: unknown }) => Promise<T>;
 
@@ -27,7 +28,7 @@ export class StopError extends Error {
 
 export function vaultAddr(): Address {
   const v = VAULT_ADDRESS ?? publicEnv().NEXT_PUBLIC_VAULT_ADDRESS;
-  if (!v) throw new Error("The StacksClub vault isn't deployed yet.");
+  if (!v) throw new Error(`The ${APP_NAME} vault isn't deployed yet.`);
   return getAddress(v);
 }
 

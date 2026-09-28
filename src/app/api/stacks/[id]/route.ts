@@ -5,14 +5,14 @@ import { readStack, vaultAddress } from "@/server/vault";
 
 export const GET = handler(async (_req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const id = Number((await params).id);
-  if (!Number.isInteger(id) || id < 1) throw new HttpError(400, "Bad Stack id");
+  if (!Number.isInteger(id) || id < 1) throw new HttpError(400, "Bad basket id");
   const stack = await getStackSummary(id);
-  if (!stack) throw new HttpError(404, "Stack not found");
+  if (!stack) throw new HttpError(404, "Basket not found");
 
   // Recipe comes from chain; the Supabase row is a cache. Refuse to show a mismatch.
   if (vaultAddress()) {
     const chain = await readStack(id);
-    if (!chain) throw new HttpError(404, "Stack not found onchain");
+    if (!chain) throw new HttpError(404, "Basket not found onchain");
     const same =
       chain.assets.length === stack.components.length &&
       chain.assets.every((a, i) => getAddress(a) === getAddress(stack.components[i]!.address) && chain.weightsBps[i] === stack.components[i]!.weight_bps);

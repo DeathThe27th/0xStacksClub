@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { publicEnv } from "@/lib/env";
+import { normalizeTelegramUrl, TELEGRAM_URL_ERROR } from "@/lib/telegram";
 import { requireProfile } from "@/server/auth";
 import { db, must } from "@/server/db";
 import { handler, HttpError, json, rateLimit } from "@/server/http";
@@ -15,7 +16,8 @@ const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 /**
  * Uploads the Stack image to Supabase Storage and stores the metadata JSON next to it. Returns the
- * metadataURI the creator passes to createStack. multipart/form-data: name, ticker, description, image.
+ * metadataURI the creator passes to createStack. multipart/form-data: name, ticker, description, image,
+ * and an optional telegram (club link, kept private: it is not written into the public metadata JSON).
  */
 export const POST = handler(async (req: Request) => {
   const ctx = await requireProfile(req);
@@ -24,6 +26,9 @@ export const POST = handler(async (req: Request) => {
     throw new HttpError(400, "Expected multipart form data");
   });
   const f = fields.parse({ name: form.get("name"), ticker: form.get("ticker"), description: form.get("description") ?? "" });
+  const telegramRaw = String(form.get("telegram") ?? "").trim();
+  const telegram = telegramRaw ? normalizeTelegramUrl(telegramRaw) : null;
+  if (telegramRaw && !telegram) throw new HttpError(400, TELEGRAM_URL_ERROR);
   const image = form.get("image");
   if (!(image instanceof File)) throw new HttpError(400, "Image is required");
   if (!IMAGE_TYPES.includes(image.type)) throw new HttpError(400, "Image must be PNG, JPEG, WebP or GIF");
@@ -60,6 +65,7 @@ export const POST = handler(async (req: Request) => {
       ticker: f.ticker,
       description: f.description || null,
       image_url: imageUrl,
+      ...(telegram ? { telegram_url: telegram } : {}),
     }),
   );
   return json({ metadataURI, imageUrl });

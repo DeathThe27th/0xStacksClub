@@ -4,6 +4,7 @@ import { PartyPopper } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
+import { APP_NAME } from "@/lib/constants";
 
 /** After launch: "Share AI Kings on X" with a prefilled post (FLOWS §8). */
 export function SharePrompt({ name, ticker }: { name: string; ticker: string }) {
@@ -17,7 +18,7 @@ export function SharePrompt({ name, ticker }: { name: string; ticker: string }) 
     }
   }, []);
   const link = typeof window !== "undefined" ? (window.location.href.split("?")[0] ?? "") : "";
-  const text = `I just launched $${ticker} (${name}) on StacksClub, a basket of tokenized stocks on BNB Chain.`;
+  const text = `I just launched $${ticker} (${name}) on ${APP_NAME}, a basket of tokenized stocks on BNB Chain.`;
   return (
     <Sheet open={open} onClose={() => setOpen(false)}>
       <div className="flex flex-col items-center pb-2 text-center">

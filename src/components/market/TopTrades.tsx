@@ -54,7 +54,7 @@ export function TopTrades() {
             weekly.data.items.map((w) => (
               <Card
                 key={w.profile.id}
-                href={w.target?.kind === "stack" ? `/app/stack/${w.target.stack.id}` : w.target?.kind === "asset" ? `/app/stock/${w.target.asset.provider}/${w.target.asset.address}` : `/app/u/${w.profile.username}`}
+                href={w.target?.kind === "stack" ? `/app/basket/${w.target.stack.id}` : w.target?.kind === "asset" ? `/app/stock/${w.target.asset.provider}/${w.target.asset.address}` : `/app/u/${w.profile.username}`}
                 person={w.profile}
                 logo={w.target?.kind === "stack" ? w.target.stack.image_url : w.target?.kind === "asset" ? w.target.asset.logo_url : null}
                 logoLabel={w.target?.kind === "stack" ? w.target.stack.ticker : w.target?.kind === "asset" ? w.target.asset.ticker : "?"}
@@ -72,7 +72,7 @@ export function TopTrades() {
             hof.data.items.map((h) => (
               <Card
                 key={h.stack.id}
-                href={`/app/stack/${h.stack.id}`}
+                href={`/app/basket/${h.stack.id}`}
                 person={h.creator ?? { id: "", username: "unknown", display_name: null, avatar_url: null }}
                 logo={h.stack.image_url}
                 logoLabel={h.stack.ticker}
@@ -80,7 +80,7 @@ export function TopTrades() {
               />
             ))
           ) : (
-            <EmptyCard text="Stacks that earn their creators the most fees land here." />
+            <EmptyCard text="Baskets that earn their creators the most fees land here." />
           )}
         </Page>
       </div>

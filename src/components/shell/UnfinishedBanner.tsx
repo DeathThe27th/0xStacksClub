@@ -7,9 +7,9 @@ import { useActiveIntents } from "@/lib/client/queries";
 
 const label: Record<string, string> = {
   buy_stock: "buy",
-  buy_stack: "Stack buy",
+  buy_stack: "basket buy",
   sell_stock: "sell",
-  sell_stack: "Stack sell",
+  sell_stack: "basket sell",
   redeem: "redemption",
 };
 

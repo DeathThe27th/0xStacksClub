@@ -4,12 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Clock, Search as SearchIcon, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { AssetRow, StackRow } from "@/components/market/Rows";
+import { AssetRow, BasketRow } from "@/components/market/Rows";
 import { Avatar } from "@/components/ui/Avatar";
 import { RowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/States";
 import { useApi } from "@/lib/client/api";
 import type { AssetItem, ProfileLite, StackSummary } from "@/lib/client/types";
+import { APP_NAME } from "@/lib/constants";
 
 const KEY = "stacksclub:recent-searches";
 function readRecent(): string[] {
@@ -54,7 +55,7 @@ export default function SearchPage() {
     <div className="px-gutter pt-4 lg:mx-auto lg:max-w-[760px] lg:px-0 lg:pt-8">
       <label className="flex h-12 items-center gap-2 rounded-chip border border-border bg-surface px-3 focus-within:border-primary">
         <SearchIcon size={18} className="text-text-muted" />
-        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stocks, Stacks, people" aria-label="Search" className="h-full flex-1 bg-transparent text-[16px] outline-none" />
+        <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Stocks, baskets, people" aria-label="Search" className="h-full flex-1 bg-transparent text-[16px] outline-none" />
         {q && (
           <button onClick={() => setQ("")} aria-label="Clear">
             <X size={18} className="text-text-muted" />
@@ -77,7 +78,7 @@ export default function SearchPage() {
             </ul>
           </section>
         ) : (
-          <EmptyState icon={<SearchIcon size={24} />} title="Search StacksClub" body="Find a stock by ticker or company, a Stack by name, or a person by username." />
+          <EmptyState icon={<SearchIcon size={24} />} title={`Search ${APP_NAME}`} body="Find a stock by ticker or company, a basket by name, or a person by username." />
         )
       ) : res.isLoading ? (
         <div className="mt-4">
@@ -95,9 +96,9 @@ export default function SearchPage() {
             </Section>
           )}
           {!!res.data?.stacks.length && (
-            <Section title="Stacks">
+            <Section title="Baskets">
               {res.data.stacks.map((s) => (
-                <StackRow key={s.id} s={s} />
+                <BasketRow key={s.id} s={s} />
               ))}
             </Section>
           )}

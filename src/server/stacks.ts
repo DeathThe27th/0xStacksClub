@@ -1,6 +1,6 @@
 import "server-only";
 import { getAddress } from "viem";
-import { indexValue, launchUnits } from "@/lib/math";
+import { INDEX_BASE, indexValue, launchUnits, positionValueScaled, scaledToNumber } from "@/lib/math";
 import type { AssetPriceRow, AssetRow, PublicProfile, StackIndexPointRow, StackRow } from "@/lib/supabase/types";
 import { getCandles, type CandleBar } from "@/server/binance";
 import { db, must } from "@/server/db";
@@ -11,6 +11,9 @@ export type StackSummary = StackRow & {
   referenceIndex: number | null;
   change: number | null; // since launch, percent
   change24h: number | null;
+  change7d: number | null;
+  /** USD value of every open position in this basket: onchain units × live prices. Null if a price is missing. */
+  valueHeldUsd: number | null;
   holders: number;
   creatorEarnedRaw: string;
 };
@@ -59,9 +62,9 @@ async function creatorEarned(ids: number[]): Promise<Map<number, bigint>> {
   return new Map(rows.map((r) => [Number(r.stack_id), BigInt(String(r.creator_earned_raw).split(".")[0]!)]));
 }
 
-async function index24hAgo(ids: number[]): Promise<Map<number, number>> {
+async function indexAgo(ids: number[], hours: number): Promise<Map<number, number>> {
   if (!ids.length) return new Map();
-  const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+  const since = new Date(Date.now() - hours * 3600_000).toISOString();
   const rows = must(
     await db().from("stack_index_points").select("stack_id, ts, value").in("stack_id", ids).gte("ts", since).order("ts", { ascending: true }),
   ) as StackIndexPointRow[];
@@ -70,26 +73,84 @@ async function index24hAgo(ids: number[]): Promise<Map<number, number>> {
   return m;
 }
 
+/**
+ * Raw units still held per basket component, from the vault's PositionOpened / PositionReleased
+ * events (mirrored in chain_events). Mirrors the contract: opened amounts minus released amounts.
+ */
+async function heldUnits(stacks: StackRow[]): Promise<Map<number, bigint[]>> {
+  const out = new Map<number, bigint[]>(stacks.map((s) => [Number(s.id), s.components.map(() => 0n)]));
+  if (!stacks.length) return out;
+  const opened = must(
+    await db()
+      .from("chain_events")
+      .select("data")
+      .eq("event", "PositionOpened")
+      .in("data->>stackId", stacks.map((s) => String(s.id))),
+  ) as { data: { positionId: string; stackId: string; amounts: string[] } }[];
+  const stackOf = new Map<string, number>();
+  for (const { data } of opened) {
+    const units = out.get(Number(data.stackId));
+    if (!units) continue;
+    stackOf.set(data.positionId, Number(data.stackId));
+    data.amounts.forEach((a, i) => (units[i] = (units[i] ?? 0n) + BigInt(a)));
+  }
+  if (!stackOf.size) return out;
+  const released = must(
+    await db().from("chain_events").select("data").eq("event", "PositionReleased").in("data->>positionId", [...stackOf.keys()]),
+  ) as { data: { positionId: string; amounts: string[] } }[];
+  for (const { data } of released) {
+    const units = out.get(stackOf.get(data.positionId)!);
+    if (!units) continue;
+    data.amounts.forEach((a, i) => (units[i] = (units[i] ?? 0n) - BigInt(a)));
+  }
+  return out;
+}
+
+async function decimalsFor(addresses: string[]): Promise<Map<string, number>> {
+  if (!addresses.length) return new Map();
+  const rows = must(await db().from("assets").select("address, decimals").in("address", addresses)) as Pick<AssetRow, "address" | "decimals">[];
+  return new Map(rows.map((r) => [r.address, r.decimals]));
+}
+
+function heldValue(stack: StackRow, units: bigint[] | undefined, prices: Map<string, AssetPriceRow>, decimals: Map<string, number>): number | null {
+  if (!units || units.every((u) => u === 0n)) return 0;
+  const holdings = stack.components.map((c, i) => ({
+    units: units[i] ?? 0n,
+    decimals: decimals.get(c.address) ?? -1,
+    price: prices.get(c.address)?.price_usd ?? null,
+  }));
+  // Never guess: a missing price or decimals on a held component means no number.
+  if (holdings.some((h) => h.units > 0n && (h.price === null || h.decimals < 0))) return null;
+  const v = positionValueScaled(holdings.filter((h) => h.units > 0n));
+  return v === null ? null : scaledToNumber(v);
+}
+
 export async function summarize(stacks: StackRow[]): Promise<StackSummary[]> {
   const addrs = [...new Set(stacks.flatMap((s) => s.components.map((c) => c.address)))];
   const ids = stacks.map((s) => Number(s.id));
-  const [prices, creators, holders, earned, dayAgo] = await Promise.all([
+  const [prices, creators, holders, earned, dayAgo, weekAgo, held, decimals] = await Promise.all([
     pricesFor(addrs),
     creatorProfiles(stacks.map((s) => s.creator_id).filter((x): x is string => !!x)),
     holderCounts(ids),
     creatorEarned(ids),
-    index24hAgo(ids),
+    indexAgo(ids, 24),
+    indexAgo(ids, 7 * 24),
+    heldUnits(stacks),
+    decimalsFor(addrs),
   ]);
   return stacks.map((s) => {
     const { index, reference } = currentIndex(s, prices);
     const prev = dayAgo.get(Number(s.id));
+    const prevWeek = weekAgo.get(Number(s.id));
     return {
       ...s,
       creator: s.creator_id ? (creators.get(s.creator_id) ?? null) : null,
       index,
       referenceIndex: reference,
-      change: index === null ? null : (index / 1000 - 1) * 100,
+      change: index === null ? null : (index / INDEX_BASE - 1) * 100,
       change24h: index !== null && prev ? (index / prev - 1) * 100 : null,
+      change7d: index !== null && prevWeek ? (index / prevWeek - 1) * 100 : null,
+      valueHeldUsd: heldValue(s, held.get(Number(s.id)), prices, decimals),
       holders: holders.get(Number(s.id)) ?? 0,
       creatorEarnedRaw: (earned.get(Number(s.id)) ?? 0n).toString(),
     };

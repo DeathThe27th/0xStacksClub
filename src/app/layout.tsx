@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Geist } from "next/font/google";
 import "./globals.css";
 import { themeBootScript } from "@/lib/theme-script";
 import { Providers } from "./providers";
+import { APP_NAME } from "@/lib/constants";
 
 const sans = Geist({
   subsets: ["latin"],
@@ -20,8 +21,8 @@ const display = Bricolage_Grotesque({
 });
 
 export const metadata: Metadata = {
-  title: "StacksClub",
-  description: "Stocks, onchain. Build and share your own Stacks.",
+  title: APP_NAME,
+  description: "Stocks, onchain. Build and share your own stock baskets.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

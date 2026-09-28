@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/Switch";
 import { price, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import type { Holder } from "@/lib/client/types";
+import { APP_NAME } from "@/lib/constants";
 
 /** Holders tab (UI_SPEC §4.4): our users only, with a Friends filter and inline latest comment. */
 export function HoldersTab({ targetType, targetId }: { targetType: "asset" | "stack"; targetId: string }) {
@@ -33,7 +34,7 @@ export function HoldersTab({ targetType, targetId }: { targetType: "asset" | "st
       ) : q.isError ? (
         <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />
       ) : !items.length ? (
-        <EmptyState icon={<Users size={24} />} title={friends ? "None of your friends hold this" : "No StacksClub holders yet"} body={friends ? undefined : "Be the first to buy it."} />
+        <EmptyState icon={<Users size={24} />} title={friends ? "None of your friends hold this" : `No ${APP_NAME} holders yet`} body={friends ? undefined : "Be the first to buy it."} />
       ) : (
         <ul className="space-y-5">
           {items.map((h) => (

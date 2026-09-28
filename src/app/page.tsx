@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
+import { APP_NAME } from "@/lib/constants";
 
 function Landing() {
   const { ready, authenticated } = usePrivy();
@@ -33,11 +34,11 @@ function Landing() {
         <h1>
           <Wordmark size={48} />
         </h1>
-        <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Build and share your own Stacks.</p>
+        <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Build and share your own stock baskets.</p>
       </div>
       <div className="relative pb-8">
         <Button className="w-full" onClick={() => login()} disabled={!ready} loading={!ready}>
-          {ready && authenticated ? "Opening StacksClub" : "Get started"}
+          {ready && authenticated ? `Opening ${APP_NAME}` : "Get started"}
         </Button>
         {loginError && (
           <p className="mt-3 text-center text-secondary text-down" role="alert">

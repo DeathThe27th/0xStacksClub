@@ -1,10 +1,11 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronRight, ChevronsUpDown, MessagesSquare } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
+import { ClubSection } from "@/components/club/ClubSection";
 import { StickyCta } from "@/components/detail/Cta";
 import { TradePanel } from "@/components/trade/TradePanel";
 import { OverlayToggle, StatsStrip, TradesFeed, useTrades } from "@/components/detail/Trades";
@@ -25,7 +26,8 @@ import { Tabs } from "@/components/ui/Tabs";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
 import { vaultAddr } from "@/lib/client/runner";
-import { indexValue, pct, shortAddress, usd } from "@/lib/format";
+import { pct, shortAddress, usd } from "@/lib/format";
+import { INDEX_BASE } from "@/lib/math";
 import { useApi } from "@/lib/client/api";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
 import type { AssetItem, StackSummary } from "@/lib/client/types";
@@ -33,7 +35,7 @@ import type { AssetItem, StackSummary } from "@/lib/client/types";
 type Component = AssetItem & { weightBps: number; valueWeightPct: number | null };
 type Detail = { stack: StackSummary; components: Component[] };
 
-export default function StackPage({ params }: { params: Promise<{ id: string }> }) {
+export default function BasketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const api = useApi();
   const [tf, setTf] = useState<Timeframe>("1D");
@@ -53,6 +55,8 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
   });
   const s = q.data?.stack;
   const points: Point[] = useMemo(() => series.data?.points ?? [], [series.data]);
+  // The series is an index (what $1,000 at launch is worth now). It only drives the chart and the
+  // percent moves; the headline number is the real USD value held in the basket.
   const current = scrub?.value ?? s?.index ?? points.at(-1)?.value ?? null;
   const first = points[0]?.value;
   const change = first && current !== null ? current - first : null;
@@ -104,18 +108,26 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
 
       <StatsStrip
         items={[
-          { label: "Index", value: indexValue(s?.index) },
+          { label: "Value held", value: usd(s?.valueHeldUsd) },
           { label: "Since launch", value: <Change value={s?.change} /> },
           { label: "24h", value: <Change value={s?.change24h} /> },
+          { label: "7d", value: <Change value={s?.change7d} /> },
           { label: "Holders", value: s?.holders ?? "—" },
           { label: "Creator earned", value: s ? usd(Number(BigInt(s.creatorEarnedRaw)) / 1e18) : "—" },
-          { label: "Stocks", value: s?.components.map((c) => c.ticker).join(" · ") ?? "—" },
+          { label: `${s?.components.length ?? ""} stocks`.trim(), value: s?.components.map((c) => c.ticker).join(" · ") ?? "—" },
         ]}
       />
 
       <section className="mt-4 flex items-start justify-between gap-4 px-gutter lg:mt-6 lg:px-0">
         <div className="min-w-0">
-          {q.isLoading ? <Bar className="h-9 w-40" /> : <p className="text-detail-price tnum">{indexValue(current)}</p>}
+          {q.isLoading ? (
+            <Bar className="h-9 w-40" />
+          ) : (
+            <p className="text-detail-price tnum" title="USD value of every open position in this basket">
+              {usd(s?.valueHeldUsd)}
+              <span className="ml-2 text-[15px] font-normal text-text-muted">held</span>
+            </p>
+          )}
           <p className="mt-1 flex items-center gap-2">
             <Change value={changePct} />
             <span className="text-change text-text-muted">{scrub ? new Date(scrub.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : tf === "ALL" ? "All" : tf === "1W" ? "7d" : tf === "1D" ? "24h" : "1h"}</span>
@@ -138,7 +150,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         ) : series.isError ? (
           <ErrorState message="Index data isn't available right now." onRetry={() => series.refetch()} />
         ) : points.length > 1 ? (
-          <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => indexValue(n)} showReference={points.some((p) => p.reference != null)} markers={trades.markers} />
+          <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => `${n >= INDEX_BASE ? "+" : "-"}${pct((n / INDEX_BASE - 1) * 100)}`} showReference={points.some((p) => p.reference != null)} markers={trades.markers} />
         ) : (
           <div className="grid h-[320px] place-items-center px-8 text-center text-secondary text-text-muted">The index chart fills in as points are recorded every 5 minutes.</div>
         )}
@@ -148,19 +160,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
         </div>
       </div>
 
-      <Link
-        href={`/app/club/${id}`}
-        className="press mx-gutter mt-5 flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 hover:bg-surface-2 lg:mx-0"
-      >
-        <span className="grid h-9 w-9 place-items-center rounded-full bg-primary/15 text-link">
-          <MessagesSquare size={18} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-semibold">{s ? `$${s.ticker} Club` : "Club"}</span>
-          <span className="block truncate text-[13px] text-text-muted">Holders-only chat, run by the creator</span>
-        </span>
-        <ChevronRight size={18} className="text-text-muted" />
-      </Link>
+      <ClubSection stackId={id} ticker={s?.ticker} />
 
       <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
       <div className="px-gutter lg:px-0">
@@ -221,7 +221,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
                 </a>
               </Row>
             </dl>
-            <p className="text-secondary text-text-muted">The index is the value of $1,000 put into this Stack at launch, without rebalancing. It isn&apos;t a token price.</p>
+            <p className="text-secondary text-text-muted">Value held is the live USD value of every open position in this basket. The chart and percent moves track what $1,000 put in at launch would be worth now, without rebalancing.</p>
             <p className="text-secondary text-text-muted">Buying creates your own position with the exact tokens bought. Weights are not rebalanced.</p>
           </div>
         )}

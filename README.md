@@ -1,8 +1,13 @@
-# StacksClub
+# Stocks n Clubs
 
-A social market for tokenized stocks and creator-made stock baskets ("Stacks") on BNB Smart Chain
-mainnet. Users buy provider-issued stock tokens (bStocks, Ondo) with USDT, build immutable Stacks of
-2 to 5 of them, buy their own positions in other people's Stacks, and follow, comment and share.
+A social market for tokenized stocks and creator-made stock baskets on BNB Smart Chain mainnet.
+Users buy provider-issued stock tokens (bStocks, Ondo) with USDT, build immutable baskets of 2 to 5
+of them, buy their own positions in other people's baskets, and join each basket's holders-only
+Telegram club.
+
+The display name lives in one place: `APP_NAME` in `src/lib/constants.ts`. Code, tables and the
+contract still say "stack" (e.g. `stacks`, `StacksClubVault`, `/api/stacks`): a basket is a
+`Stack` onchain and in the database.
 
 - Live: https://0x-stacks-club.vercel.app
 - Vault: [`0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17`](https://bscscan.com/address/0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17) (BSC, verified)
@@ -10,14 +15,14 @@ mainnet. Users buy provider-issued stock tokens (bStocks, Ondo) with USDT, build
 
 ## How it works
 
-- **Positions are exact lots.** Buying a Stack pays a 1% fee to the vault, buys each component in
+- **Positions are exact lots.** Buying a basket pays a 1% fee to the vault, buys each component in
   turn with the user's own wallet (Binance Web3 Trading API, SWAP or RFQ), then deposits the exact
   tokens received into `StacksClubVault`, which mints a non-transferable position NFT. No
-  rebalancing, no fungible Stack token.
+  rebalancing, no fungible basket token.
 - **Nothing is atomic, and the UI says so.** Every buy, sell and redeem is a persisted intent
   (`intents`, `intent_legs`). The server verifies each step against the chain or Binance before
   saving it, so a closed tab resumes from the right step without buying twice.
-- **Fees.** 1% buy fee on the gross amount, collected by the vault. On Stack buys 25% of it is the
+- **Fees.** 1% buy fee on the gross amount, collected by the vault. On basket buys 25% of it is the
   creator's, claimable onchain. 1% sell fee on actual proceeds goes to the platform.
   **The sell fee is app-enforced, not contract-enforced:** the contract can't see offchain sale
   proceeds, so the app calls `paySellFee` after the sale settles.
@@ -84,7 +89,8 @@ cp .env.example .env.local        # fill in the values below
 ### Supabase
 
 1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
-   buckets, Realtime).
+   buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
+   link reports) in order.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
    the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
    you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,

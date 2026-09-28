@@ -1,6 +1,12 @@
-# StacksClub
+# Stocks n Clubs (formerly StacksClub)
 
-Social market for tokenized stocks and creator-made stock baskets ("Stacks") on BNB Smart Chain mainnet (chain ID 56).
+Social market for tokenized stocks and creator-made stock baskets on BNB Smart Chain mainnet (chain ID 56).
+
+## Naming
+
+- The user-facing name is `APP_NAME` in `src/lib/constants.ts`. Never hardcode it.
+- Users see "basket" / "baskets" (plain wording, no branding). Internally a basket is still a "Stack": the `stacks` table, `stack_id` columns, `StacksClubVault`, `/api/stacks` and `buy_stack` intents keep that name because stored data and the deployed contract depend on it. The docs below use "Stack".
+- A basket's Club is only its creator's Telegram group link (`club_links`), revealed by the API to wallets holding the basket onchain. No in-app chat. The old `club_posts` chat UI is retired; its table and API routes are kept for the data.
 
 ## Read these before any task
 

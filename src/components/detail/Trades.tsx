@@ -11,11 +11,12 @@ import { cn } from "@/lib/cn";
 import { price, timeAgo, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import type { ProfileLite } from "@/lib/client/types";
+import { APP_NAME } from "@/lib/constants";
 
 export type PublicTrade = { id: number; side: "buy" | "sell"; usd: number; price: number | null; at: string; trader: ProfileLite | null; isMe: boolean; isFriend: boolean };
 export type Overlay = "all" | "friends" | "mine" | "off";
 
-/** StacksClub users' trades in one stock or Stack, plus chart markers filtered by overlay. */
+/** App users' trades in one stock or Stack, plus chart markers filtered by overlay. */
 export function useTrades(targetType: "asset" | "stack", targetId: string) {
   const api = useApi();
   const [overlay, setOverlay] = useState<Overlay>("all");
@@ -60,14 +61,14 @@ export function OverlayToggle({ value, onChange }: { value: Overlay; onChange: (
   );
 }
 
-/** Live trades by StacksClub users (fomo-style), newest first. */
+/** Live trades by app users (fomo-style), newest first. */
 export function TradesFeed({ trades, loading, className }: { trades: PublicTrade[]; loading: boolean; className?: string }) {
   return (
     <div className={className}>
       {loading ? (
         <p className="py-6 text-center text-[14px] text-text-muted">Loading trades…</p>
       ) : !trades.length ? (
-        <EmptyState icon={<Receipt size={22} />} title="No trades yet" body="Buys and sells by StacksClub users show up here." />
+        <EmptyState icon={<Receipt size={22} />} title="No trades yet" body={`Buys and sells by ${APP_NAME} users show up here.`} />
       ) : (
         <table className="w-full text-[13px]">
           <thead>

@@ -152,15 +152,15 @@ export async function createIntent(ctx: AuthContext & { profile: NonNullable<Aut
     }
     case "buy_stack": {
       const stack = await readStack(input.stackId);
-      if (!stack) throw new HttpError(404, "Stack not found onchain");
+      if (!stack) throw new HttpError(404, "Basket not found onchain");
       for (const a of stack.assets) {
         await requireTradable(a, "trade").catch((e) => {
-          throw new HttpError(422, `This Stack can't be bought right now: ${(e as Error).message}`);
+          throw new HttpError(422, `This basket can't be bought right now: ${(e as Error).message}`);
         });
       }
       const gross = BigInt(input.grossAmount);
       const min = await minBuyRaw(stack.assets.length);
-      if (gross < min) throw new HttpError(422, `Minimum buy for this Stack is $${stack.assets.length >= 4 ? MIN_BUY_USD_LARGE : MIN_BUY_USD_SMALL}`);
+      if (gross < min) throw new HttpError(422, `Minimum buy for this basket is $${stack.assets.length >= 4 ? MIN_BUY_USD_LARGE : MIN_BUY_USD_SMALL}`);
       await requireUsdt(wallet, gross);
       const { fee, net } = buyFee(gross, true);
       const alloc = allocate(net, stack.weightsBps);
@@ -556,7 +556,7 @@ export async function advanceIntent(ctx: AuthContext, id: string, input: Advance
       break;
     }
     case "deposit": {
-      if (intent.kind !== "buy_stack") throw new HttpError(409, "Only Stack buys deposit");
+      if (intent.kind !== "buy_stack") throw new HttpError(409, "Only basket buys deposit");
       if (intent.legs.some((l) => l.status !== "filled")) throw new HttpError(409, "Every leg must be filled before depositing");
       const receipt = await receiptFor(input.txHash, wallet);
       const ev = vaultEvents(receipt).find((e) => e.eventName === "PositionOpened");

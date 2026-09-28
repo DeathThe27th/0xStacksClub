@@ -68,7 +68,7 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
           {[
             ["USDT cash", d ? usd(d.usdt.display) : "—"],
             ["Stocks", d ? usd(stocksValue) : "—"],
-            ["Stacks", d ? usd(stacksValue) : "—"],
+            ["Baskets", d ? usd(stacksValue) : "—"],
             ["BNB for gas", d ? `${d.bnb.display.toFixed(4)} BNB` : "—"],
           ].map(([k, v]) => (
             <div key={k} className="rounded-chip bg-surface-2 px-4 py-3">
@@ -86,7 +86,7 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
             <Bar className="h-10 w-full" />
           </div>
         ) : !d.holdings.length && !d.positions.length ? (
-          <EmptyState icon={<Wallet size={24} />} title="Nothing here yet" body="Deposit USDT, then pick a stock or a Stack from the list on the left." />
+          <EmptyState icon={<Wallet size={24} />} title="Nothing here yet" body="Deposit USDT, then pick a stock or a basket from the list on the left." />
         ) : (
           <table className="mt-3 w-full text-[14px]">
             <thead>
@@ -111,7 +111,7 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
                       </span>
                     </Link>
                   </td>
-                  <td className="py-3 text-right text-text-muted">Stack</td>
+                  <td className="py-3 text-right text-text-muted">Basket</td>
                   <td className="py-3 text-right text-text-muted">—</td>
                   <td className="py-3 text-right font-medium tnum">{usd(x.valueUsd)}</td>
                   <td className="py-3 text-right text-text-muted">—</td>

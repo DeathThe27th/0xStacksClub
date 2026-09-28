@@ -50,7 +50,7 @@ export default function Onboarding() {
     <main className="mx-auto max-w-app px-gutter pb-10 pt-[calc(env(safe-area-inset-top)+24px)]">
       <Wordmark size={24} />
       <h1 className="mt-6 text-[28px] font-bold leading-tight">Set up your profile</h1>
-      <p className="mt-2 text-[15px] text-text-muted">This is how people see you when you trade and share Stacks.</p>
+      <p className="mt-2 text-[15px] text-text-muted">This is how people see you when you trade and share stock baskets.</p>
       <div className="mt-8">
         <ProfileForm
           initial={null}

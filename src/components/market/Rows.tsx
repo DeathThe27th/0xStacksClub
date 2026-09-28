@@ -6,7 +6,7 @@ import { AvatarStack } from "@/components/ui/Avatar";
 import { Change } from "@/components/ui/Change";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
-import { compact, indexValue, price as fmtPrice } from "@/lib/format";
+import { compact, price as fmtPrice, usd } from "@/lib/format";
 import type { AssetItem, StackSummary } from "@/lib/client/types";
 
 const num = (v: string | null | undefined) => (v === null || v === undefined ? null : Number(v));
@@ -49,10 +49,12 @@ export function AssetRow({ a, wide = false }: { a: AssetItem; wide?: boolean }) 
   );
 }
 
-export function StackRow({ s }: { s: StackSummary }) {
-  const flash = useFlash(s.index);
+export function BasketRow({ s }: { s: StackSummary }) {
+  const flash = useFlash(s.valueHeldUsd);
+  // 24h move when there's a point a day back, else 7d. Never the since-launch number here.
+  const move = s.change24h !== null ? { value: s.change24h, label: " 24h" } : { value: s.change7d, label: " 7d" };
   return (
-    <Link href={`/app/stack/${s.id}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
+    <Link href={`/app/basket/${s.id}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
       <TokenLogo src={s.image_url} label={s.ticker} size={48} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center text-row font-semibold uppercase">
@@ -60,12 +62,15 @@ export function StackRow({ s }: { s: StackSummary }) {
           {s.friends && <AvatarStack people={s.friends.avatars} extra={s.friends.count - s.friends.avatars.length} />}
         </p>
         <p className="mt-0.5 truncate text-secondary text-text-muted">
-          by @{s.creator?.username ?? `${s.creator_address.slice(0, 6)}…`} · {s.components.length} stocks
+          by @{s.creator?.username ?? `${s.creator_address.slice(0, 6)}…`} · {s.components.length} {s.components.length === 1 ? "stock" : "stocks"}
         </p>
       </div>
       <div className={cn("rounded-md px-1 text-right", flash)}>
-        <p className="text-row font-medium tnum">{indexValue(s.index)}</p>
-        <Change value={s.change24h ?? s.change} className="mt-0.5 justify-end" />
+        <p className="text-row font-medium tnum" title="Total value held in this basket">
+          {usd(s.valueHeldUsd, { compact: (s.valueHeldUsd ?? 0) >= 10_000 })}
+          <span className="ml-1 text-secondary font-normal text-text-muted">held</span>
+        </p>
+        <Change value={move.value} suffix={move.value === null ? undefined : move.label} className="mt-0.5 justify-end" />
       </div>
     </Link>
   );
