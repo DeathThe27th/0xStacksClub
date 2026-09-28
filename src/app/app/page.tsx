@@ -4,8 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Overview } from "@/components/desktop/Overview";
-import { BalanceBento } from "@/components/market/BalanceCard";
-import { MarketTabs } from "@/components/market/MarketTabs";
+import { Balance, MarketTabs } from "@/components/market/MarketTabs";
 import { TopTrades } from "@/components/market/TopTrades";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -21,7 +20,7 @@ export default function Home() {
           <header className="px-gutter pt-4">
             <Wordmark size={26} />
           </header>
-          <BalanceBento onDeposit={() => setDepositOpen(true)} />
+          <Balance onDeposit={() => setDepositOpen(true)} />
           <TopTrades />
           <MarketTabs className="mt-6 px-gutter" />
         </PullToRefresh>
