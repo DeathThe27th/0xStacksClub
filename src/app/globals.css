@@ -11,9 +11,9 @@
   --text: 255 255 255;
   --text-muted: 150 150 158; /* #96969E */
   --text-dim: 92 92 100;
-  --primary: 0 67 254; /* #0043FE */
-  --primary-press: 0 54 214;
-  --link: 92 138 255; /* primary lifted for text on black */
+  --primary: 108 71 255; /* #6C47FF violet; white text on it passes AA */
+  --primary-press: 88 52 230;
+  --link: 160 140 255; /* primary lifted for text on black */
   --up: 34 197 94;
   --down: 255 68 48;
   --warn: 245 165 36;
@@ -29,9 +29,9 @@
   --text: 10 10 12;
   --text-muted: 98 102 113; /* #626671, 5.9:1 on white */
   --text-dim: 158 162 171;
-  --primary: 0 67 254;
-  --primary-press: 0 54 214;
-  --link: 0 67 254;
+  --primary: 108 71 255;
+  --primary-press: 88 52 230;
+  --link: 108 71 255;
   --up: 22 163 74;
   --down: 220 38 38;
   --warn: 196 120 6;

@@ -9,7 +9,7 @@ import { usePortfolio } from "@/lib/client/queries";
 import { useActiveWallet } from "@/lib/client/wallet";
 
 /**
- * Phone Home balance as a bento: a card-shaped blue balance tile, then small tiles for cash,
+ * Phone Home balance as a bento: a card-shaped primary-colour balance tile, then small tiles for cash,
  * today's movers and Deposit. Every number is live.
  */
 export function BalanceBento({ onDeposit }: { onDeposit: () => void }) {
