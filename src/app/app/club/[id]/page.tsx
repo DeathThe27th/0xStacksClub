@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Bar } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 import { timeAgo } from "@/lib/format";
@@ -35,6 +36,7 @@ type ClubResponse = { stack: StackSummary; members: number; viewer: Viewer; pinn
 export default function ClubPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const api = useApi();
+  const toast = useToast();
   const router = useRouter();
   const qc = useQueryClient();
   const me = useMe();
@@ -53,6 +55,7 @@ export default function ClubPage({ params }: { params: Promise<{ id: string }> }
       action === "remove"
         ? api(`/api/clubs/${id}/posts/${post.id}`, { method: "DELETE" })
         : api(`/api/clubs/${id}/posts/${post.id}`, { method: "PATCH", json: { pinned: action === "pin" } }),
+    onError: (e) => toast({ title: "Couldn't update the post", body: (e as Error).message, tone: "down" }),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ["club-posts", id] });
       qc.invalidateQueries({ queryKey: ["club", id] });
@@ -244,7 +247,7 @@ function Composer({ stackId, isOwner }: { stackId: string; isOwner: boolean }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (body.trim()) send.mutate();
+        if (body.trim() && !send.isPending) send.mutate();
       }}
       className="sticky bottom-0 border-t border-border bg-bg/95 px-gutter pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 backdrop-blur lg:rounded-card lg:border lg:px-3 lg:pb-3"
     >
@@ -259,7 +262,7 @@ function Composer({ stackId, isOwner }: { stackId: string; isOwner: boolean }) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
-              if (body.trim()) send.mutate();
+              if (body.trim() && !send.isPending) send.mutate();
             }
           }}
           placeholder={announce ? "Write an announcement for all holders" : "Message the Club"}

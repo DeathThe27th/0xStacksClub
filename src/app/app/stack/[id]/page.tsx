@@ -135,6 +135,8 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
       <div className="mt-4">
         {series.isLoading ? (
           <Bar className="mx-gutter h-[320px] lg:mx-0 lg:h-[420px]" />
+        ) : series.isError ? (
+          <ErrorState message="Index data isn't available right now." onRetry={() => series.refetch()} />
         ) : points.length > 1 ? (
           <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => indexValue(n)} showReference={points.some((p) => p.reference != null)} markers={trades.markers} />
         ) : (
@@ -199,7 +201,7 @@ export default function StackPage({ params }: { params: Promise<{ id: string }> 
                 </Link>
               </li>
             ))}
-            <p className="text-[13px] text-text-muted">Recipe weight, then current value weight. They drift apart because nothing is rebalanced.</p>
+            <li className="text-[13px] text-text-muted">Recipe weight, then current value weight. They drift apart because nothing is rebalanced.</li>
           </ul>
         )}
         {tab === "about" && s && (

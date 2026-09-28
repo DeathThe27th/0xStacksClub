@@ -32,7 +32,7 @@ The current project is aimed at the BNB Chain tokenized-stocks hackathon. Target
 - A creator picks the provider token for each component, weights, name/ticker, description, and icon/image. After launch, the recipe cannot be edited.
 - The first version is stocks only. Memecoins, arbitrary tokens, leverage, lending/earn, and DCA are later ideas, not initial scope.
 - Creating a Stack has no app fee; the creator still pays BNB gas for the onchain transaction.
-- Minimum purchase is `$5` for 1–3 assets and `$10` for 4–5 assets.
+- Minimum purchase is `$1` for 1–3 assets and `$10` for 4–5 assets.
 - Weights apply to the amount allocated when a user buys. There is no automatic rebalancing. If a Stack starts 50%/25%/25%, the next buy uses that recipe, but later price changes can make the holdings' market-value weights very different.
 
 ### Position ownership

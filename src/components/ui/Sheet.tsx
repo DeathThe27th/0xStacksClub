@@ -1,13 +1,18 @@
 "use client";
 
 import { AnimatePresence, motion, useDragControls } from "framer-motion";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/cn";
 import { useIsDesktop } from "@/lib/client/media";
 
 /**
  * Bottom sheet (UI_SPEC §6.1): spring (stiffness 400, damping 40), black/60 backdrop, surface,
  * 24px top radius, 36x4 grabber, centered 20/600 title, drag down to dismiss.
+ *
+ * Portaled to <body>: callers sit inside the blurred top bar (backdrop-filter makes it the
+ * containing block for fixed children) and the sticky market pane (its own stacking context),
+ * which would otherwise pin the sheet to the header or tuck it under the chart.
  */
 export function Sheet({
   open,
@@ -26,6 +31,8 @@ export function Sheet({
 }) {
   const drag = useDragControls();
   const desktop = useIsDesktop();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && dismissable && onClose();
@@ -38,7 +45,8 @@ export function Sheet({
     };
   }, [open, onClose, dismissable]);
 
-  return (
+  if (!mounted) return null;
+  return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50">
@@ -84,6 +92,7 @@ export function Sheet({
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }

@@ -228,7 +228,7 @@ are collected by the vault contract instead, so we never send fee params.
    IP. Vercel must run functions in `sin1` (or another permitted region), and US/GB/CA/NL visitors
    are refused on trading routes.
 2. **Ondo minimum order size.** `40375` says Ondo orders have a USD minimum (doc example: $20).
-   Our settled rule is a $5 minimum for 1–3 component Stacks, which gives ~$1.67 legs. Stacks with
+   Our settled rule is a $1 minimum for 1–3 component Stacks, which gives ~$0.33 legs. Stacks with
    an Ondo component will fail the Ondo leg below that minimum. **Not changed in code; reported.**
    The buy sheet surfaces the exact `msg` from the quote before any money moves.
 3. **RFQ approvals are vendor-specific** (e.g. Permit2 for PcsXRfq). The approval spender comes from

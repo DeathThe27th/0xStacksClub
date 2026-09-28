@@ -63,6 +63,7 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
   const [running, setRunning] = useState(false);
   const [stopped, setStopped] = useState<{ message: string; step: StepKey } | null>(null);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [stopError, setStopError] = useState<string | null>(null);
   const started = useRef(false);
 
   const run = useCallback(async () => {
@@ -122,7 +123,13 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
   };
 
   const stopAndKeep = async () => {
-    await api(`/api/intents/${intentId}`, { method: "PATCH", json: { action: "cancel" } });
+    try {
+      await api(`/api/intents/${intentId}`, { method: "PATCH", json: { action: "cancel" } });
+    } catch (e) {
+      setStopError((e as Error).message);
+      setConfirmStop(false);
+      return;
+    }
     qc.invalidateQueries({ queryKey: ["intents"] });
     qc.invalidateQueries({ queryKey: ["portfolio"] });
     onClose();
@@ -160,6 +167,7 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
           <Checklist steps={steps} />
           {stopped && !running && (
             <div className="mt-6 space-y-2">
+              {stopError && <p className="text-center text-secondary text-down">Couldn&apos;t stop: {stopError}</p>}
               <Button className="w-full" onClick={retry}>
                 Retry
               </Button>
@@ -167,7 +175,8 @@ export function IntentSheet({ intentId, open, onClose, autoStart = true }: { int
                 (confirmStop ? (
                   <div className="rounded-card bg-surface-2 p-4">
                     <p className="text-secondary text-text">
-                      {boughtAny ? "Tokens already bought stay in your wallet as single stocks." : "Nothing was bought yet."} The 1% fee isn&apos;t refunded.
+                      {boughtAny ? "Tokens already bought stay in your wallet as single stocks." : "Nothing was bought yet."}
+                      {intent.fee_receipt_id ? " The 1% fee isn't refunded." : " No fee was taken."}
                     </p>
                     <div className="mt-3 flex gap-2">
                       <Button variant="secondary" size="md" className="flex-1" onClick={() => setConfirmStop(false)}>

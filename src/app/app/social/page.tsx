@@ -11,6 +11,7 @@ import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { RowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
+import { useToast } from "@/components/ui/Toast";
 import { usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import type { Activity, ProfileLite } from "@/lib/client/types";
@@ -19,6 +20,7 @@ type Creator = { profile: ProfileLite; earnedRaw: string; buyers: number; stacks
 
 export default function Social() {
   const api = useApi();
+  const toast = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"following" | "discover">("following");
   const feed = useQuery({ queryKey: ["activity", "following"], queryFn: () => api<{ items: Activity[] }>("/api/activity?tab=following"), enabled: tab === "following", refetchInterval: 20_000 });
@@ -32,6 +34,7 @@ export default function Social() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activity"] });
     },
+    onError: (e) => toast({ title: "Couldn't update follow", body: (e as Error).message, tone: "down" }),
   });
 
   return (

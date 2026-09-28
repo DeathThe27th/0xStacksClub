@@ -76,7 +76,7 @@ function PickStep({ picks, setPicks, onNext }: { picks: Pick[]; setPicks: (p: Pi
     const m = new Map<string, AssetItem[]>();
     for (const a of assets.data?.items ?? []) {
       if (!a.can_stack) continue;
-      m.set(a.ticker, [...(m.get(a.ticker) ?? []), a].sort((x) => (x.provider === "bstock" ? -1 : 1)));
+      m.set(a.ticker, [...(m.get(a.ticker) ?? []), a].sort((x, y) => Number(x.provider !== "bstock") - Number(y.provider !== "bstock")));
     }
     return m;
   }, [assets.data]);
@@ -201,19 +201,7 @@ function WeightStep({ picks, weights, setWeights, onEqual, onNext }: { picks: Pi
             <div className="flex items-center gap-3">
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[i] }} />
               <span className="flex-1 text-[16px] font-semibold">{p.ticker}</span>
-              <label className="flex h-10 items-center rounded-chip border border-border bg-surface px-3 focus-within:border-primary">
-                <input
-                  inputMode="decimal"
-                  aria-label={`${p.ticker} weight percent`}
-                  value={(weights[i]! / 100).toString()}
-                  onChange={(e) => {
-                    const v = Math.round(Math.min(100, Math.max(0, Number(e.target.value.replace(/[^0-9.]/g, "")) || 0)) * 100);
-                    setWeights(weights.map((w, j) => (j === i ? v : w)));
-                  }}
-                  className="w-14 bg-transparent text-right text-[16px] outline-none tnum"
-                />
-                <span className="ml-0.5 text-text-muted">%</span>
-              </label>
+              <WeightInput label={`${p.ticker} weight percent`} bps={weights[i]!} onChange={(v) => setWeights(weights.map((w, j) => (j === i ? v : w)))} />
             </div>
             <input
               type="range"
@@ -235,6 +223,30 @@ function WeightStep({ picks, weights, setWeights, onEqual, onNext }: { picks: Pi
         </Button>
       </Footer>
     </div>
+  );
+}
+
+/** Percent field that keeps the typed text ("33.", "0.5") while editing; bps is the source of truth. */
+function WeightInput({ label, bps, onChange }: { label: string; bps: number; onChange: (bps: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <label className="flex h-10 items-center rounded-chip border border-border bg-surface px-3 focus-within:border-primary">
+      <input
+        inputMode="decimal"
+        aria-label={label}
+        value={draft ?? (bps / 100).toString()}
+        onFocus={() => setDraft((bps / 100).toString())}
+        onBlur={() => setDraft(null)}
+        onChange={(e) => {
+          const v = e.target.value.replace(/[^0-9.]/g, "");
+          if (!/^\d{0,3}(\.\d{0,2})?$/.test(v)) return;
+          setDraft(v);
+          onChange(Math.round(Math.min(100, Number(v) || 0) * 100));
+        }}
+        className="w-14 bg-transparent text-right text-[16px] outline-none tnum"
+      />
+      <span className="ml-0.5 text-text-muted">%</span>
+    </label>
   );
 }
 
@@ -346,11 +358,20 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
           accept="image/png,image/jpeg,image/webp,image/gif"
           onChange={async (e) => {
             const f = e.target.files?.[0];
+            e.target.value = ""; // let the same file be picked again after an error
             if (!f) return;
-            const cropped = await squareCrop(f);
-            if (cropped.size > 2 * 1024 * 1024) return setError("Image must be 2MB or smaller");
-            setImage(cropped);
-            setPreview(URL.createObjectURL(cropped));
+            try {
+              const cropped = await squareCrop(f);
+              if (cropped.size > 2 * 1024 * 1024) return setError("Image must be 2MB or smaller");
+              setError(null);
+              setImage(cropped);
+              setPreview((prev) => {
+                if (prev) URL.revokeObjectURL(prev);
+                return URL.createObjectURL(cropped);
+              });
+            } catch {
+              setError("Couldn't read that image. Try a PNG or JPG.");
+            }
           }}
         />
         <p className="text-secondary text-text-muted">Square image, up to 2MB. This is your Stack&apos;s logo.</p>

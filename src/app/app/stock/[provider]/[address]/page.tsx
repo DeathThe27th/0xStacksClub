@@ -26,7 +26,7 @@ import { MIN_BUY_USD_SMALL, PROVIDER_LABEL, type Provider } from "@/lib/constant
 import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
-import type { AssetItem } from "@/lib/client/types";
+import type { AssetItem, Holding } from "@/lib/client/types";
 
 type Detail = {
   asset: AssetItem;
@@ -58,8 +58,10 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const [mode, setMode] = useState<"area" | "candles">("area");
   const [scrub, setScrub] = useState<Point | null>(null);
   const [right, setRight] = useState<0 | 1 | 2>(0);
-    const trades = useTrades("asset", address);
+  const trades = useTrades("asset", address);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "compare" | "history" | null>(null);
+  // Snapshot at open: selling 100% drops the holding on refetch, which must not close the checklist.
+  const [sellHolding, setSellHolding] = useState<Holding | null>(null);
   const watch = useWatch("asset", address);
   const portfolio = usePortfolio();
 
@@ -87,7 +89,8 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const a = detail.data?.asset;
   const holding = portfolio.data?.holdings.find((h) => h.address.toLowerCase() === address.toLowerCase());
   const usdt = portfolio.data?.usdt.display ?? null;
-  const ctaState = !portfolio.data ? "loading" : usdt !== null && usdt < MIN_BUY_USD_SMALL ? "deposit" : holding ? "both" : "buy";
+  // Holders always see Sell, even when they are short on cash to buy more.
+  const ctaState = !portfolio.data ? "loading" : holding ? "both" : usdt !== null && usdt < MIN_BUY_USD_SMALL ? "deposit" : "buy";
   const disabled = a && !a.can_trade ? (a.vault_ok === false ? "Not supported" : "Not tradable yet") : detail.data?.marketOpen === false ? "Market closed" : null;
 
   if (detail.isError) return <ErrorState message={(detail.error as Error).message} onRetry={() => detail.refetch()} />;
@@ -217,7 +220,10 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         minBuyUsd={MIN_BUY_USD_SMALL}
         onDeposit={() => setSheet("deposit")}
         onBuy={() => setSheet("buy")}
-        onSell={() => setSheet("sell")}
+        onSell={() => {
+          setSellHolding(holding ?? null);
+          setSheet("sell");
+        }}
         onCompare={multiProvider ? () => setSheet("compare") : undefined}
       />
 
@@ -229,7 +235,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
           target={{ kind: "stock", component: { address: a.address, ticker: a.ticker, provider: a.provider, logoUrl: a.logo_url, price: detail.data?.price ?? null, decimals: a.decimals, weightBps: 10_000 } }}
         />
       )}
-      {holding && sheet === "sell" && <SellSheet open onClose={() => setSheet(null)} target={{ kind: "stock", holding }} />}
+      {sellHolding && sheet === "sell" && <SellSheet open onClose={() => setSheet(null)} target={{ kind: "stock", holding: sellHolding }} />}
       <DepositSheet open={sheet === "deposit"} onClose={() => setSheet(null)} />
       <TradesSheet open={sheet === "history"} onClose={() => setSheet(null)} targetType="asset" targetId={address} />
       {a && <CompareSheet open={sheet === "compare"} onClose={() => setSheet(null)} ticker={a.ticker} current={a.address} />}

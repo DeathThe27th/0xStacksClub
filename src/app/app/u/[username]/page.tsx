@@ -61,11 +61,13 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const [tab, setTab] = useState<"holdings" | "stacks" | "activity">("holdings");
   const [settings, setSettings] = useState<"menu" | "edit" | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
+  const toast = useToast();
   const q = useQuery({ queryKey: ["user", username], queryFn: () => api<UserResponse>(`/api/users/${username}`) });
 
   const follow = useMutation({
     mutationFn: () => api("/api/follow", { method: q.data?.isFollowing ? "DELETE" : "POST", json: { profileId: q.data!.profile.id } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["user", username] }),
+    onError: (e) => toast({ title: "Couldn't update follow", body: (e as Error).message, tone: "down" }),
   });
 
   if (q.isError) return <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />;

@@ -21,7 +21,7 @@ No server state involved.
 
 ## 2. Buy a single stock
 
-1. User enters gross amount G (at least $5 in USDT raw units).
+1. User enters gross amount G (at least $1 in USDT raw units).
 2. `POST /api/intents` with `kind = buy_stock`. Server computes `fee = G * 100 / 10000` and `net = G - fee`, creates one leg USDT → asset for `net`.
 3. Pay fee: approve `fee` USDT to the vault, call `payBuyFee(0, G)`. PATCH the intent with the tx hash. Server confirms the `BuyFeePaid` event and stores `fee_receipt_id`. Status `fee_paid`.
 4. Run the leg (section 4). On FILLED and a verified balance increase, status `done`.
@@ -31,7 +31,7 @@ No position is created for single stocks. The tokens live in the user's wallet.
 
 ## 3. Buy a Stack
 
-1. User enters G. Minimum $5 for 2 to 3 components, $10 for 4 to 5.
+1. User enters G. Minimum $1 for 2 to 3 components, $10 for 4 to 5.
 2. `POST /api/intents` with `kind = buy_stack`. The server reads the recipe from chain, computes fee and net, and splits net across components by weight. Allocation rule: `alloc[i] = net * weight[i] / 10000` rounded down, then add any remainder to the largest weight. Unit-test this.
 3. Pay fee with `payBuyFee(stackId, G)`. Creator gets 25% of the fee as claimable.
 4. Run each leg in sequence (section 4). Status `legs_running`.

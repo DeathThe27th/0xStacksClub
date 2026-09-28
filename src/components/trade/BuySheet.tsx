@@ -40,7 +40,7 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
   const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
   return (
     <Sheet open={open} onClose={onClose} title={title}>
-      <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} />
+      <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} autoFocus />
     </Sheet>
   );
 }
@@ -49,7 +49,20 @@ export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; 
  * Amount, breakdown, review with fresh quotes (UI_SPEC §6.2). Used in the mobile sheet and inline in
  * the desktop trade panel. Calls onStarted with the new intent; the caller shows the checklist.
  */
-export function BuyForm({ target, onDeposit, onStarted, active = true }: { target: Target; onDeposit: () => void; onStarted: (intentId: string) => void; active?: boolean }) {
+export function BuyForm({
+  target,
+  onDeposit,
+  onStarted,
+  active = true,
+  autoFocus = false,
+}: {
+  target: Target;
+  onDeposit: () => void;
+  onStarted: (intentId: string) => void;
+  active?: boolean;
+  /** Sheet only: the always-open desktop panel must not steal focus on page load. */
+  autoFocus?: boolean;
+}) {
   const api = useApi();
   const portfolio = usePortfolio();
   const dec = useUsdtDecimals();
@@ -160,7 +173,7 @@ export function BuyForm({ target, onDeposit, onStarted, active = true }: { targe
           <label className="flex items-baseline justify-center gap-1 py-4">
             <span className={cn("text-[48px] font-bold leading-none", amount ? "text-text" : "text-text-dim")}>$</span>
             <input
-              autoFocus
+              autoFocus={autoFocus}
               inputMode="decimal"
               value={amount}
               onChange={(e) => {
@@ -189,7 +202,6 @@ export function BuyForm({ target, onDeposit, onStarted, active = true }: { targe
 
           <div className="mt-5 space-y-3 rounded-card bg-surface-2 p-4 text-[15px]">
             <Row label="Fee (1%)" value={decimals !== undefined ? usd(Number(formatUnits(fee, decimals))) : "—"} />
-            <Row label="Amount invested" value={decimals !== undefined ? usd(Number(formatUnits(net, decimals))) : "—"} />
             {components.map((c, i) => {
               const dollars = decimals !== undefined ? Number(formatUnits(alloc[i]!, decimals)) : 0;
               return (
@@ -269,7 +281,7 @@ export function BuyForm({ target, onDeposit, onStarted, active = true }: { targe
               Back
             </Button>
             <Button className="flex-[2]" loading={creating} disabled={!previews.data || !!previewError} onClick={confirm}>
-              Confirm buy {decimals !== undefined ? usd(Number(formatUnits(gross, decimals))) : ""}
+              Confirm
             </Button>
           </div>
           {previewError && <p className="mt-3 text-center text-[13px] text-text-muted">Can&apos;t buy right now: {previewError.error}</p>}

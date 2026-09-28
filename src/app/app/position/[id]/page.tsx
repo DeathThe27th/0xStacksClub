@@ -9,7 +9,7 @@ import { SellSheet } from "@/components/trade/SellSheet";
 import { Button } from "@/components/ui/Button";
 import { Change } from "@/components/ui/Change";
 import { ProviderPill } from "@/components/ui/ProviderPill";
-import { Bar } from "@/components/ui/Skeleton";
+import { Bar, RowSkeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { units, usd } from "@/lib/format";
@@ -67,7 +67,9 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
           <span className="text-right">Units</span>
           <span className="w-[74px] text-right">Value</span>
         </div>
-        {p?.closed ? (
+        {q.isLoading ? (
+          <RowSkeleton count={3} />
+        ) : p?.closed ? (
           <p className="py-8 text-center text-secondary text-text-muted">This position has been fully sold or redeemed.</p>
         ) : (
           p?.components.map((c) => {
