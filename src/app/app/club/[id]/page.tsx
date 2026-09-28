@@ -171,7 +171,7 @@ function Message({ p, mine, isOwner, onAction }: { p: Post; mine: boolean; isOwn
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-x-2 text-[14px]">
           <span className="font-semibold">{p.author?.username ?? "member"}</span>
-          {p.isCreator && <span className="rounded-badge bg-primary px-1.5 text-[11px] font-semibold text-white">Creator</span>}
+          {p.isCreator && <span className="rounded-badge bg-primary px-1.5 text-[11px] font-semibold text-on-primary">Creator</span>}
           {p.kind === "announcement" && (
             <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-link">
               <Megaphone size={12} /> Announcement
@@ -266,7 +266,7 @@ function Composer({ stackId, isOwner }: { stackId: string; isOwner: boolean }) {
           aria-label="Message"
           className="max-h-[140px] min-h-[44px] flex-1 resize-none rounded-chip border border-border bg-surface px-3 py-2.5 text-[15px] outline-none focus:border-primary"
         />
-        <button type="submit" disabled={!body.trim() || send.isPending} aria-label="Send" className="press grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-white disabled:opacity-40">
+        <button type="submit" disabled={!body.trim() || send.isPending} aria-label="Send" className="press grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary text-on-primary disabled:opacity-40">
           <Send size={18} />
         </button>
       </div>

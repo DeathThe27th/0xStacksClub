@@ -128,7 +128,7 @@ export function Balance({ onDeposit }: { onDeposit: () => void }) {
   const total = p.data?.totalUsd ?? null;
   const change = p.data?.change24hUsd ?? null;
   return (
-    <section className="mt-5 flex items-center justify-between gap-4 px-gutter">
+    <section className="rb-aqua rb-block mt-5 flex items-center justify-between gap-4 px-gutter">
       <div className="min-w-0">
         {p.isLoading ? (
           <Bar className="h-11 w-32" />

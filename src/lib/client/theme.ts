@@ -2,20 +2,21 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-export type ThemeChoice = "system" | "light" | "dark";
+export type ThemeChoice = "system" | "light" | "dark" | "rainbow";
+export type ResolvedTheme = "light" | "dark" | "rainbow";
 import { THEME_KEY as KEY } from "@/lib/theme-script";
 const EVENT = "stacksclub:theme";
 
 function readChoice(): ThemeChoice {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" ? v : "system";
+    return v === "light" || v === "dark" || v === "rainbow" ? v : "system";
   } catch {
     return "system";
   }
 }
 
-function resolve(choice: ThemeChoice): "light" | "dark" {
+function resolve(choice: ThemeChoice): ResolvedTheme {
   if (choice !== "system") return choice;
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
@@ -39,7 +40,7 @@ export function useTheme() {
     readChoice,
     () => "system" as ThemeChoice,
   );
-  const resolved = useSyncExternalStore<"light" | "dark">(
+  const resolved = useSyncExternalStore<ResolvedTheme>(
     (cb) => {
       const m = window.matchMedia("(prefers-color-scheme: light)");
       const obs = new MutationObserver(cb);
@@ -50,7 +51,10 @@ export function useTheme() {
         m.removeEventListener("change", cb);
       };
     },
-    () => (document.documentElement.dataset.theme === "light" ? "light" : "dark"),
+    () => {
+      const t = document.documentElement.dataset.theme;
+      return t === "light" || t === "rainbow" ? t : "dark";
+    },
     () => "dark" as const,
   );
 

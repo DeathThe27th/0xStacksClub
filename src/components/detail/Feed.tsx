@@ -76,7 +76,7 @@ export function FeedTab({ targetType, targetId }: { targetType: "asset" | "stack
         </div>
         <div className="mt-2 flex items-center justify-end gap-3">
           <span className={cn("text-[12px] tnum", body.length > 260 ? "text-warn" : "text-text-dim")}>{body.length}/280</span>
-          <button type="submit" disabled={!body.trim() || post.isPending} className="press flex h-9 items-center gap-1.5 rounded-chip bg-primary px-3 text-[14px] font-semibold text-white disabled:opacity-40">
+          <button type="submit" disabled={!body.trim() || post.isPending} className="press flex h-9 items-center gap-1.5 rounded-chip bg-primary px-3 text-[14px] font-semibold text-on-primary disabled:opacity-40">
             <Send size={14} /> Post
           </button>
         </div>

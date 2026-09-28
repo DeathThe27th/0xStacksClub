@@ -10,7 +10,7 @@ export type Tab<T extends string> = { id: T; label: React.ReactNode; badge?: str
 export function Tabs<T extends string>({ tabs, value, onChange, className }: { tabs: Tab<T>[]; value: T; onChange: (v: T) => void; className?: string }) {
   const id = useId();
   return (
-    <div role="tablist" className={cn("relative flex border-b border-border", className)}>
+    <div role="tablist" className={cn("rb-seg relative flex border-b border-border", className)}>
       {tabs.map((t) => {
         const active = t.id === value;
         return (
@@ -25,8 +25,8 @@ export function Tabs<T extends string>({ tabs, value, onChange, className }: { t
             )}
           >
             {t.label}
-            {t.badge && <span className="rounded-badge bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-white">{t.badge}</span>}
-            {active && <motion.span layoutId={`tab-${id}`} className="absolute inset-x-0 -bottom-px h-0.5 bg-primary" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}
+            {t.badge && <span className="rounded-badge bg-primary px-1.5 py-0.5 text-[11px] font-semibold leading-none text-on-primary">{t.badge}</span>}
+            {active && <motion.span layoutId={`tab-${id}`} className="rb-seg-line absolute inset-x-0 -bottom-px h-0.5 bg-primary" transition={{ type: "spring", stiffness: 500, damping: 40 }} />}
           </button>
         );
       })}

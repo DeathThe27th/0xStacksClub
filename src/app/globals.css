@@ -13,6 +13,9 @@
   --text-dim: 92 92 100;
   --primary: 108 71 255; /* #6C47FF violet; white text on it passes AA */
   --primary-press: 88 52 230;
+  --on-primary: 255 255 255;
+  --chip: 14 14 16;
+  --chip-active: 26 26 29;
   --link: 160 140 255; /* primary lifted for text on black */
   --up: 34 197 94;
   --down: 255 68 48;
@@ -31,10 +34,37 @@
   --text-dim: 158 162 171;
   --primary: 108 71 255;
   --primary-press: 88 52 230;
+  --on-primary: 255 255 255;
+  --chip: 245 246 248;
+  --chip-active: 235 237 241;
   --link: 108 71 255;
   --up: 22 163 74;
   --down: 220 38 38;
   --warn: 196 120 6;
+  color-scheme: light;
+}
+
+/*
+ * Rainbow: warm cream base, plum ink, bubblegum pink actions and hairlines, aqua and plum colour
+ * blocks. Plum on pink is 8:1; muted plum on the cream is 5.3:1.
+ */
+:root[data-theme="rainbow"] {
+  --bg: 240 237 231; /* #F0EDE7 */
+  --surface: 249 247 243; /* #F9F7F3 */
+  --surface-2: 236 232 225;
+  --border: 238 196 226; /* pink hairline */
+  --text: 74 18 57; /* #4A1239 plum */
+  --text-muted: 122 86 112;
+  --text-dim: 176 146 166;
+  --primary: 247 164 232; /* #F7A4E8 */
+  --primary-press: 240 138 219;
+  --on-primary: 74 18 57;
+  --chip: 251 224 243; /* soft pink */
+  --chip-active: 247 164 232;
+  --link: 168 32 132;
+  --up: 10 118 92;
+  --down: 206 40 50;
+  --warn: 176 104 6;
   color-scheme: light;
 }
 
@@ -129,6 +159,40 @@ input,
 textarea {
   font-feature-settings: "tnum";
 }
+/* Rainbow colour blocks and the black pill tab switch, from the theme's reference. */
+[data-theme="rainbow"] .rb-aqua {
+  --text-muted: 92 44 80;
+  --text-dim: 110 70 98;
+  --up: 4 92 72;
+  --down: 150 20 40;
+  background: #8ed9e3;
+  border-color: transparent;
+}
+[data-theme="rainbow"] .rb-block {
+  margin-inline: 16px;
+  padding: 20px;
+  border-radius: 24px;
+}
+[data-theme="rainbow"] .rb-seg {
+  gap: 4px;
+  padding: 4px;
+  border: 0;
+  border-radius: 999px;
+  background: #1e1e1e;
+}
+[data-theme="rainbow"] .rb-seg [role="tab"] {
+  height: 40px;
+  border-radius: 999px;
+  color: rgb(255 255 255 / 0.75);
+}
+[data-theme="rainbow"] .rb-seg [role="tab"][aria-selected="true"] {
+  background: #f9f7f3;
+  color: #1e1e1e;
+}
+[data-theme="rainbow"] .rb-seg .rb-seg-line {
+  display: none;
+}
+
 input::placeholder,
 textarea::placeholder {
   color: rgb(var(--text-muted));

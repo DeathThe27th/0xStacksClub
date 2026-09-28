@@ -20,7 +20,7 @@ export function ClubRow({ c }: { c: ClubItem }) {
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-row font-semibold">
           <span className="truncate">${c.stack.ticker} Club</span>
-          {c.posts24h > 0 && <span className="rounded-badge bg-primary px-1.5 py-0.5 text-[11px] font-semibold text-white">{c.posts24h} today</span>}
+          {c.posts24h > 0 && <span className="rounded-badge bg-primary px-1.5 py-0.5 text-[11px] font-semibold text-on-primary">{c.posts24h} today</span>}
         </p>
         <p className="truncate text-secondary text-text-muted">
           {c.latestAnnouncement ? (

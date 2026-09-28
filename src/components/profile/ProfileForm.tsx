@@ -67,7 +67,7 @@ export function ProfileForm({ initial, submitLabel, onSaved }: { initial: Initia
       <div className="flex justify-center">
         <button type="button" onClick={() => fileRef.current?.click()} className="press relative" aria-label="Upload avatar">
           <Avatar src={avatar} name={username || "?"} size={88} />
-          <span className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-bg bg-primary text-white">
+          <span className="absolute bottom-0 right-0 grid h-8 w-8 place-items-center rounded-full border-2 border-bg bg-primary text-on-primary">
             <Camera size={15} />
           </span>
           {uploading && <span className="absolute inset-0 grid place-items-center rounded-full bg-black/50 text-[12px]">Uploading</span>}

@@ -30,7 +30,7 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
 
   return (
     <div className="space-y-6 py-6">
-      <section className="rounded-card border border-border bg-surface p-6">
+      <section className="rb-aqua rounded-card border border-border bg-surface p-6">
         <div className="flex items-start justify-between gap-6">
           <div>
             <p className="text-[13px] font-medium text-text-muted">Portfolio value</p>

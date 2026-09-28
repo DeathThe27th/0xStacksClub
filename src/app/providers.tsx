@@ -22,7 +22,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       appId={publicEnv().NEXT_PUBLIC_PRIVY_APP_ID}
       config={{
         loginMethods: ["email", "google", "twitter", "wallet"],
-        appearance: { theme: resolved, accentColor: "#6C47FF", logo: <Wordmark size={28} />, walletChainType: "ethereum-only" },
+        appearance: {
+          // Rainbow has no Privy preset: cream background, plum accent (white-on-pink fails contrast).
+          theme: resolved === "rainbow" ? "#F9F7F3" : resolved,
+          accentColor: resolved === "rainbow" ? "#4A1239" : "#6C47FF",
+          logo: <Wordmark size={28} />, walletChainType: "ethereum-only" },
         defaultChain: bsc,
         supportedChains: [bsc],
         embeddedWallets: { ethereum: { createOnLogin: "users-without-wallets" }, showWalletUIs: false },

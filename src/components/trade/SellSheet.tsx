@@ -120,7 +120,7 @@ export function SellForm({ target, onStarted, active = true }: { target: Target;
       />
       <div className="mt-4 grid grid-cols-4 gap-2">
         {[25, 50, 75, 100].map((v) => (
-          <button key={v} onClick={() => setPct(v)} className={cn("press h-10 rounded-chip text-[15px] font-medium", pct === v ? "bg-primary text-white" : "bg-surface-2")}>
+          <button key={v} onClick={() => setPct(v)} className={cn("press h-10 rounded-chip text-[15px] font-medium", pct === v ? "bg-primary text-on-primary" : "bg-surface-2")}>
             {v}%
           </button>
         ))}

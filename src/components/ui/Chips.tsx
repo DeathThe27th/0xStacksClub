@@ -42,7 +42,7 @@ export function Chips<T extends string>({
             aria-pressed={active}
             className={cn(
               "press h-10 shrink-0 whitespace-nowrap rounded-full border px-4 text-chip transition-colors",
-              active ? "border-border bg-surface-2 font-semibold text-text" : "border-border bg-surface text-text-muted hover:text-text",
+              active ? "border-border bg-chip-active font-semibold text-text" : "border-border bg-chip text-text-muted hover:text-text",
             )}
           >
             {c.label}
