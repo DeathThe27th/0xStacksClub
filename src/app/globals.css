@@ -38,6 +38,23 @@
   color-scheme: light;
 }
 
+/*
+ * Desktop renders at 80%, which is the density the layout was tuned for. `zoom` scales viewport
+ * units too, so anything sized from dvh divides by --app-zoom, and the chart counter-zooms (its
+ * pointer maths reads unzoomed coordinates).
+ */
+:root {
+  --app-zoom: 1;
+}
+@media (min-width: 1024px) {
+  :root {
+    --app-zoom: 0.8;
+  }
+  html {
+    zoom: var(--app-zoom);
+  }
+}
+
 html,
 body {
   background: rgb(var(--bg));

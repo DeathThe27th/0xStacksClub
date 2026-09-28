@@ -239,7 +239,8 @@ export function PriceChart({
     else markerApi.current.setMarkers(list);
   }, [markers, points, mode, up, theme]);
 
-  return <div ref={el} className="h-[320px] w-full touch-pan-y select-none lg:h-[420px]" />;
+  // Counter-zoomed so lightweight-charts' pointer maths lines up under the desktop page zoom.
+  return <div ref={el} className="h-[320px] w-full touch-pan-y select-none [zoom:calc(1/var(--app-zoom))] lg:h-[calc(420px*var(--app-zoom))]" />;
 }
 
 /** Controls row under the chart (UI_SPEC §4.3), right-aligned. */

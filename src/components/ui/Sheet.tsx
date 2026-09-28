@@ -55,7 +55,7 @@ export function Sheet({
             aria-label={typeof title === "string" ? title : undefined}
             className={cn(
               desktop
-                ? "absolute left-1/2 top-1/2 flex max-h-[86dvh] w-[460px] flex-col rounded-sheet border border-border bg-surface shadow-[0_24px_64px_-16px_rgba(0,0,0,0.9)]"
+                ? "absolute left-1/2 top-1/2 flex max-h-[calc(86dvh/var(--app-zoom))] w-[460px] flex-col rounded-sheet border border-border bg-surface shadow-[0_24px_64px_-16px_rgba(0,0,0,0.9)]"
                 : "absolute inset-x-0 bottom-0 mx-auto flex max-h-[92dvh] max-w-app flex-col rounded-t-sheet border-t border-border bg-surface pb-safe",
               className,
             )}
