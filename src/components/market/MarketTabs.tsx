@@ -18,12 +18,16 @@ import { useApi } from "@/lib/client/api";
 import { useAssets, usePortfolio, useStacks } from "@/lib/client/queries";
 
 export type TabId = "stocks" | "stacks" | "clubs";
-const stockChips = [
+type StockFilter = "trending" | "watchlist" | "most_held" | "top_gainers";
+// Only Trending and Watchlist sit in the chip row; the rest live in the filter sheet.
+const stockChips: { id: StockFilter; label: string }[] = [
   { id: "trending", label: "Trending" },
   { id: "watchlist", label: "Watchlist" },
+];
+const stockSheetFilters: { id: StockFilter; label: string }[] = [
   { id: "most_held", label: "Most held" },
   { id: "top_gainers", label: "Top gainers" },
-] as const;
+];
 const stackChips = [
   { id: "trending", label: "Trending" },
   { id: "newest", label: "Newest" },
@@ -33,12 +37,12 @@ const stackChips = [
 
 
 /**
- * Market tabs: Stocks (Trending, Watchlist, Most held, Top gainers), Stacks, Clubs. The phone Home
- * list and the desktop left pane.
+ * Market tabs: Stocks (Trending and Watchlist chips; Most held, Top gainers and sort in the filter
+ * sheet), Stacks, Clubs. The phone Home list and the desktop left pane.
  */
 export function MarketTabs({ className }: { className?: string }) {
   const [tab, setTab] = useState<TabId>("stocks");
-  const [stockFilter, setStockFilter] = useState<(typeof stockChips)[number]["id"]>("trending");
+  const [stockFilter, setStockFilter] = useState<StockFilter>("trending");
   const [stackFilter, setStackFilter] = useState<(typeof stackChips)[number]["id"]>("trending");
   const [sort, setSort] = useState<"change" | "market_cap" | "volume" | undefined>();
   const [sortOpen, setSortOpen] = useState(false);
@@ -53,7 +57,15 @@ export function MarketTabs({ className }: { className?: string }) {
         value={tab}
         onChange={setTab}
       />
-      {tab === "stocks" && <Chips chips={[...stockChips]} value={stockFilter} onChange={setStockFilter} onFilter={() => setSortOpen(true)} />}
+      {tab === "stocks" && (
+        <Chips
+          chips={stockChips}
+          value={stockFilter}
+          onChange={setStockFilter}
+          onFilter={() => setSortOpen(true)}
+          filterActive={sort !== undefined || stockSheetFilters.some((f) => f.id === stockFilter)}
+        />
+      )}
       {tab === "stacks" && <Chips chips={[...stackChips]} value={stackFilter} onChange={setStackFilter} />}
       {tab === "clubs" && <p className="py-3 text-secondary text-text-muted">Every Stack has a Club for its holders, run by the creator.</p>}
       <div>
@@ -67,7 +79,24 @@ export function MarketTabs({ className }: { className?: string }) {
           <AssetList tab="stocks" filter={stockFilter} sort={sort} />
         )}
       </div>
-      <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="Sort by">
+      <Sheet open={sortOpen} onClose={() => setSortOpen(false)} title="Filter">
+        <p className="mb-2 text-secondary font-semibold text-text-muted">Show</p>
+        <div className="space-y-2">
+          {stockSheetFilters.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => {
+                setStockFilter(stockFilter === f.id ? "trending" : f.id);
+                setSortOpen(false);
+              }}
+              className={cn("press flex h-14 w-full items-center justify-between rounded-card bg-surface-2 px-4 text-[16px]", stockFilter === f.id && "font-semibold")}
+            >
+              {f.label}
+              {stockFilter === f.id && <span className="h-2 w-2 rounded-full bg-primary" />}
+            </button>
+          ))}
+        </div>
+        <p className="mb-2 mt-5 text-secondary font-semibold text-text-muted">Sort by</p>
         <div className="space-y-2">
           {([
             [undefined, "Default"],

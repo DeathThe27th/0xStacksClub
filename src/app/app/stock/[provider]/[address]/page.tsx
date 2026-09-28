@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDown, ShieldCheck } from "lucide-react";
+import { ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
@@ -206,20 +206,12 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
           disabledReason={disabled}
           onDeposit={() => setSheet("deposit")}
           onCompare={multiProvider ? () => setSheet("compare") : undefined}
-          note={a && <>Issued by {PROVIDER_LABEL[a.provider as Provider]}</>}
         />
         <PositionCard holding={holding} />
         </div>
       </div>
 
       <StickyCta
-        note={
-          a && (
-            <span className="flex items-center gap-1.5 text-secondary text-text-muted">
-              <ShieldCheck size={16} /> Issued by {PROVIDER_LABEL[a.provider as Provider]}
-            </span>
-          )
-        }
         state={ctaState}
         disabledReason={disabled}
         minBuyUsd={MIN_BUY_USD_SMALL}
@@ -261,9 +253,10 @@ function CompareSheet({ open, onClose, ticker, current }: { open: boolean; onClo
   const api = useApi();
   const q = useQuery({ queryKey: ["compare", ticker], queryFn: () => api<{ providers: CompareRow[] }>(`/api/assets/compare/${ticker}`), enabled: open });
   return (
-    <Sheet open={open} onClose={onClose} title={`Buy ${ticker} from`}>
-      <p className="-mt-2 mb-4 text-center text-secondary text-text-muted">Each provider issues its own {ticker} token. Prices and fees can differ, so pick the one you want.</p>
+    <Sheet open={open} onClose={onClose} title={`Compare ${ticker}`}>
       <div className="space-y-2">
+        {q.isLoading && [0, 1].map((i) => <Bar key={i} className="h-[72px] w-full rounded-card" />)}
+        {q.isError && <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />}
         {(q.data?.providers ?? []).map((p) => (
           <Link
             key={p.address}
@@ -287,7 +280,6 @@ function CompareSheet({ open, onClose, ticker, current }: { open: boolean; onClo
             </div>
           </Link>
         ))}
-        {q.data && q.data.providers.length < 2 && <p className="pt-2 text-center text-secondary text-text-muted">Only one provider offers {ticker} on BNB Chain right now.</p>}
       </div>
     </Sheet>
   );

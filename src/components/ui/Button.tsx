@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "ghost"; loading?: boolean; size?: "lg" | "md" };
 
-/** Raised pill buttons: primary, secondary and ghost. 56px or 44px tall. */
+/** Flat pill buttons: primary, secondary and ghost. 56px or 44px tall. */
 export function Button({ variant = "primary", loading, size = "lg", className, children, disabled, ...rest }: Props) {
   return (
     <button
@@ -12,8 +12,8 @@ export function Button({ variant = "primary", loading, size = "lg", className, c
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-full font-semibold disabled:cursor-not-allowed disabled:opacity-50",
         size === "lg" ? "h-14 px-6 text-[17px]" : "h-11 px-4 text-[15px]",
-        variant === "primary" && "pop bg-primary text-white hover:bg-primary-press",
-        variant === "secondary" && "pop-soft border border-border bg-surface-2 text-text hover:bg-border/70",
+        variant === "primary" && "press bg-primary text-white transition-colors hover:bg-primary-press",
+        variant === "secondary" && "press border border-border bg-surface-2 text-text transition-colors hover:bg-border/70",
         variant === "ghost" && "press text-text-muted hover:text-text",
         className,
       )}

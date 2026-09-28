@@ -18,7 +18,7 @@ import { useApi } from "@/lib/client/api";
 import { usePortfolio } from "@/lib/client/queries";
 import type { Activity } from "@/lib/client/types";
 
-/** Desktop Home centre: your portfolio, holdings, the leaderboard and your people's activity. */
+/** Desktop, top of your own profile: your portfolio, holdings, the leaderboard and your people's activity. */
 export function Overview({ onDeposit }: { onDeposit: () => void }) {
   const api = useApi();
   const p = usePortfolio({ poll: 20_000 });

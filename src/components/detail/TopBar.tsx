@@ -6,17 +6,6 @@ import { useState } from "react";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 
-/** BNB Smart Chain badge (generic diamond, not a trademark). */
-function ChainBadge() {
-  return (
-    <span className="grid h-5 w-5 place-items-center rounded-md bg-surface-2" title="BNB Smart Chain">
-      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden>
-        <path d="M5 0.5 9.5 5 5 9.5 0.5 5Z" fill="#F5A524" />
-      </svg>
-    </span>
-  );
-}
-
 export function DetailTopBar({
   logo,
   title,
@@ -50,10 +39,7 @@ export function DetailTopBar({
       </button>
       <TokenLogo src={logo} label={title} size={40} />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-[18px] font-bold leading-tight">
-          <span className="truncate">{title}</span>
-          <ChainBadge />
-        </p>
+        <p className="truncate text-[18px] font-bold leading-tight">{title}</p>
         {subtitleNode ?? (
           <button
             onClick={async () => {

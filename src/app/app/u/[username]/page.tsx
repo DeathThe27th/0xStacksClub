@@ -7,8 +7,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { encodeFunctionData } from "viem";
+import { Overview } from "@/components/desktop/Overview";
 import { StackRow } from "@/components/market/Rows";
 import { ProfileForm } from "@/components/profile/ProfileForm";
+import { DepositSheet } from "@/components/trade/DepositSheet";
 import { ActivityItem } from "@/components/social/ActivityItem";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -23,6 +25,7 @@ import { ThemeSwitch } from "@/components/ui/ThemeSwitch";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { TokenLogo } from "@/components/ui/TokenLogo";
+import { cn } from "@/lib/cn";
 import { vaultAbi } from "@/lib/contracts/vault";
 import { units, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
@@ -57,6 +60,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const qc = useQueryClient();
   const [tab, setTab] = useState<"holdings" | "stacks" | "activity">("holdings");
   const [settings, setSettings] = useState<"menu" | "edit" | null>(null);
+  const [depositOpen, setDepositOpen] = useState(false);
   const q = useQuery({ queryKey: ["user", username], queryFn: () => api<UserResponse>(`/api/users/${username}`) });
 
   const follow = useMutation({
@@ -70,7 +74,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
 
   return (
     <PullToRefresh onRefresh={() => q.refetch()}>
-      <div className="lg:mx-auto lg:max-w-[760px] lg:pt-4">
+      <div className={cn("lg:mx-auto lg:pt-4", u?.isSelf ? "lg:max-w-[1080px]" : "lg:max-w-[760px]")}>
       <header className="px-gutter pt-5 lg:px-0">
         <div className="flex items-start justify-between">
           {u ? <Avatar src={u.profile.avatar_url} name={u.profile.username} size={72} /> : <Bar className="h-[72px] w-[72px] rounded-full" />}
@@ -120,8 +124,15 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         )}
       </header>
 
+      {/* Desktop, your own profile: portfolio, holdings table, top trades and your people's activity. */}
+      {u?.isSelf && (
+        <div className="hidden lg:block">
+          <Overview onDeposit={() => setDepositOpen(true)} />
+        </div>
+      )}
+
       {u && (
-        <section className="mt-5 grid grid-cols-3 gap-2 px-gutter lg:px-0">
+        <section className={cn("mt-5 grid grid-cols-3 gap-2 px-gutter lg:px-0", u.isSelf && "lg:hidden")}>
           <Stat label="Total value" value={u.isSelf ? usd(u.stats.totalUsd) : "Private"} />
           <Stat label="Stacks created" value={String(u.stats.stacksCreated)} />
           <Stat label="Creator earnings" value={usd(Number(BigInt(u.stats.creatorEarnedRaw)) / 1e18)} />
@@ -178,6 +189,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
           }}
         />
       )}
+      {u?.isSelf && <DepositSheet open={depositOpen} onClose={() => setDepositOpen(false)} />}
       </div>
     </PullToRefresh>
   );
