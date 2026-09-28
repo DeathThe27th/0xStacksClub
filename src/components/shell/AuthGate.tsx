@@ -3,7 +3,7 @@
 import { useCreateWallet, usePrivy } from "@privy-io/react-auth";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 import { useActiveWallet } from "@/lib/client/wallet";
 import { useMe } from "@/lib/client/queries";
@@ -52,7 +52,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-dvh place-items-center px-8 text-center">
       <div className="flex flex-col items-center">
-        <Mark size={40} className={me.isError ? "text-text-muted" : "animate-live-dot text-text"} />
+        <Wordmark size={28} className={me.isError ? "text-text-muted" : "animate-live-dot text-text"} />
         <p className="mt-5 text-[15px] text-text-muted">{status}</p>
         {walletError && <p className="mt-2 text-[13px] text-down">{walletError}</p>}
         {(slow || me.isError) && (

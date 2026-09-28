@@ -1,8 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
+import { Bell } from "lucide-react";
 import { createContext, useCallback, useContext, useState } from "react";
-import { Mark } from "@/components/brand/Mark";
 
 type Toast = { id: number; title: string; body?: string; tone?: "default" | "up" | "down" };
 const Ctx = createContext<(t: Omit<Toast, "id">) => void>(() => {});
@@ -34,7 +34,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
               className="pointer-events-auto flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.8)]"
             >
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-surface-2 text-text">
-                <Mark variant="glyph" size={16} />
+                <Bell size={16} strokeWidth={2.25} />
               </span>
               <div className="min-w-0 flex-1">
                 <p className={`truncate text-[15px] font-semibold ${t.tone === "up" ? "text-up" : t.tone === "down" ? "text-down" : "text-text"}`}>{t.title}</p>

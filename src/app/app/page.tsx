@@ -2,7 +2,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { Overview } from "@/components/desktop/Overview";
 import { BalanceBento } from "@/components/market/BalanceCard";
 import { MarketTabs } from "@/components/market/MarketTabs";
@@ -19,7 +19,7 @@ export default function Home() {
       <div className="lg:hidden">
         <PullToRefresh onRefresh={() => qc.invalidateQueries()}>
           <header className="px-gutter pt-4">
-            <Mark size={34} />
+            <Wordmark size={26} />
           </header>
           <BalanceBento onDeposit={() => setDepositOpen(true)} />
           <TopTrades />

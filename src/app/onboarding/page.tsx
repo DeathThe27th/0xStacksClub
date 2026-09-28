@@ -4,7 +4,7 @@ import { useCreateWallet, usePrivy } from "@privy-io/react-auth";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { useMe } from "@/lib/client/queries";
@@ -34,7 +34,7 @@ export default function Onboarding() {
     return (
       <div className="grid min-h-dvh place-items-center px-8 text-center">
         <div className="flex flex-col items-center">
-          <Mark size={40} className="animate-live-dot" />
+          <Wordmark size={28} className="animate-live-dot" />
           <p className="mt-5 text-[15px] text-text-muted">{!ready ? "Starting up" : !wallet ? "Creating your wallet" : "Loading your account"}</p>
           {err && <p className="mt-2 text-[13px] text-down">{err}</p>}
           {slow && ready && authenticated && !wallet && (
@@ -48,7 +48,7 @@ export default function Onboarding() {
   }
   return (
     <main className="mx-auto max-w-app px-gutter pb-10 pt-[calc(env(safe-area-inset-top)+24px)]">
-      <Mark size={36} />
+      <Wordmark size={24} />
       <h1 className="mt-6 text-[28px] font-bold leading-tight">Set up your profile</h1>
       <p className="mt-2 text-[15px] text-text-muted">This is how people see you when you trade and share Stacks.</p>
       <div className="mt-8">

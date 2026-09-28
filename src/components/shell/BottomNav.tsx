@@ -1,9 +1,8 @@
 "use client";
 
-import { Home, Search, Users } from "lucide-react";
+import { Home, Plus, Search, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Mark } from "@/components/brand/Mark";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn } from "@/lib/cn";
 import { useMe } from "@/lib/client/queries";
@@ -19,7 +18,7 @@ export function BottomNav() {
   const items = [
     { href: "/app", label: "Home", icon: <Home size={24} strokeWidth={2} />, active: path === "/app" },
     { href: "/app/search", label: "Search", icon: <Search size={24} strokeWidth={2} />, active: path.startsWith("/app/search") },
-    { href: "/app/create", label: "Create Stack", icon: <Mark variant="glyph" size={26} />, active: path.startsWith("/app/create") },
+    { href: "/app/create", label: "Create Stack", icon: <Plus size={26} strokeWidth={2.25} />, active: path.startsWith("/app/create") },
     { href: "/app/social", label: "Social", icon: <Users size={24} strokeWidth={2} />, active: path.startsWith("/app/social") },
     {
       href: username ? `/app/u/${username}` : "/app",

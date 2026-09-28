@@ -3,7 +3,7 @@
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { Button } from "@/components/ui/Button";
 
 function Landing() {
@@ -30,8 +30,9 @@ function Landing() {
     <main className="relative mx-auto flex min-h-dvh max-w-app flex-col px-gutter pb-safe pt-safe">
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[55dvh] bg-[radial-gradient(60%_60%_at_50%_30%,rgb(var(--primary)/0.22),transparent_70%)]" />
       <div className="relative flex flex-1 flex-col items-center justify-center text-center">
-        <Mark size={88} />
-        <h1 className="mt-6 text-[34px] font-bold leading-tight tracking-[-0.02em]">StacksClub</h1>
+        <h1>
+          <Wordmark size={48} />
+        </h1>
         <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Build and share your own Stacks.</p>
       </div>
       <div className="relative pb-8">

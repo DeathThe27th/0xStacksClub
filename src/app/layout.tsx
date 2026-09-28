@@ -1,13 +1,21 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Bricolage_Grotesque, Geist } from "next/font/google";
 import "./globals.css";
 import { themeBootScript } from "@/lib/theme-script";
 import { Providers } from "./providers";
 
-const inter = Inter({
+const sans = Geist({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
-  variable: "--font-inter",
+  variable: "--font-sans",
+  display: "swap",
+});
+
+// Display face for the wordmark and big headings.
+const display = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600", "800"],
+  variable: "--font-display",
   display: "swap",
 });
 
@@ -29,7 +37,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable} data-theme="dark" suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${display.variable}`} data-theme="dark" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>

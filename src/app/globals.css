@@ -11,7 +11,7 @@
   --text: 255 255 255;
   --text-muted: 150 150 158; /* #96969E */
   --text-dim: 92 92 100;
-  --primary: 0 67 254; /* #0043FE, from the logo */
+  --primary: 0 67 254; /* #0043FE */
   --primary-press: 0 54 214;
   --link: 92 138 255; /* primary lifted for text on black */
   --up: 34 197 94;

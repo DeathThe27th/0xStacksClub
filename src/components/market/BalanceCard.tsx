@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDownToLine } from "lucide-react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Bar } from "@/components/ui/Skeleton";
 import { usd } from "@/lib/format";
@@ -36,9 +36,7 @@ export function BalanceBento({ onDeposit }: { onDeposit: () => void }) {
         />
         <div className="relative flex h-full flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-[14px] font-semibold">
-              <Mark variant="glyph" size={20} className="text-white" /> StacksClub
-            </span>
+            <Wordmark size={16} />
             <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold">BNB Chain</span>
           </div>
           <div>

@@ -6,7 +6,7 @@ import { LogOut, Plus, Search, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Mark } from "@/components/brand/Mark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -31,8 +31,7 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-40 hidden h-16 items-center gap-6 border-b border-border bg-bg/90 px-6 backdrop-blur lg:flex">
       <Link href="/app" className="flex items-center gap-2.5">
-        <Mark size={30} />
-        <span className="text-[18px] font-bold tracking-[-0.02em]">StacksClub</span>
+        <Wordmark size={22} />
       </Link>
       <nav aria-label="Main" className="flex items-center gap-1">
         {nav.map((n) => (

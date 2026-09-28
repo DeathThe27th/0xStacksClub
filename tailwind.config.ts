@@ -21,7 +21,8 @@ const config: Config = {
         link: "rgb(var(--link) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "var(--font-sans)", "system-ui", "sans-serif"],
       },
       fontSize: {
         balance: ["40px", { lineHeight: "44px", fontWeight: "700" }],

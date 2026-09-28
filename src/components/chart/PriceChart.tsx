@@ -80,7 +80,7 @@ export function PriceChart({
     if (!el.current) return;
     const c = createChart(el.current, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: palette().muted, fontSize: 11, fontFamily: "var(--font-inter), system-ui", attributionLogo: false },
+      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: palette().muted, fontSize: 11, fontFamily: "var(--font-sans), system-ui", attributionLogo: false },
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       leftPriceScale: { visible: false },
       rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.08 } },
