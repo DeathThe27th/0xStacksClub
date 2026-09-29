@@ -29,6 +29,7 @@ import { parseTypedDataToSign, type Eip712Payload } from "@/server/binance/typed
 import { publicClient, readErc20Balances, readTokenMeta } from "@/server/chain";
 import { db, must } from "@/server/db";
 import { HttpError } from "@/server/http";
+import { requireFairQuote } from "@/server/priceGuard";
 import { readPosition, readStack, requireVault, syncTx } from "@/server/vault";
 
 // ---------------------------------------------------------------------------
@@ -266,7 +267,7 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
   const to = getAddress(l.to_token);
   const amount = BigInt(l.amount_in);
   // Allowlist re-check on every quote: never trade a token that isn't enabled.
-  await requireTradable(from === USDT_ADDRESS ? to : from, "trade").catch((e) => {
+  const asset = await requireTradable(from === USDT_ADDRESS ? to : from, "trade").catch((e) => {
     throw new HttpError(422, (e as Error).message);
   });
 
@@ -278,6 +279,15 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
   }
   const route = routes.find((r) => r.isBest) ?? routes[0];
   if (!route) throw new HttpError(422, "No route for this trade right now");
+  // Stop before anything is approved or signed if the best route is far off the market price.
+  const buying = from === USDT_ADDRESS;
+  await requireFairQuote({
+    side: buying ? "buy" : "sell",
+    asset,
+    usdtRaw: buying ? amount : BigInt(route.toTokenAmount),
+    usdtDecimals: await getUsdtDecimals(),
+    tokenRaw: buying ? BigInt(route.toTokenAmount) : amount,
+  });
 
   // Spender for the exact approval. RFQ approvals are vendor-specific (binance-notes §5).
   const approvals = await getApproveTx({ token: from, amount, vendor: route.executionMode === "RFQ" ? route.vendorName : undefined }).catch(

@@ -5,7 +5,8 @@ import { requireProfile } from "@/server/auth";
 import { requireTradable } from "@/server/assets/store";
 import { BinanceError, getQuote } from "@/server/binance";
 import { handler, HttpError, json, rateLimit, readJson } from "@/server/http";
-import { loadIntent, quoteLeg } from "@/server/intents";
+import { getUsdtDecimals, loadIntent, quoteLeg } from "@/server/intents";
+import { requireFairQuote } from "@/server/priceGuard";
 
 const body = z.union([
   // Execute a leg of an intent: from/to/amount come from the server-computed leg.
@@ -28,14 +29,25 @@ export const POST = handler(async (req: Request) => {
   const from = getAddress(b.from);
   const to = getAddress(b.to);
   // Both sides must be USDT or an allowlisted, tradable asset. Never an arbitrary token.
-  if (from !== USDT_ADDRESS) await requireTradable(from, "trade").catch((e) => { throw new HttpError(422, (e as Error).message); });
-  if (to !== USDT_ADDRESS) await requireTradable(to, "trade").catch((e) => { throw new HttpError(422, (e as Error).message); });
   if (from !== USDT_ADDRESS && to !== USDT_ADDRESS) throw new HttpError(400, "One side must be USDT");
+  if (from === to) throw new HttpError(400, "One side must be a stock");
+  const buying = from === USDT_ADDRESS;
+  const asset = await requireTradable(buying ? to : from, "trade").catch((e) => {
+    throw new HttpError(422, (e as Error).message);
+  });
 
   try {
     const routes = await getQuote({ from, to, amount: BigInt(b.amount), userAddress: ctx.wallet });
     const best = routes.find((r) => r.isBest) ?? routes[0];
     if (!best) throw new HttpError(422, "No route right now");
+    const amount = BigInt(b.amount);
+    await requireFairQuote({
+      side: buying ? "buy" : "sell",
+      asset,
+      usdtRaw: buying ? amount : BigInt(best.toTokenAmount),
+      usdtDecimals: await getUsdtDecimals(),
+      tokenRaw: buying ? BigInt(best.toTokenAmount) : amount,
+    });
     return json({
       mode: best.executionMode,
       vendor: best.vendorName,
