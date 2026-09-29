@@ -22,7 +22,7 @@ import { Bar } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
-import { MIN_BUY_USD_SMALL, PROVIDER_LABEL, type Provider } from "@/lib/constants";
+import { APP_NAME, MIN_BUY_USD_SMALL, PROVIDER_LABEL, type Provider } from "@/lib/constants";
 import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
@@ -108,6 +108,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         logo={a?.logo_url ?? null}
         title={a?.ticker ?? "…"}
         subtitle={a ? `${a.name}` : "…"}
+        verified={a ? `Verified: ${a.symbol} is on the ${APP_NAME} allowlist` : null}
         copyValue={a?.address}
         watched={watch.watched}
         onWatch={watch.toggle}

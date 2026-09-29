@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, History, Share, Star } from "lucide-react";
+import { BadgeCheck, Check, Copy, History, Share, Star } from "lucide-react";
 import { useState } from "react";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
@@ -9,6 +9,7 @@ export function DetailTopBar({
   logo,
   basket,
   title,
+  verified,
   subtitle,
   copyValue,
   subtitleNode,
@@ -20,6 +21,8 @@ export function DetailTopBar({
   /** Basket ticker, so curated baskets show their badge. */
   basket?: string | null;
   title: string;
+  /** Show the verified badge: an allowlisted stock, or a basket made by the 3AM team. */
+  verified?: string | null;
   subtitle: string;
   copyValue?: string;
   subtitleNode?: React.ReactNode;
@@ -37,7 +40,10 @@ export function DetailTopBar({
     <header className="flex items-center gap-3 pl-gutter pr-1 pt-3 lg:px-0 lg:pt-0">
       <TokenLogo src={logo} label={title} basket={basket} size={40} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[18px] font-bold leading-tight">{title}</p>
+        <p className="flex min-w-0 items-center gap-1 text-[18px] font-bold leading-tight">
+          <span className="truncate">{title}</span>
+          {verified && <VerifiedBadge label={verified} />}
+        </p>
         {subtitleNode ?? (
           <button
             onClick={async () => {
@@ -78,5 +84,14 @@ function IconButton({ label, onClick, children }: { label: string; onClick: () =
     <button onClick={onClick} aria-label={label} className="press grid h-11 w-11 place-items-center text-text-muted hover:text-text">
       {children}
     </button>
+  );
+}
+
+/** Filled check badge; its outline takes the page background so it reads as a solid seal. */
+export function VerifiedBadge({ label, size = 18 }: { label: string; size?: number }) {
+  return (
+    <span title={label} aria-label={label} role="img" className="inline-flex shrink-0">
+      <BadgeCheck size={size} strokeWidth={2.25} className="fill-primary text-bg" aria-hidden />
+    </span>
   );
 }

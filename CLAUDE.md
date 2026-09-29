@@ -1,4 +1,4 @@
-# Stocks n Clubs (formerly StacksClub)
+# 3AM (formerly Stocks n Clubs, StacksClub)
 
 Social market for tokenized stocks and creator-made stock baskets on BNB Smart Chain mainnet (chain ID 56).
 

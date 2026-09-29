@@ -1,4 +1,4 @@
-# Stocks n Clubs
+# 3AM
 
 A social market for tokenized stocks and creator-made stock baskets on BNB Smart Chain mainnet.
 Users buy provider-issued stock tokens (bStocks, Ondo) with USDT, build immutable baskets of 2 to 5

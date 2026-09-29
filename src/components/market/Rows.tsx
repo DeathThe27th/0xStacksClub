@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useFlash } from "@/components/ui/AnimatedNumber";
+import { VerifiedBadge } from "@/components/detail/TopBar";
 import { AvatarStack } from "@/components/ui/Avatar";
 import { Change, Triangle } from "@/components/ui/Change";
 import { TokenLogo } from "@/components/ui/TokenLogo";
+import { isCurated } from "@/lib/baskets";
 import { cn } from "@/lib/cn";
+import { APP_NAME } from "@/lib/constants";
 import { compact, pct, price as fmtPrice } from "@/lib/format";
 import type { AssetItem, StackSummary } from "@/lib/client/types";
 
@@ -64,6 +67,7 @@ export function BasketRow({ s }: { s: StackSummary }) {
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-row font-semibold">
           <span className="truncate">{s.name}</span>
+          {isCurated(s.ticker) && <VerifiedBadge label={`Verified: made by the ${APP_NAME} team`} size={15} />}
           {s.friends && <AvatarStack people={s.friends.avatars} extra={s.friends.count - s.friends.avatars.length} />}
         </p>
         <div className="mt-1 flex items-center gap-1.5">

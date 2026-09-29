@@ -23,9 +23,9 @@ import { Bar } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
 import { TokenLogo } from "@/components/ui/TokenLogo";
-import { basketCategory } from "@/lib/baskets";
+import { basketCategory, isCurated } from "@/lib/baskets";
 import { cn } from "@/lib/cn";
-import { MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
+import { APP_NAME, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
 import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
@@ -94,6 +94,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
           <DetailTopBar
             logo={s?.image_url ?? null}
             basket={s?.ticker}
+            verified={s && isCurated(s.ticker) ? `Verified: made by the ${APP_NAME} team` : null}
             title={s?.name ?? "…"}
             subtitle={s ? `$${s.ticker}` : "…"}
             subtitleNode={

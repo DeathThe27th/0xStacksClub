@@ -1,7 +1,7 @@
 import { getAddress } from "viem";
 
 /** User-facing app name. Change the spelling here only. */
-export const APP_NAME = "Stocks n Clubs";
+export const APP_NAME = "3AM";
 
 export const CHAIN_ID = 56;
 export const BINANCE_CHAIN_ID = "56";
