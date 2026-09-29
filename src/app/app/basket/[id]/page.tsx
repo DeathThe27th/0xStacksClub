@@ -97,6 +97,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
         <div className="min-w-0">
           <DetailTopBar
             logo={s?.image_url ?? null}
+            basket={s?.ticker}
             title={s?.name ?? "…"}
             subtitle={s ? `$${s.ticker}` : "…"}
             subtitleNode={

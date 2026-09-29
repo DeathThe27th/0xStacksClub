@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { decodeEventLog, encodeFunctionData, getAddress } from "viem";
 import { Button } from "@/components/ui/Button";
+import { TokenLogo } from "@/components/ui/TokenLogo";
 import { RowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { BASKET_CATEGORIES, CURATED_BASKETS, CURATOR_WALLETS, type CuratedBasket } from "@/lib/baskets";
@@ -117,9 +118,7 @@ export default function CuratedLaunchPage() {
                   const id = live.get(b.ticker) ?? (st?.state === "done" ? st.id : undefined);
                   return (
                     <li key={b.ticker} className="flex items-center gap-3 rounded-card border border-border bg-surface p-3">
-                      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-[11px] font-bold text-white" style={{ background: `linear-gradient(135deg, ${b.colors[0]}, ${b.colors[1]})` }}>
-                        {b.ticker}
-                      </span>
+                      <TokenLogo label={b.ticker} basket={b.ticker} size={44} />
                       <div className="min-w-0 flex-1">
                         <p className="text-[15px] font-semibold">
                           {b.name} <span className="font-normal text-text-muted">${b.ticker}</span>

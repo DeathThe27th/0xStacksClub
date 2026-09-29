@@ -35,7 +35,7 @@ export default function PositionPage({ params }: { params: Promise<{ id: string 
         <button onClick={() => router.back()} aria-label="Back" className="press grid h-11 w-9 place-items-center text-text-muted hover:text-text">
           <ChevronLeft size={26} />
         </button>
-        <TokenLogo src={p?.stackImage} label={p?.stackTicker ?? "?"} size={40} />
+        <TokenLogo src={p?.stackImage} label={p?.stackTicker ?? "?"} basket={p?.stackTicker} size={40} />
         <div className="min-w-0">
           <p className="text-[18px] font-bold">Position #{id}</p>
           {p && (

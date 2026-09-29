@@ -49,8 +49,10 @@ export type CuratedBasket = {
   name: string;
   category: string;
   description: string;
-  /** Two gradient stops for the generated cover image. */
+  /** Two gradient stops for the basket's badge and generated cover image. */
   colors: [string, string];
+  /** Glyph drawn on the basket's badge (see BASKET_ICONS in components/ui/TokenLogo). */
+  icon: "cpu" | "memory" | "earth" | "cloud" | "zap" | "crown" | "blocks" | "rocket";
   /** bStocks addresses (checksummed). The vault allowlist is the final check onchain. */
   components: { ticker: string; address: `0x${string}`; weightBps: number }[];
 };
@@ -63,6 +65,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "The five companies that design and make most of the world's AI chips. NVIDIA and AMD design the GPUs, Broadcom the custom accelerators, Arm the CPU cores, and TSMC fabricates nearly all of them.",
     colors: ["#6C47FF", "#1E1B4B"],
+    icon: "cpu",
     components: [
       { ticker: "NVDA", address: "0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436", weightBps: 3000 },
       { ticker: "TSM", address: "0xAB78b89B5bb00236Be0B4B20704cBfa04EfC711c", weightBps: 2500 },
@@ -78,6 +81,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "AI models are hungry for memory. Micron and SK Hynix make the DRAM and HBM stacked next to every GPU, SanDisk and Western Digital the flash and drives that hold the data. These four tend to move together through the memory cycle.",
     colors: ["#0EA5E9", "#0B1E3F"],
+    icon: "memory",
     components: [
       { ticker: "MU", address: "0xcdf2f3e0fa43C47A6662a91C9E4a7C5f69762699", weightBps: 3000 },
       { ticker: "SKHY", address: "0xCA750eF65f295BBECd685Abf54e82CAf297BDB61", weightBps: 3000 },
@@ -92,6 +96,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "Asia's side of the tech supply chain: TSMC in Taiwan, SK Hynix and the wider Korean market, and Alibaba's cloud and chip design in China.",
     colors: ["#F43F5E", "#3B0A1A"],
+    icon: "earth",
     components: [
       { ticker: "TSM", address: "0xAB78b89B5bb00236Be0B4B20704cBfa04EfC711c", weightBps: 3000 },
       { ticker: "SKHY", address: "0xCA750eF65f295BBECd685Abf54e82CAf297BDB61", weightBps: 3000 },
@@ -106,6 +111,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "Where AI actually runs. The newer GPU clouds CoreWeave and Nebius next to the incumbents Oracle, Microsoft Azure and Google Cloud, all spending heavily on data centres.",
     colors: ["#22C55E", "#052E16"],
+    icon: "cloud",
     components: [
       { ticker: "CRWV", address: "0x33E7317e17838fEE56b10Fe8D0B9cA6CA3090c95", weightBps: 2000 },
       { ticker: "NBIS", address: "0xE256BC2A4F5297F8ba6f043F180a46300eCbCbB1", weightBps: 2000 },
@@ -121,6 +127,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "Data centres are moving from copper to light. Lumentum and Applied Optoelectronics make the lasers and transceivers, Marvell the optical chips, Corning the fibre, and AXT the indium phosphide wafers they are built on.",
     colors: ["#F59E0B", "#3A2204"],
+    icon: "zap",
     components: [
       { ticker: "LITE", address: "0x64748BeA17b6D19e242ADf20425DE2440c656142", weightBps: 2500 },
       { ticker: "MRVL", address: "0x16cd4fe7e8880ECc3ba222795229E20489fc2C76", weightBps: 2500 },
@@ -135,6 +142,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     category: "big-tech",
     description: "Five of the largest companies on the market in equal parts: NVIDIA, Microsoft, Alphabet, Meta and Tesla.",
     colors: ["#A855F7", "#2E1065"],
+    icon: "crown",
     components: [
       { ticker: "NVDA", address: "0x02Fca66C1D1aFB4E2A7884261eB00F63598a7436", weightBps: 2000 },
       { ticker: "MSFT", address: "0x80106cb3EAD06659A5ad19DF39D9b4733863B9b0", weightBps: 2000 },
@@ -150,6 +158,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "The listed companies closest to crypto: Coinbase the exchange, Circle the USDC issuer, Robinhood the retail broker, and Strategy the largest corporate bitcoin holder. They tend to follow bitcoin.",
     colors: ["#3B82F6", "#0A1A3F"],
+    icon: "blocks",
     components: [
       { ticker: "COIN", address: "0x585BDE7C54ABB5cCD7791F923D6c2187635f3952", weightBps: 3000 },
       { ticker: "CRCL", address: "0x80f3D493EBCe97e343c53D29a137942416B4ffC0", weightBps: 2500 },
@@ -164,6 +173,7 @@ export const CURATED_BASKETS: CuratedBasket[] = [
     description:
       "Long-horizon bets on what comes after today's tech: SpaceX and Rocket Lab in launch, Quantinuum and IBM in quantum computing, Cerebras in wafer-scale AI chips. Expect big swings.",
     colors: ["#EC4899", "#1F0A2E"],
+    icon: "rocket",
     components: [
       { ticker: "SPCX", address: "0xbe9D156892E55e7154BcD3cB0FEA677F9D3103E1", weightBps: 2500 },
       { ticker: "RKLB", address: "0xC8Da12cbCCE7c45180692a6420b0076e03a5179a", weightBps: 2500 },
@@ -180,6 +190,10 @@ const byTicker = new Map(CURATED_BASKETS.map((b) => [b.ticker, b]));
 export function basketCategory(ticker: string | null | undefined): { id: string; label: string; blurb: string } {
   const curated = ticker ? byTicker.get(ticker.toUpperCase()) : undefined;
   return BASKET_CATEGORIES.find((c) => c.id === curated?.category) ?? COMMUNITY_CATEGORY;
+}
+
+export function curatedBasket(ticker: string | null | undefined): CuratedBasket | undefined {
+  return ticker ? byTicker.get(ticker.replace(/^\$/, "").toUpperCase()) : undefined;
 }
 
 export function isCurated(ticker: string | null | undefined) {

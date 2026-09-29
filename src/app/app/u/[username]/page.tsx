@@ -212,7 +212,7 @@ function Holdings({ u }: { u: UserResponse }) {
     <div className="pt-2">
       {u.positions.map((p) => (
         <Link key={p.id} href={`/app/position/${p.id}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
-          <TokenLogo src={p.stackImage} label={p.stackTicker ?? "?"} size={48} />
+          <TokenLogo src={p.stackImage} label={p.stackTicker ?? "?"} basket={p.stackTicker} size={48} />
           <div className="min-w-0 flex-1">
             <p className="text-row font-semibold uppercase">${p.stackTicker}</p>
             <p className="text-secondary text-text-muted">Position #{p.id} · {p.components.length} stocks</p>

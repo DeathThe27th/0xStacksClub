@@ -58,6 +58,7 @@ export function TopTrades() {
                 person={w.profile}
                 logo={w.target?.kind === "stack" ? w.target.stack.image_url : w.target?.kind === "asset" ? w.target.asset.logo_url : null}
                 logoLabel={w.target?.kind === "stack" ? w.target.stack.ticker : w.target?.kind === "asset" ? w.target.asset.ticker : "?"}
+                basket={w.target?.kind === "stack" ? w.target.stack.ticker : null}
                 value={usd(w.gainUsd, { sign: true })}
               />
             ))
@@ -76,6 +77,7 @@ export function TopTrades() {
                 person={h.creator ?? { id: "", username: "unknown", display_name: null, avatar_url: null }}
                 logo={h.stack.image_url}
                 logoLabel={h.stack.ticker}
+                basket={h.stack.ticker}
                 value={`+${usd(Number(BigInt(h.earnedRaw)) / 1e18)}`}
               />
             ))
@@ -96,7 +98,7 @@ function Page({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Card({ href, person, logo, logoLabel, value }: { href: string; person: ProfileLite; logo: string | null; logoLabel: string; value: string }) {
+function Card({ href, person, logo, logoLabel, basket, value }: { href: string; person: ProfileLite; logo: string | null; logoLabel: string; basket?: string | null; value: string }) {
   return (
     <Link href={href} className="press w-[170px] shrink-0 snap-start overflow-hidden rounded-card border border-border bg-surface">
       <div className="flex items-center gap-2 px-3 py-2.5">
@@ -105,7 +107,7 @@ function Card({ href, person, logo, logoLabel, value }: { href: string; person: 
       </div>
       <div className="h-px bg-border" />
       <div className="flex items-center gap-2 px-3 py-3">
-        <TokenLogo src={logo} label={logoLabel} size={28} />
+        <TokenLogo src={logo} label={logoLabel} basket={basket} size={28} />
         <span className="truncate text-[17px] font-semibold text-up tnum">{value}</span>
       </div>
     </Link>

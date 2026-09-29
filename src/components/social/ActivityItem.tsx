@@ -32,7 +32,7 @@ export function ActivityItem({ a, showActor = true }: { a: Activity; showActor?:
         </p>
         {href && a.target && (
           <Link href={href} className="press mt-2 flex items-center gap-3 rounded-chip bg-surface p-2.5">
-            <TokenLogo src={a.target.kind === "stack" ? a.target.stack.image_url : a.target.asset.logo_url} label={a.target.kind === "stack" ? a.target.stack.ticker : a.target.asset.ticker} size={32} />
+            <TokenLogo src={a.target.kind === "stack" ? a.target.stack.image_url : a.target.asset.logo_url} label={a.target.kind === "stack" ? a.target.stack.ticker : a.target.asset.ticker} basket={a.target.kind === "stack" ? a.target.stack.ticker : null} size={32} />
             <span className="text-[15px] font-semibold uppercase">{a.target.kind === "stack" ? `$${a.target.stack.ticker}` : a.target.asset.ticker}</span>
             {a.target.kind === "stack" && <span className="truncate text-secondary text-text-muted">{a.target.stack.name}</span>}
           </Link>

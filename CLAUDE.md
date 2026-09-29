@@ -45,7 +45,7 @@ If two docs disagree, this file wins, then the more specific doc wins over `ARCH
 ## Settled product rules
 
 - Stack = immutable recipe of 2 to 5 allowlisted stock tokens, weights in basis points summing to 10,000.
-- Min buy is $1 for 1 to 3 components, $10 for 4 to 5. Single stock min buy is $1.
+- Min buy is $1 for 1 to 3 components, $5 for 4 to 5. Single stock min buy is $1.
 - 1% buy fee charged once on the whole purchase, taken from the gross amount before legs run. For Stack buys, 25% to the creator as a claimable balance and 75% to the platform. Single stock buy fees go 100% to the platform. 1% sell fee on actual proceeds goes to the platform. Stack creation has no app fee.
 - Each Stack purchase is its own position with exact raw units. No rebalancing. Position NFTs are non-transferable.
 - Sell converts a fraction of every component to USDT. Redeem returns that fraction of the stock tokens unchanged.

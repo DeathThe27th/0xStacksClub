@@ -98,9 +98,9 @@ function SearchBox() {
     router.push(href);
   };
   const items = [
-    ...(res.data?.assets ?? []).slice(0, 6).map((a) => ({ key: a.address, href: `/app/stock/${a.provider}/${a.address}`, logo: a.logo_url, title: a.ticker, sub: a.name, right: price(a.price?.price_usd ? Number(a.price.price_usd) : null) })),
-    ...(res.data?.stacks ?? []).slice(0, 4).map((s) => ({ key: `s${s.id}`, href: `/app/basket/${s.id}`, logo: s.image_url, title: `$${s.ticker}`, sub: s.name, right: "Basket" })),
-    ...(res.data?.people ?? []).slice(0, 4).map((p) => ({ key: p.id, href: `/app/u/${p.username}`, logo: p.avatar_url, title: p.display_name ?? p.username, sub: `@${p.username}`, right: "" })),
+    ...(res.data?.assets ?? []).slice(0, 6).map((a) => ({ key: a.address, href: `/app/stock/${a.provider}/${a.address}`, logo: a.logo_url, basket: null, title: a.ticker, sub: a.name, right: price(a.price?.price_usd ? Number(a.price.price_usd) : null) })),
+    ...(res.data?.stacks ?? []).slice(0, 4).map((s) => ({ key: `s${s.id}`, href: `/app/basket/${s.id}`, logo: s.image_url, basket: s.ticker, title: `$${s.ticker}`, sub: s.name, right: "Basket" })),
+    ...(res.data?.people ?? []).slice(0, 4).map((p) => ({ key: p.id, href: `/app/u/${p.username}`, logo: p.avatar_url, basket: null, title: p.display_name ?? p.username, sub: `@${p.username}`, right: "" })),
   ];
   return (
     <div className="relative w-full max-w-[440px]">
@@ -134,7 +134,7 @@ function SearchBox() {
           ) : (
             items.map((it) => (
               <button key={it.key} onMouseDown={() => go(it.href)} className="flex w-full items-center gap-3 rounded-chip px-2.5 py-2 text-left hover:bg-surface-2">
-                <TokenLogo src={it.logo} label={it.title} size={32} />
+                <TokenLogo src={it.logo} label={it.title} basket={it.basket} size={32} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] font-semibold">{it.title}</span>
                   <span className="block truncate text-[12px] text-text-muted">{it.sub}</span>

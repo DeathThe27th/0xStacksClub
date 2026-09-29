@@ -104,7 +104,7 @@ export function Overview({ onDeposit }: { onDeposit: () => void }) {
                 <tr key={`p${x.id}`} className="border-b border-border/60 last:border-0 hover:bg-surface-2/60">
                   <td className="px-5 py-3">
                     <Link href={`/app/position/${x.id}`} className="flex items-center gap-3">
-                      <TokenLogo src={x.stackImage} label={x.stackTicker ?? "?"} size={32} />
+                      <TokenLogo src={x.stackImage} label={x.stackTicker ?? "?"} basket={x.stackTicker} size={32} />
                       <span>
                         <span className="block font-semibold">${x.stackTicker}</span>
                         <span className="block text-[12px] text-text-muted">Position #{x.id} · {x.components.length} stocks</span>

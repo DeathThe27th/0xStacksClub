@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 
 export function DetailTopBar({
   logo,
+  basket,
   title,
   subtitle,
   copyValue,
@@ -17,6 +18,8 @@ export function DetailTopBar({
   onHistory,
 }: {
   logo: string | null;
+  /** Basket ticker, so curated baskets show their badge. */
+  basket?: string | null;
   title: string;
   subtitle: string;
   copyValue?: string;
@@ -37,7 +40,7 @@ export function DetailTopBar({
       <button onClick={() => (history.length > 1 ? router.back() : router.push("/app"))} aria-label="Back" className="press grid h-11 w-9 place-items-center text-text-muted hover:text-text">
         <ChevronLeft size={26} />
       </button>
-      <TokenLogo src={logo} label={title} size={40} />
+      <TokenLogo src={logo} label={title} basket={basket} size={40} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[18px] font-bold leading-tight">{title}</p>
         {subtitleNode ?? (

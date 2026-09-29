@@ -31,7 +31,7 @@ No position is created for single stocks. The tokens live in the user's wallet.
 
 ## 3. Buy a Stack
 
-1. User enters G. Minimum $1 for 2 to 3 components, $10 for 4 to 5.
+1. User enters G. Minimum $1 for 2 to 3 components, $5 for 4 to 5.
 2. `POST /api/intents` with `kind = buy_stack`. The server reads the recipe from chain, computes fee and net, and splits net across components by weight. Allocation rule: `alloc[i] = net * weight[i] / 10000` rounded down, then add any remainder to the largest weight. Unit-test this.
 3. Pay fee with `payBuyFee(stackId, G)`. Creator gets 25% of the fee as claimable.
 4. Run each leg in sequence (section 4). Status `legs_running`.
