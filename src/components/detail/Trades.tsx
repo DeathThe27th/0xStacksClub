@@ -3,8 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Receipt } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import type { TradeMarker } from "@/components/chart/PriceChart";
 import { Avatar } from "@/components/ui/Avatar";
 import { EmptyState } from "@/components/ui/States";
 import { cn } from "@/lib/cn";
@@ -14,51 +12,16 @@ import type { ProfileLite } from "@/lib/client/types";
 import { APP_NAME } from "@/lib/constants";
 
 export type PublicTrade = { id: number; side: "buy" | "sell"; usd: number; price: number | null; at: string; trader: ProfileLite | null; isMe: boolean; isFriend: boolean };
-export type Overlay = "all" | "friends" | "mine" | "off";
 
-/** App users' trades in one stock or Stack, plus chart markers filtered by overlay. */
+/** App users' trades in one stock or basket. */
 export function useTrades(targetType: "asset" | "stack", targetId: string) {
   const api = useApi();
-  const [overlay, setOverlay] = useState<Overlay>("all");
   const q = useQuery({
     queryKey: ["public-trades", targetType, targetId],
     queryFn: () => api<{ items: PublicTrade[] }>(`/api/trades/public?targetType=${targetType}&targetId=${targetId}`),
     refetchInterval: 15_000,
   });
-  const markers: TradeMarker[] = useMemo(() => {
-    if (overlay === "off") return [];
-    return (q.data?.items ?? [])
-      .filter((t) => overlay === "all" || (overlay === "mine" ? t.isMe : t.isFriend))
-      .map((t) => ({ t: new Date(t.at).getTime(), side: t.side, label: t.trader?.username ?? "" }));
-  }, [q.data, overlay]);
-  return { trades: q.data?.items ?? [], loading: q.isLoading, overlay, setOverlay, markers };
-}
-
-export function OverlayToggle({ value, onChange }: { value: Overlay; onChange: (o: Overlay) => void }) {
-  const opts: [Overlay, string][] = [
-    ["all", "Everyone"],
-    ["friends", "Friends"],
-    ["mine", "Mine"],
-    ["off", "Off"],
-  ];
-  return (
-    <div className="flex items-center gap-2 px-gutter pt-3 lg:px-0">
-      <span className="text-[12px] text-text-muted">Trades on chart</span>
-      <div role="radiogroup" aria-label="Trades on chart" className="flex rounded-chip bg-surface p-0.5">
-        {opts.map(([id, label]) => (
-          <button
-            key={id}
-            role="radio"
-            aria-checked={value === id}
-            onClick={() => onChange(id)}
-            className={cn("h-7 rounded-[10px] px-2.5 text-[12px] font-semibold", value === id ? "bg-surface-2 text-text" : "text-text-muted hover:text-text")}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+  return { trades: q.data?.items ?? [], loading: q.isLoading };
 }
 
 /** Live trades by app users (fomo-style), newest first. */

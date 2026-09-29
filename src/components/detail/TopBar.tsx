@@ -1,7 +1,6 @@
 "use client";
 
-import { Check, ChevronLeft, Copy, History, Share, Star } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Check, Copy, History, Share, Star } from "lucide-react";
 import { useState } from "react";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
@@ -28,7 +27,6 @@ export function DetailTopBar({
   onWatch?: () => void;
   onHistory?: () => void;
 }) {
-  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const url = window.location.href;
@@ -36,10 +34,7 @@ export function DetailTopBar({
     else await navigator.clipboard.writeText(url);
   };
   return (
-    <header className="flex items-center gap-3 px-3 pt-3 lg:px-0 lg:pt-0">
-      <button onClick={() => (history.length > 1 ? router.back() : router.push("/app"))} aria-label="Back" className="press grid h-11 w-9 place-items-center text-text-muted hover:text-text">
-        <ChevronLeft size={26} />
-      </button>
+    <header className="flex items-center gap-3 pl-gutter pr-1 pt-3 lg:px-0 lg:pt-0">
       <TokenLogo src={logo} label={title} basket={basket} size={40} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[18px] font-bold leading-tight">{title}</p>

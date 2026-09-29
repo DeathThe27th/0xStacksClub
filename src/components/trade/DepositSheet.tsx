@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Check, Copy, CreditCard, QrCode } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, Copy, CreditCard, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { erc20Abi, formatUnits, type Address } from "viem";
@@ -20,7 +20,18 @@ export function DepositSheet({ open, onClose, anchor }: { open: boolean; onClose
     if (!open) setView("menu");
   }, [open]);
   return (
-    <Sheet open={open} onClose={onClose} title={view === "menu" ? "Deposit" : "Deposit crypto"} anchor={anchor}>
+    <Sheet open={open} onClose={onClose} title={
+        view === "menu" ? (
+          "Deposit"
+        ) : (
+          <span className="relative flex items-center justify-center">
+            <button onClick={() => setView("menu")} aria-label="Back" className="press absolute -left-2 grid h-10 w-10 place-items-center rounded-full text-text-muted hover:bg-surface-2 hover:text-text">
+              <ChevronLeft size={22} />
+            </button>
+            Deposit crypto
+          </span>
+        )
+      } anchor={anchor}>
       {view === "menu" ? (
         <div className="space-y-3">
           <Option title="Deposit crypto" icon={<QrCode size={24} />} onClick={() => setView("crypto")} />
@@ -28,7 +39,7 @@ export function DepositSheet({ open, onClose, anchor }: { open: boolean; onClose
           <Option title="Deposit with card" icon={<CreditCard size={24} />} soon />
         </div>
       ) : (
-        <AddressView onBack={() => setView("menu")} />
+        <AddressView />
       )}
     </Sheet>
   );
@@ -48,7 +59,7 @@ function Option({ title, icon, onClick, soon }: { title: string; icon: React.Rea
   );
 }
 
-function AddressView({ onBack }: { onBack: () => void }) {
+function AddressView() {
   const wallet = useActiveWallet();
   const address = wallet?.address as Address | undefined;
   const toast = useToast();
@@ -105,9 +116,6 @@ function AddressView({ onBack }: { onBack: () => void }) {
 
   return (
     <div>
-      <button onClick={onBack} className="press -mt-2 mb-3 flex items-center gap-1 text-secondary text-text-muted hover:text-text">
-        <ArrowLeft size={16} /> Back
-      </button>
       <div className="mx-auto w-fit rounded-card bg-white p-4">
         <QRCodeSVG value={address} size={188} bgColor="#FFFFFF" fgColor="#0A0A12" level="M" />
       </div>

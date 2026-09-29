@@ -5,14 +5,11 @@ import {
   CandlestickSeries,
   ColorType,
   createChart,
-  createSeriesMarkers,
   CrosshairMode,
   LineSeries,
   LineStyle,
   type IChartApi,
   type IPriceLine,
-  type ISeriesMarkersPluginApi,
-  type Time,
   type ISeriesApi,
   type UTCTimestamp,
 } from "lightweight-charts";
@@ -23,9 +20,6 @@ import { cssColor, useTheme } from "@/lib/client/theme";
 
 export type Point = { t: number; value: number; o?: number; h?: number; l?: number; c?: number; reference?: number | null };
 export type Timeframe = "LIVE" | "1H" | "1D" | "1W" | "ALL";
-/** A StacksClub user's trade, drawn on the chart (buys below the bar, sells above). */
-export type TradeMarker = { t: number; side: "buy" | "sell"; label: string };
-
 /** Chart colours come from the theme tokens, so the canvas follows light and dark mode. */
 function palette() {
   return {
@@ -52,7 +46,6 @@ export function PriceChart({
   onScrub,
   formatPrice,
   showReference,
-  markers,
   compact = false,
 }: {
   points: Point[];
@@ -61,7 +54,6 @@ export function PriceChart({
   onScrub: (p: Point | null) => void;
   formatPrice: (n: number) => string;
   showReference?: boolean;
-  markers?: TradeMarker[];
   /** A shorter chart, for inline use (a basket's per-stock charts). */
   compact?: boolean;
 }) {
@@ -70,7 +62,6 @@ export function PriceChart({
   const series = useRef<ISeriesApi<"Area"> | ISeriesApi<"Candlestick"> | null>(null);
   const ref = useRef<ISeriesApi<"Line"> | null>(null);
   const line = useRef<IPriceLine | null>(null);
-  const markerApi = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const byTime = useRef(new Map<number, Point>());
   const scrubCb = useRef(onScrub);
   scrubCb.current = onScrub;
@@ -135,8 +126,6 @@ export function PriceChart({
     const c = chart.current;
     if (!c) return;
     if (series.current) {
-      markerApi.current?.detach();
-      markerApi.current = null;
       c.removeSeries(series.current);
       series.current = null;
       line.current = null;
@@ -210,37 +199,6 @@ export function PriceChart({
       : null;
     chart.current?.timeScale().fitContent();
   }, [points, mode, up, theme]);
-
-  // Trade markers, snapped to the candle they fall in (markers must sit on an existing bar).
-  useEffect(() => {
-    const s = series.current;
-    if (!s) return;
-    const times = [...byTime.current.keys()];
-    const first = times[0];
-    const p = palette();
-    const list = (markers ?? [])
-      .map((m) => {
-        const sec = Math.floor(m.t / 1000);
-        if (first === undefined || sec < first) return null;
-        let snap = first;
-        for (const t of times) {
-          if (t <= sec) snap = t;
-          else break;
-        }
-        return {
-          time: snap as UTCTimestamp,
-          position: m.side === "buy" ? ("belowBar" as const) : ("aboveBar" as const),
-          shape: m.side === "buy" ? ("arrowUp" as const) : ("arrowDown" as const),
-          color: m.side === "buy" ? p.up : p.down,
-          text: m.label,
-          size: 1,
-        };
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null)
-      .sort((a, b) => a.time - b.time);
-    if (!markerApi.current) markerApi.current = createSeriesMarkers(s, list);
-    else markerApi.current.setMarkers(list);
-  }, [markers, points, mode, up, theme]);
 
   // Counter-zoomed so lightweight-charts' pointer maths lines up under the desktop page zoom.
   return (

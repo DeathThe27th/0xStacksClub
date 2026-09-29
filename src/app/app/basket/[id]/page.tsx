@@ -1,11 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
 import { PriceChart, type Point } from "@/components/chart/PriceChart";
-import { ClubSection } from "@/components/club/ClubSection";
 import { StickyCta } from "@/components/detail/Cta";
 import { FeedTab } from "@/components/detail/Feed";
 import { HoldersTab } from "@/components/detail/Holders";
@@ -36,9 +35,6 @@ import type { AssetItem, StackSummary } from "@/lib/client/types";
 type Component = AssetItem & { weightBps: number; valueWeightPct: number | null };
 type Detail = { stack: StackSummary; components: Component[] };
 
-/** One colour per slot, readable on light and dark. Used by the allocation bar and each row's dot. */
-const SLOT_COLORS = ["#6C47FF", "#0EA5E9", "#F59E0B", "#EC4899", "#10B981"];
-
 /**
  * Basket detail. A basket has no price of its own, so there's no basket chart: the page leads with
  * what's inside it (each stock with its own chart on tap), then news across those stocks and their
@@ -47,7 +43,7 @@ const SLOT_COLORS = ["#6C47FF", "#0EA5E9", "#F59E0B", "#EC4899", "#10B981"];
 export default function BasketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const api = useApi();
-  const [tab, setTab] = useState<"holders" | "trades" | "feed" | "about">("holders");
+  const [tab, setTab] = useState<"trades" | "feed" | "about">("trades");
   const trades = useTrades("stack", id);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "history" | null>(null);
   const watch = useWatch("stack", id);
@@ -131,26 +127,31 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
           />
 
           {/* Hero: the basket's move today and its thesis. No price: a basket is a recipe, not a token. */}
-          <section className="mt-4 px-gutter lg:mt-6 lg:px-0">
-            <span className="inline-flex h-6 items-center rounded-badge bg-primary/10 px-2 text-[12px] font-semibold text-primary">{category.label}</span>
+          <section className="mt-5 px-gutter lg:mt-6 lg:px-0">
             {q.isLoading ? (
-              <Bar className="mt-3 h-9 w-40" />
+              <Bar className="h-9 w-40" />
             ) : (
-              <p className="mt-2 flex items-center gap-2">
+              <p className="flex items-baseline gap-2">
                 <BigChange value={s?.change24h ?? null} />
                 <span className="text-[15px] text-text-muted">{s?.change24h != null ? "today" : "No 24h move yet"}</span>
               </p>
             )}
-            <p className="mt-1 text-secondary text-text-muted">
-              {components.length ? `${components.length} stocks, weighted by value` : " "}
+            <p className="mt-1 text-[13px] text-text-muted">
+              {category.label}
+              {components.length ? ` · ${components.length} stocks` : ""}
               {s?.holders ? ` · ${s.holders} ${s.holders === 1 ? "holder" : "holders"}` : ""}
             </p>
-            {s?.description && <p className="mt-4 max-w-[62ch] whitespace-pre-wrap text-[15px] leading-relaxed">{s.description}</p>}
+            {s?.description && <Thesis text={s.description} />}
           </section>
 
           <Composition components={components} loading={q.isLoading} />
 
-          <div className="mt-8 space-y-8">
+          <section className="mt-10 px-gutter lg:px-0">
+            <h2 className="text-section">Holders</h2>
+            <HoldersTab targetType="stack" targetId={id} />
+          </section>
+
+          <div className="mt-10 space-y-10">
             {s && (
               <NewsFeed
                 title="News across the basket"
@@ -170,13 +171,10 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
             )}
           </div>
 
-          <ClubSection stackId={id} ticker={s?.ticker} />
-
-          <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
+          <div className="mt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
             <div className="px-gutter lg:px-0">
               <Tabs
                 tabs={[
-                  { id: "holders", label: `Holders (${s?.holders ?? 0})` },
                   { id: "trades", label: "Trades" },
                   { id: "feed", label: "Feed" },
                   { id: "about", label: "About" },
@@ -184,7 +182,6 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
                 value={tab}
                 onChange={setTab}
               />
-              {tab === "holders" && <HoldersTab targetType="stack" targetId={id} />}
               {tab === "feed" && <FeedTab targetType="stack" targetId={id} />}
               {tab === "trades" && <TradesFeed trades={trades.trades} loading={trades.loading} className="pt-3" />}
               {tab === "about" && s && (
@@ -251,64 +248,68 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
   );
 }
 
-/** Allocation bar plus one expandable row per stock. Tapping a row opens that stock's chart. */
+/** One quiet row per stock, weight first. Tapping a row opens that stock's chart. */
 function Composition({ components, loading }: { components: Component[]; loading: boolean }) {
   const [open, setOpen] = useState<string | null>(null);
   return (
-    <section className="mt-8 px-gutter lg:px-0">
-      <h2 className="text-section">What&apos;s inside</h2>
+    <section className="mt-10 px-gutter lg:px-0">
+      <h2 className="text-section">Inside</h2>
       {loading ? (
-        <div className="mt-4 space-y-3">
-          <Bar className="h-3 w-full rounded-full" />
+        <div className="mt-3 space-y-2">
           {[0, 1, 2].map((i) => (
-            <Bar key={i} className="h-16 w-full rounded-card" />
+            <Bar key={i} className="h-14 w-full rounded-card" />
           ))}
         </div>
       ) : (
         <>
-          <div className="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={components.map((c) => `${c.ticker} ${(c.weightBps / 100).toFixed(0)}%`).join(", ")}>
-            {components.map((c, i) => (
-              <span key={c.address} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${c.weightBps / 100}%`, background: SLOT_COLORS[i % SLOT_COLORS.length] }} />
-            ))}
-          </div>
-          <ul className="mt-4 space-y-2">
-            {components.map((c, i) => (
-              <ComponentRow key={c.address} c={c} color={SLOT_COLORS[i % SLOT_COLORS.length]!} open={open === c.address} onToggle={() => setOpen(open === c.address ? null : c.address)} />
+          <ul className="mt-2 divide-y divide-border/60">
+            {components.map((c) => (
+              <ComponentRow key={c.address} c={c} open={open === c.address} onToggle={() => setOpen(open === c.address ? null : c.address)} />
             ))}
           </ul>
-          <p className="mt-3 text-[13px] text-text-muted">Recipe weights. Each buy splits your money this way; nothing is rebalanced after.</p>
+          <p className="mt-2 text-[12px] text-text-muted">Each buy splits your money by these weights. Nothing is rebalanced after.</p>
         </>
       )}
     </section>
   );
 }
 
+/** The creator's thesis, clamped to three lines until tapped. */
+function Thesis({ text }: { text: string }) {
+  const [more, setMore] = useState(false);
+  const long = text.length > 180;
+  return (
+    <p className="mt-4 max-w-[62ch] whitespace-pre-wrap text-[15px] leading-relaxed text-text/90">
+      <span className={cn(long && !more && "line-clamp-3")}>{text}</span>
+      {long && (
+        <button onClick={() => setMore(!more)} className="press mt-1 block text-[14px] font-semibold text-text-muted hover:text-text">
+          {more ? "Less" : "More"}
+        </button>
+      )}
+    </p>
+  );
+}
+
 const chartTf = { "1D": "5m", "1W": "1H", ALL: "1D" } as const;
 type ChartTf = keyof typeof chartTf;
 
-function ComponentRow({ c, color, open, onToggle }: { c: Component; color: string; open: boolean; onToggle: () => void }) {
+function ComponentRow({ c, open, onToggle }: { c: Component; open: boolean; onToggle: () => void }) {
   const price = c.price?.price_usd ? Number(c.price.price_usd) : null;
   const ch = c.price?.change_24h != null ? Number(c.price.change_24h) : null;
   const cap = c.price?.market_cap != null ? Number(c.price.market_cap) : null;
   return (
-    <li className={cn("rounded-card border transition-colors", open ? "border-border bg-surface" : "border-transparent bg-surface/60")}>
-      <button onClick={onToggle} aria-expanded={open} className="press flex w-full items-center gap-3 px-3 py-3 text-left">
-        <span className="relative shrink-0">
-          <TokenLogo src={c.logo_url} label={c.ticker} size={40} />
-          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-bg" style={{ background: color }} aria-hidden />
-        </span>
+    <li>
+      <button onClick={onToggle} aria-expanded={open} className="press flex w-full items-center gap-3 py-3 text-left">
+        <span className="w-10 shrink-0 text-[15px] font-semibold tnum text-text-muted">{(c.weightBps / 100).toFixed(0)}%</span>
+        <TokenLogo src={c.logo_url} label={c.ticker} size={32} />
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-2 text-[16px] font-semibold">
-            {c.ticker}
-            <span className="text-[13px] font-medium text-text-muted tnum">{(c.weightBps / 100).toFixed(0)}%</span>
-          </p>
+          <p className="text-[16px] font-semibold">{c.ticker}</p>
           <p className="truncate text-[13px] text-text-muted">{c.name}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[15px] font-medium tnum">{fmtPrice(price)}</p>
           <Change value={ch} className="justify-end" />
         </div>
-        <ChevronDown size={18} className={cn("shrink-0 text-text-muted transition-transform", open && "rotate-180")} />
       </button>
       {open && <ComponentChart c={c} cap={cap} />}
     </li>
@@ -331,7 +332,7 @@ function ComponentChart({ c, cap }: { c: Component; cap: number | null }) {
   const shown = scrub?.value ?? last;
   const movePct = first && shown ? ((shown - first) / first) * 100 : null;
   return (
-    <div className="px-3 pb-3">
+    <div className="pb-4">
       <div className="flex items-center justify-between">
         <p className="flex items-center gap-2 text-[13px]">
           <span className="font-semibold tnum">{fmtPrice(shown ?? null)}</span>
@@ -346,9 +347,9 @@ function ComponentChart({ c, cap }: { c: Component; cap: number | null }) {
           ))}
         </div>
       </div>
-      <div className="-mx-3 mt-1">
+      <div className="-mx-gutter mt-1 lg:mx-0">
         {candles.isLoading ? (
-          <Bar className="mx-3 h-[200px] lg:h-[240px]" />
+          <Bar className="mx-gutter h-[200px] lg:mx-0 lg:h-[240px]" />
         ) : candles.isError ? (
           <ErrorState message="Chart data isn't available right now." onRetry={() => candles.refetch()} />
         ) : points.length ? (

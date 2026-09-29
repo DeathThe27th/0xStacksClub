@@ -8,7 +8,7 @@ import { ChartControls, PriceChart, type Point, type Timeframe } from "@/compone
 import { StickyCta } from "@/components/detail/Cta";
 import { TradePanel } from "@/components/trade/TradePanel";
 import { NewsSection } from "@/components/detail/News";
-import { OverlayToggle, StatsStrip, useTrades } from "@/components/detail/Trades";
+import { StatsStrip } from "@/components/detail/Trades";
 import { PositionCard } from "@/components/trade/PositionCard";
 import { DetailTopBar } from "@/components/detail/TopBar";
 import { TradesSheet } from "@/components/detail/TradesSheet";
@@ -58,7 +58,6 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const [mode, setMode] = useState<"area" | "candles">("area");
   const [scrub, setScrub] = useState<Point | null>(null);
   const [right, setRight] = useState<0 | 1 | 2>(0);
-  const trades = useTrades("asset", address);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "compare" | "history" | null>(null);
   // Snapshot at open: selling 100% drops the holding on refetch, which must not close the checklist.
   const [sellHolding, setSellHolding] = useState<Holding | null>(null);
@@ -153,14 +152,11 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
         ) : candles.isError ? (
           <ErrorState message="Chart data isn't available right now." onRetry={() => candles.refetch()} />
         ) : points.length ? (
-          <PriceChart points={points} mode={mode} up={up} onScrub={setScrub} formatPrice={(n) => fmtPrice(n)} markers={trades.markers} />
+          <PriceChart points={points} mode={mode} up={up} onScrub={setScrub} formatPrice={(n) => fmtPrice(n)} />
         ) : (
           <div className="grid h-[320px] place-items-center text-secondary text-text-muted">No trades in this range yet</div>
         )}
-        <div className="flex flex-wrap items-center justify-between">
-          <OverlayToggle value={trades.overlay} onChange={trades.setOverlay} />
-          <ChartControls value={tf} onChange={setTf} mode={mode} onMode={setMode} />
-        </div>
+        <ChartControls value={tf} onChange={setTf} mode={mode} onMode={setMode} />
       </div>
 
       <div className="mt-8 space-y-8">
