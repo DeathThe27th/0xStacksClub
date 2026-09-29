@@ -1,270 +1,238 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { ChevronsUpDown } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { use, useMemo, useState } from "react";
-import { ChartControls, PriceChart, type Point, type Timeframe } from "@/components/chart/PriceChart";
+import { PriceChart, type Point } from "@/components/chart/PriceChart";
 import { ClubSection } from "@/components/club/ClubSection";
 import { StickyCta } from "@/components/detail/Cta";
-import { TradePanel } from "@/components/trade/TradePanel";
-import { OverlayToggle, StatsStrip, TradesFeed, useTrades } from "@/components/detail/Trades";
-import { PositionCard } from "@/components/trade/PositionCard";
 import { FeedTab } from "@/components/detail/Feed";
 import { HoldersTab } from "@/components/detail/Holders";
+import { NewsFeed } from "@/components/detail/News";
 import { SharePrompt } from "@/components/detail/SharePrompt";
 import { DetailTopBar } from "@/components/detail/TopBar";
+import { StatsStrip, TradesFeed, useTrades } from "@/components/detail/Trades";
 import { TradesSheet } from "@/components/detail/TradesSheet";
-import { BuySheet } from "@/components/trade/BuySheet";
+import { BuySheet, type BuyComponent } from "@/components/trade/BuySheet";
 import { DepositSheet } from "@/components/trade/DepositSheet";
+import { PositionCard } from "@/components/trade/PositionCard";
 import { SellSheet } from "@/components/trade/SellSheet";
-import { Change } from "@/components/ui/Change";
-import { ProviderPill } from "@/components/ui/ProviderPill";
+import { TradePanel } from "@/components/trade/TradePanel";
+import { Change, Triangle } from "@/components/ui/Change";
 import { Bar } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
 import { TokenLogo } from "@/components/ui/TokenLogo";
+import { basketCategory } from "@/lib/baskets";
+import { cn } from "@/lib/cn";
 import { MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
-import { vaultAddr } from "@/lib/client/runner";
-import { pct, shortAddress, usd } from "@/lib/format";
-import { INDEX_BASE } from "@/lib/math";
+import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
+import { vaultAddr } from "@/lib/client/runner";
 import type { AssetItem, StackSummary } from "@/lib/client/types";
 
 type Component = AssetItem & { weightBps: number; valueWeightPct: number | null };
 type Detail = { stack: StackSummary; components: Component[] };
 
+/** One colour per slot, readable on light and dark. Used by the allocation bar and each row's dot. */
+const SLOT_COLORS = ["#6C47FF", "#0EA5E9", "#F59E0B", "#EC4899", "#10B981"];
+
+/**
+ * Basket detail. A basket has no price of its own, so there's no basket chart: the page leads with
+ * what's inside it (each stock with its own chart on tap), then news across those stocks and their
+ * sector, then the club and social tabs. Opens inside the market layout, like a stock.
+ */
 export default function BasketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const api = useApi();
-  const [tf, setTf] = useState<Timeframe>("1D");
-  const [scrub, setScrub] = useState<Point | null>(null);
-  const [right, setRight] = useState<0 | 1 | 2>(0);
-  const [tab, setTab] = useState<"holders" | "composition" | "trades" | "feed" | "about">("holders");
+  const [tab, setTab] = useState<"holders" | "trades" | "feed" | "about">("holders");
   const trades = useTrades("stack", id);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "history" | null>(null);
   const watch = useWatch("stack", id);
   const portfolio = usePortfolio();
 
   const q = useQuery({ queryKey: ["stack", id], queryFn: () => api<Detail>(`/api/stacks/${id}`), refetchInterval: 15_000 });
-  const series = useQuery({
-    queryKey: ["stack-index", id, tf],
-    queryFn: () => api<{ points: { t: number; value: number; reference: number | null }[] }>(`/api/stacks/${id}/index?tf=${tf}`),
-    refetchInterval: tf === "LIVE" ? 5000 : undefined,
-  });
   const s = q.data?.stack;
-  const points: Point[] = useMemo(() => series.data?.points ?? [], [series.data]);
-  // The series is an index (what $1,000 at launch is worth now). It only drives the chart and the
-  // percent moves; the headline number is the real USD value held in the basket.
-  const current = scrub?.value ?? s?.index ?? points.at(-1)?.value ?? null;
-  const first = points[0]?.value;
-  const change = first && current !== null ? current - first : null;
-  const changePct = first && change !== null ? (change / first) * 100 : null;
-  const up = (changePct ?? 0) >= 0;
+  const components = useMemo(() => q.data?.components ?? [], [q.data]);
+  const category = basketCategory(s?.ticker);
 
   const positions = (portfolio.data?.positions ?? []).filter((p) => String(p.stackId) === id);
   const min = (s?.components.length ?? 0) >= 4 ? MIN_BUY_USD_LARGE : MIN_BUY_USD_SMALL;
   const usdt = portfolio.data?.usdt.display ?? null;
-  const ctaState = !portfolio.data ? "loading" : usdt !== null && usdt < min && !positions.length ? "deposit" : positions.length ? "both" : usdt !== null && usdt < min ? "deposit" : "buy";
-  const notTradable = q.data?.components.find((c) => !c.can_trade);
+  const ctaState = !portfolio.data ? "loading" : positions.length ? "both" : usdt !== null && usdt < min ? "deposit" : "buy";
+  const notTradable = components.find((c) => !c.can_trade);
+  const buyTarget = useMemo(
+    () =>
+      q.data
+        ? {
+            kind: "stack" as const,
+            stackId: Number(id),
+            ticker: q.data.stack.ticker,
+            components: q.data.components.map(
+              (c): BuyComponent => ({
+                address: c.address,
+                ticker: c.ticker,
+                provider: c.provider,
+                logoUrl: c.logo_url,
+                price: c.price?.price_usd ? Number(c.price.price_usd) : null,
+                decimals: c.decimals,
+                weightBps: c.weightBps,
+              }),
+            ),
+          }
+        : null,
+    [q.data, id],
+  );
 
   if (q.isError) return <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />;
   const creator = s?.creator?.username;
-  const rightBlock = s
-    ? [
-        { label: "Holders", value: String(s.holders) },
-        { label: "Creator earned", value: usd(Number(BigInt(s.creatorEarnedRaw)) / 1e18) },
-        { label: "Since launch", value: s.change !== null ? `${s.change >= 0 ? "+" : "-"}${pct(s.change)}` : "—" },
-      ][right]!
-    : null;
+  const creatorEarned = s ? usd(Number(BigInt(s.creatorEarnedRaw)) / 1e18) : "—";
+  const byLine = s && (creator ? `@${creator}` : shortAddress(s.creator_address));
 
   return (
     <div>
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6 lg:pt-5">
         <div className="min-w-0">
-      <DetailTopBar
-        logo={s?.image_url ?? null}
-        title={s ? `$${s.ticker}` : "…"}
-        subtitle={s?.name ?? "…"}
-        subtitleNode={
-          s && (
-            <p className="truncate text-secondary text-text-muted">
-              {s.name} ·{" "}
-              {creator ? (
-                <Link href={`/app/u/${creator}`} className="text-text hover:underline">
-                  by @{creator}
-                </Link>
-              ) : (
-                `by ${shortAddress(s.creator_address)}`
-              )}
+          <DetailTopBar
+            logo={s?.image_url ?? null}
+            title={s?.name ?? "…"}
+            subtitle={s ? `$${s.ticker}` : "…"}
+            subtitleNode={
+              s && (
+                <p className="truncate text-secondary text-text-muted">
+                  ${s.ticker} ·{" "}
+                  {creator ? (
+                    <Link href={`/app/u/${creator}`} className="text-text hover:underline">
+                      by @{creator}
+                    </Link>
+                  ) : (
+                    `by ${shortAddress(s.creator_address)}`
+                  )}
+                </p>
+              )
+            }
+            watched={watch.watched}
+            onWatch={watch.toggle}
+            onHistory={() => setSheet("history")}
+          />
+
+          <StatsStrip
+            items={[
+              { label: "24h", value: <Change value={s?.change24h} /> },
+              { label: "7d", value: <Change value={s?.change7d} /> },
+              { label: "Since launch", value: <Change value={s?.change} /> },
+              { label: "Holders", value: s?.holders ?? "—" },
+              { label: "Invested", value: usd(s?.valueHeldUsd, { compact: (s?.valueHeldUsd ?? 0) >= 10_000 }) },
+              { label: "Creator earned", value: creatorEarned },
+            ]}
+          />
+
+          {/* Hero: the basket's move today and its thesis. No price: a basket is a recipe, not a token. */}
+          <section className="mt-4 px-gutter lg:mt-6 lg:px-0">
+            <span className="inline-flex h-6 items-center rounded-badge bg-primary/10 px-2 text-[12px] font-semibold text-primary">{category.label}</span>
+            {q.isLoading ? (
+              <Bar className="mt-3 h-9 w-40" />
+            ) : (
+              <p className="mt-2 flex items-center gap-2">
+                <BigChange value={s?.change24h ?? null} />
+                <span className="text-[15px] text-text-muted">{s?.change24h != null ? "today" : "No 24h move yet"}</span>
+              </p>
+            )}
+            <p className="mt-1 text-secondary text-text-muted">
+              {components.length ? `${components.length} stocks, weighted by value` : " "}
+              {s?.holders ? ` · ${s.holders} ${s.holders === 1 ? "holder" : "holders"}` : ""}
             </p>
-          )
-        }
-        watched={watch.watched}
-        onWatch={watch.toggle}
-        onHistory={() => setSheet("history")}
-      />
+            {s?.description && <p className="mt-4 max-w-[62ch] whitespace-pre-wrap text-[15px] leading-relaxed">{s.description}</p>}
+          </section>
 
-      <StatsStrip
-        items={[
-          { label: "Value held", value: usd(s?.valueHeldUsd) },
-          { label: "Since launch", value: <Change value={s?.change} /> },
-          { label: "24h", value: <Change value={s?.change24h} /> },
-          { label: "7d", value: <Change value={s?.change7d} /> },
-          { label: "Holders", value: s?.holders ?? "—" },
-          { label: "Creator earned", value: s ? usd(Number(BigInt(s.creatorEarnedRaw)) / 1e18) : "—" },
-          { label: `${s?.components.length ?? ""} stocks`.trim(), value: s?.components.map((c) => c.ticker).join(" · ") ?? "—" },
-        ]}
-      />
+          <Composition components={components} loading={q.isLoading} />
 
-      <section className="mt-4 flex items-start justify-between gap-4 px-gutter lg:mt-6 lg:px-0">
-        <div className="min-w-0">
-          {q.isLoading ? (
-            <Bar className="h-9 w-40" />
-          ) : (
-            <p className="text-detail-price tnum" title="USD value of every open position in this basket">
-              {usd(s?.valueHeldUsd)}
-              <span className="ml-2 text-[15px] font-normal text-text-muted">held</span>
-            </p>
-          )}
-          <p className="mt-1 flex items-center gap-2">
-            <Change value={changePct} />
-            <span className="text-change text-text-muted">{scrub ? new Date(scrub.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : tf === "ALL" ? "All" : tf === "1W" ? "7d" : tf === "1D" ? "24h" : "1h"}</span>
-          </p>
-        </div>
-        {rightBlock && (
-          <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right lg:hidden" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
-            <p className="flex items-center justify-end gap-1 text-[20px] font-semibold tnum">
-              <ChevronsUpDown size={16} className="text-text-muted" />
-              {rightBlock.value}
-            </p>
-            <p className="text-secondary text-text-muted">{rightBlock.label}</p>
-          </button>
-        )}
-      </section>
-
-      <div className="mt-4">
-        {series.isLoading ? (
-          <Bar className="mx-gutter h-[320px] lg:mx-0 lg:h-[420px]" />
-        ) : series.isError ? (
-          <ErrorState message="Index data isn't available right now." onRetry={() => series.refetch()} />
-        ) : points.length > 1 ? (
-          <PriceChart points={points} mode="area" up={up} onScrub={setScrub} formatPrice={(n) => `${n >= INDEX_BASE ? "+" : "-"}${pct((n / INDEX_BASE - 1) * 100)}`} showReference={points.some((p) => p.reference != null)} markers={trades.markers} />
-        ) : (
-          <div className="grid h-[320px] place-items-center px-8 text-center text-secondary text-text-muted">The index chart fills in as points are recorded every 5 minutes.</div>
-        )}
-        <div className="flex flex-wrap items-center justify-between">
-          <OverlayToggle value={trades.overlay} onChange={trades.setOverlay} />
-          <ChartControls value={tf} onChange={setTf} />
-        </div>
-      </div>
-
-      <ClubSection stackId={id} ticker={s?.ticker} />
-
-      <div className="mt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
-      <div className="px-gutter lg:px-0">
-        <Tabs
-          tabs={[
-            { id: "holders", label: `Holders (${s?.holders ?? 0})` },
-            { id: "composition", label: "Composition" },
-            { id: "trades", label: "Trades" },
-            { id: "feed", label: "Feed" },
-            { id: "about", label: "About" },
-          ]}
-          value={tab}
-          onChange={setTab}
-        />
-        {tab === "holders" && <HoldersTab targetType="stack" targetId={id} />}
-        {tab === "feed" && <FeedTab targetType="stack" targetId={id} />}
-        {tab === "trades" && <TradesFeed trades={trades.trades} loading={trades.loading} className="pt-3" />}
-        {tab === "composition" && (
-          <ul className="space-y-4 py-5">
-            {q.data?.components.map((c) => (
-              <li key={c.address}>
-                <Link href={`/app/stock/${c.provider}/${c.address}`} className="press flex items-center gap-3">
-                  <TokenLogo src={c.logo_url} label={c.ticker} size={40} />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-2 text-[17px] font-semibold">
-                      {c.ticker} <ProviderPill provider={c.provider} />
-                    </p>
-                    <div className="mt-1.5 flex items-center gap-2">
-                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-                        <span className="block h-full rounded-full bg-primary" style={{ width: `${c.weightBps / 100}%` }} />
-                      </span>
-                      <span className="w-[52px] text-right text-[13px] font-medium tnum">{(c.weightBps / 100).toFixed(2)}%</span>
-                      <span className="w-[52px] text-right text-[13px] text-text-muted tnum" title="Current value weight">
-                        {c.valueWeightPct != null ? `${c.valueWeightPct.toFixed(1)}%` : "—"}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              </li>
-            ))}
-            <li className="text-[13px] text-text-muted">Recipe weight, then current value weight. They drift apart because nothing is rebalanced.</li>
-          </ul>
-        )}
-        {tab === "about" && s && (
-          <div className="space-y-4 py-5 text-[15px]">
-            {s.description && <p className="whitespace-pre-wrap">{s.description}</p>}
-            <dl className="space-y-3">
-              <Row label="Creator">{creator ? `@${creator}` : shortAddress(s.creator_address)}</Row>
-              <Row label="Created">{new Date(s.created_at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}</Row>
-              <Row label="Recipe tx">
-                <a href={`https://bscscan.com/tx/${s.tx_hash}`} target="_blank" rel="noreferrer" className="text-link">
-                  {shortAddress(s.tx_hash)}
-                </a>
-              </Row>
-              <Row label="Contract">
-                <a href={`https://bscscan.com/address/${safeVault()}`} target="_blank" rel="noreferrer" className="text-link">
-                  {shortAddress(safeVault())}
-                </a>
-              </Row>
-            </dl>
-            <p className="text-secondary text-text-muted">Value held is the live USD value of every open position in this basket. The chart and percent moves track what $1,000 put in at launch would be worth now, without rebalancing.</p>
-            <p className="text-secondary text-text-muted">Buying creates your own position with the exact tokens bought. Weights are not rebalanced.</p>
+          <div className="mt-8 space-y-8">
+            {s && (
+              <NewsFeed
+                title="News across the basket"
+                path={`/api/news?tickers=${components.map((c) => c.ticker).join(",")}`}
+                emptyBody="Headlines about these stocks will show here."
+                tagged
+                limit={6}
+              />
+            )}
+            {s && category.id !== "community" && (
+              <NewsFeed
+                title={`${category.label} news`}
+                subtitle={(d) => (d.matched === false ? "Few sector stories today, so here are the top market headlines" : null)}
+                path={`/api/news?sector=${category.id}`}
+                limit={4}
+              />
+            )}
           </div>
-        )}
-      </div>
-      <section className="hidden rounded-card border border-border bg-surface p-4 lg:block">
-        <h3 className="text-[15px] font-semibold">Live trades</h3>
-        <TradesFeed trades={trades.trades} loading={trades.loading} className="mt-1 max-h-[460px] overflow-y-auto" />
-      </section>
-      </div>
 
+          <ClubSection stackId={id} ticker={s?.ticker} />
+
+          <div className="mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-6">
+            <div className="px-gutter lg:px-0">
+              <Tabs
+                tabs={[
+                  { id: "holders", label: `Holders (${s?.holders ?? 0})` },
+                  { id: "trades", label: "Trades" },
+                  { id: "feed", label: "Feed" },
+                  { id: "about", label: "About" },
+                ]}
+                value={tab}
+                onChange={setTab}
+              />
+              {tab === "holders" && <HoldersTab targetType="stack" targetId={id} />}
+              {tab === "feed" && <FeedTab targetType="stack" targetId={id} />}
+              {tab === "trades" && <TradesFeed trades={trades.trades} loading={trades.loading} className="pt-3" />}
+              {tab === "about" && s && (
+                <div className="space-y-4 py-5 text-[15px]">
+                  <dl className="space-y-3">
+                    <Row label="Creator">{byLine}</Row>
+                    <Row label="Created">{new Date(s.created_at).toLocaleDateString([], { year: "numeric", month: "short", day: "numeric" })}</Row>
+                    <Row label="Invested">{usd(s.valueHeldUsd)}</Row>
+                    <Row label="Creator earned">{creatorEarned}</Row>
+                    <Row label="Recipe tx">
+                      <a href={`https://bscscan.com/tx/${s.tx_hash}`} target="_blank" rel="noreferrer" className="text-link">
+                        {shortAddress(s.tx_hash)}
+                      </a>
+                    </Row>
+                    <Row label="Contract">
+                      <a href={`https://bscscan.com/address/${safeVault()}`} target="_blank" rel="noreferrer" className="text-link">
+                        {shortAddress(safeVault())}
+                      </a>
+                    </Row>
+                  </dl>
+                  <p className="text-secondary text-text-muted">
+                    Invested is the live value of every open position in this basket. Buying gives you your own position with the exact tokens bought, split by the recipe weights. Nothing is rebalanced
+                    afterwards, so the weights drift as prices move.
+                  </p>
+                </div>
+              )}
+            </div>
+            <section className="hidden rounded-card border border-border bg-surface p-4 lg:block">
+              <h3 className="text-[15px] font-semibold">Live trades</h3>
+              <TradesFeed trades={trades.trades} loading={trades.loading} className="mt-1 max-h-[460px] overflow-y-auto" />
+            </section>
+          </div>
         </div>
+
         <div className="lg:sticky lg:top-20">
-        <TradePanel
-          buy={
-            q.data
-              ? {
-                  kind: "stack",
-                  stackId: Number(id),
-                  ticker: q.data.stack.ticker,
-                  components: q.data.components.map((c) => ({
-                    address: c.address,
-                    ticker: c.ticker,
-                    provider: c.provider,
-                    logoUrl: c.logo_url,
-                    price: c.price?.price_usd ? Number(c.price.price_usd) : null,
-                    decimals: c.decimals,
-                    weightBps: c.weightBps,
-                  })),
-                }
-              : null
-          }
-          sell={s && positions.length ? { kind: "stack", ticker: s.ticker, positions } : null}
-          minBuyUsd={min}
-          disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
-          onDeposit={() => setSheet("deposit")}
-          note={s && <>Created by {creator ? `@${creator}` : shortAddress(s.creator_address)} · 0.25% creator fee</>}
-        />
-        <PositionCard positions={positions} />
+          <TradePanel
+            buy={buyTarget}
+            sell={s && positions.length ? { kind: "stack", ticker: s.ticker, positions } : null}
+            minBuyUsd={min}
+            disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
+            onDeposit={() => setSheet("deposit")}
+            note={s && <>Created by {byLine} · 0.25% creator fee</>}
+          />
+          <PositionCard positions={positions} />
         </div>
       </div>
 
       <StickyCta
-        note={s && <span className="text-secondary text-text-muted">Created by {creator ? `@${creator}` : shortAddress(s.creator_address)} · 0.25% creator fee</span>}
+        note={s && <span className="text-secondary text-text-muted">Created by {byLine} · 0.25% creator fee</span>}
         state={ctaState}
         disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
         minBuyUsd={min}
@@ -273,32 +241,139 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
         onSell={() => setSheet("sell")}
       />
 
-      {q.data && sheet === "buy" && (
-        <BuySheet
-          open
-          onClose={() => setSheet(null)}
-          onDeposit={() => setSheet("deposit")}
-          target={{
-            kind: "stack",
-            stackId: Number(id),
-            ticker: q.data.stack.ticker,
-            components: q.data.components.map((c) => ({
-              address: c.address,
-              ticker: c.ticker,
-              provider: c.provider,
-              logoUrl: c.logo_url,
-              price: c.price?.price_usd ? Number(c.price.price_usd) : null,
-              decimals: c.decimals,
-              weightBps: c.weightBps,
-            })),
-          }}
-        />
-      )}
+      {buyTarget && sheet === "buy" && <BuySheet open onClose={() => setSheet(null)} onDeposit={() => setSheet("deposit")} target={buyTarget} />}
       {s && sheet === "sell" && <SellSheet open onClose={() => setSheet(null)} target={{ kind: "stack", ticker: s.ticker, positions }} />}
       <DepositSheet open={sheet === "deposit"} onClose={() => setSheet(null)} />
       <TradesSheet open={sheet === "history"} onClose={() => setSheet(null)} targetType="stack" targetId={id} />
       {s && <SharePrompt name={s.name} ticker={s.ticker} />}
     </div>
+  );
+}
+
+/** Allocation bar plus one expandable row per stock. Tapping a row opens that stock's chart. */
+function Composition({ components, loading }: { components: Component[]; loading: boolean }) {
+  const [open, setOpen] = useState<string | null>(null);
+  return (
+    <section className="mt-8 px-gutter lg:px-0">
+      <h2 className="text-section">What&apos;s inside</h2>
+      {loading ? (
+        <div className="mt-4 space-y-3">
+          <Bar className="h-3 w-full rounded-full" />
+          {[0, 1, 2].map((i) => (
+            <Bar key={i} className="h-16 w-full rounded-card" />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 flex h-3 gap-0.5 overflow-hidden rounded-full" role="img" aria-label={components.map((c) => `${c.ticker} ${(c.weightBps / 100).toFixed(0)}%`).join(", ")}>
+            {components.map((c, i) => (
+              <span key={c.address} className="h-full first:rounded-l-full last:rounded-r-full" style={{ width: `${c.weightBps / 100}%`, background: SLOT_COLORS[i % SLOT_COLORS.length] }} />
+            ))}
+          </div>
+          <ul className="mt-4 space-y-2">
+            {components.map((c, i) => (
+              <ComponentRow key={c.address} c={c} color={SLOT_COLORS[i % SLOT_COLORS.length]!} open={open === c.address} onToggle={() => setOpen(open === c.address ? null : c.address)} />
+            ))}
+          </ul>
+          <p className="mt-3 text-[13px] text-text-muted">Recipe weights. Each buy splits your money this way; nothing is rebalanced after.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
+const chartTf = { "1D": "5m", "1W": "1H", ALL: "1D" } as const;
+type ChartTf = keyof typeof chartTf;
+
+function ComponentRow({ c, color, open, onToggle }: { c: Component; color: string; open: boolean; onToggle: () => void }) {
+  const price = c.price?.price_usd ? Number(c.price.price_usd) : null;
+  const ch = c.price?.change_24h != null ? Number(c.price.change_24h) : null;
+  const cap = c.price?.market_cap != null ? Number(c.price.market_cap) : null;
+  return (
+    <li className={cn("rounded-card border transition-colors", open ? "border-border bg-surface" : "border-transparent bg-surface/60")}>
+      <button onClick={onToggle} aria-expanded={open} className="press flex w-full items-center gap-3 px-3 py-3 text-left">
+        <span className="relative shrink-0">
+          <TokenLogo src={c.logo_url} label={c.ticker} size={40} />
+          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full ring-2 ring-bg" style={{ background: color }} aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="flex items-center gap-2 text-[16px] font-semibold">
+            {c.ticker}
+            <span className="text-[13px] font-medium text-text-muted tnum">{(c.weightBps / 100).toFixed(0)}%</span>
+          </p>
+          <p className="truncate text-[13px] text-text-muted">{c.name}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-[15px] font-medium tnum">{fmtPrice(price)}</p>
+          <Change value={ch} className="justify-end" />
+        </div>
+        <ChevronDown size={18} className={cn("shrink-0 text-text-muted transition-transform", open && "rotate-180")} />
+      </button>
+      {open && <ComponentChart c={c} cap={cap} />}
+    </li>
+  );
+}
+
+type Candle = { t: number; o: number; h: number; l: number; c: number };
+
+function ComponentChart({ c, cap }: { c: Component; cap: number | null }) {
+  const api = useApi();
+  const [tf, setTf] = useState<ChartTf>("1D");
+  const [scrub, setScrub] = useState<Point | null>(null);
+  const candles = useQuery({
+    queryKey: ["candles", c.address, tf],
+    queryFn: () => api<{ candles: Candle[] }>(`/api/market/candles?address=${c.address}&bar=${chartTf[tf]}`),
+  });
+  const points: Point[] = useMemo(() => (candles.data?.candles ?? []).map((k) => ({ t: k.t, value: k.c, o: k.o, h: k.h, l: k.l, c: k.c })), [candles.data]);
+  const first = points[0]?.o ?? points[0]?.value;
+  const last = points.at(-1)?.value;
+  const shown = scrub?.value ?? last;
+  const movePct = first && shown ? ((shown - first) / first) * 100 : null;
+  return (
+    <div className="px-3 pb-3">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-2 text-[13px]">
+          <span className="font-semibold tnum">{fmtPrice(shown ?? null)}</span>
+          <Change value={movePct} />
+          <span className="text-text-muted">{scrub ? new Date(scrub.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : tf === "ALL" ? "All" : tf === "1W" ? "7d" : "24h"}</span>
+        </p>
+        <div className="flex gap-1">
+          {(Object.keys(chartTf) as ChartTf[]).map((t) => (
+            <button key={t} onClick={() => setTf(t)} className={cn("press h-7 rounded-chip px-2.5 text-[12px] font-semibold", tf === t ? "bg-surface-2 text-text" : "text-text-muted hover:text-text")}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="-mx-3 mt-1">
+        {candles.isLoading ? (
+          <Bar className="mx-3 h-[200px] lg:h-[240px]" />
+        ) : candles.isError ? (
+          <ErrorState message="Chart data isn't available right now." onRetry={() => candles.refetch()} />
+        ) : points.length ? (
+          <PriceChart compact points={points} mode="area" up={(movePct ?? 0) >= 0} onScrub={setScrub} formatPrice={(n) => fmtPrice(n)} />
+        ) : (
+          <div className="grid h-[200px] place-items-center text-secondary text-text-muted">No trades in this range yet</div>
+        )}
+      </div>
+      <div className="mt-2 flex items-center justify-between text-[13px]">
+        <span className="text-text-muted">{cap ? `$${compact(cap)} market cap` : c.valueWeightPct != null ? `${pct(c.valueWeightPct)} of value now` : ""}</span>
+        <Link href={`/app/stock/${c.provider}/${c.address}`} className="press inline-flex items-center gap-0.5 font-semibold text-link">
+          Open {c.ticker} <ChevronRight size={15} />
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function BigChange({ value }: { value: number | null }) {
+  if (value === null || !Number.isFinite(value)) return <span className="text-detail-price text-text-muted">—</span>;
+  const up = value >= 0;
+  return (
+    <span className={cn("inline-flex items-center gap-2 text-detail-price tnum", up ? "text-up" : "text-down")}>
+      <Triangle up={up} className="h-3.5 w-4" />
+      {pct(value)}
+    </span>
   );
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { Layers, Star } from "lucide-react";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useMemo, useState } from "react";
 import { AssetRow, BasketRow } from "@/components/market/Rows";
 import { AnimatedNumber } from "@/components/ui/AnimatedNumber";
 import { Button } from "@/components/ui/Button";
@@ -10,6 +11,7 @@ import { Sheet } from "@/components/ui/Sheet";
 import { Bar, RowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
+import { BASKET_CATEGORIES, basketCategory, COMMUNITY_CATEGORY, CURATED_BASKETS } from "@/lib/baskets";
 import { cn } from "@/lib/cn";
 import { usd } from "@/lib/format";
 import { useAssets, usePortfolio, useStacks } from "@/lib/client/queries";
@@ -25,22 +27,16 @@ const stockSheetFilters: { id: StockFilter; label: string }[] = [
   { id: "most_held", label: "Most held" },
   { id: "top_gainers", label: "Top gainers" },
 ];
-const stackChips = [
-  { id: "trending", label: "Trending" },
-  { id: "newest", label: "Newest" },
-  { id: "most_held", label: "Most held" },
-  { id: "top_performers", label: "Top performers" },
-] as const;
-
 
 /**
  * Market tabs: Stocks (Trending and Watchlist chips; Most held, Top gainers and sort in the filter
- * sheet) and Baskets. The phone Home list and the desktop left pane.
+ * sheet) and Baskets, grouped by category. The phone Home list and the desktop left pane.
  */
 export function MarketTabs({ className }: { className?: string }) {
-  const [tab, setTab] = useState<TabId>("stocks");
+  // Opening a basket on desktop keeps the left pane on the Baskets list.
+  const onBasket = usePathname().startsWith("/app/basket/");
+  const [tab, setTab] = useState<TabId>(onBasket ? "baskets" : "stocks");
   const [stockFilter, setStockFilter] = useState<StockFilter>("trending");
-  const [stackFilter, setStackFilter] = useState<(typeof stackChips)[number]["id"]>("trending");
   const [sort, setSort] = useState<"change" | "market_cap" | "volume" | undefined>();
   const [sortOpen, setSortOpen] = useState(false);
   return (
@@ -104,10 +100,9 @@ export function MarketTabs({ className }: { className?: string }) {
           </Sheet>
         </div>
       )}
-      {tab === "baskets" && <Chips chips={[...stackChips]} value={stackFilter} onChange={setStackFilter} />}
       <div>
         {tab === "baskets" ? (
-          <StackList filter={stackFilter} />
+          <StackList />
         ) : stockFilter === "watchlist" ? (
           <AssetList tab="watchlist" filter="trending" sort={sort} />
         ) : (
@@ -186,17 +181,42 @@ function AssetList({ tab, filter, sort }: { tab: "watchlist" | "stocks"; filter:
   );
 }
 
-function StackList({ filter }: { filter: string }) {
-  const q = useStacks(filter);
+const curatedOrder = (ticker: string) => {
+  const i = CURATED_BASKETS.findIndex((b) => b.ticker === ticker);
+  return i < 0 ? Infinity : i;
+};
+
+/** Baskets grouped into sector categories, curated first, then Community. */
+function StackList() {
+  const q = useStacks("newest");
+  const groups = useMemo(() => {
+    const items = q.data?.items ?? [];
+    const cats = [...BASKET_CATEGORIES, COMMUNITY_CATEGORY];
+    return cats
+      .map((c) => ({
+        ...c,
+        // Curated baskets keep their launch order; Community stays newest first.
+        items: items.filter((s) => basketCategory(s.ticker).id === c.id).sort((a, b) => curatedOrder(a.ticker) - curatedOrder(b.ticker)),
+      }))
+      .filter((g) => g.items.length);
+  }, [q.data]);
   if (q.isLoading) return <RowSkeleton />;
   if (q.isError) return <ErrorState message={(q.error as Error).message} onRetry={() => q.refetch()} />;
-  if (!q.data?.items.length) {
+  if (!groups.length) {
     return <EmptyState icon={<Layers size={24} />} title="No baskets yet" body="Be the first to build one from 2 to 5 stocks." />;
   }
   return (
-    <div>
-      {q.data.items.map((s) => (
-        <BasketRow key={s.id} s={s} />
+    <div className="pt-2">
+      {groups.map((g) => (
+        <section key={g.id} className="pt-4">
+          <h3 className="text-[15px] font-semibold">{g.label}</h3>
+          <p className="text-[13px] text-text-muted">{g.blurb}</p>
+          <div className="mt-1">
+            {g.items.map((s) => (
+              <BasketRow key={s.id} s={s} />
+            ))}
+          </div>
+        </section>
       ))}
     </div>
   );

@@ -35,24 +35,72 @@ export function vaultAddr(): Address {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function waitReceipt(hash: Hash) {
-  const r = await browserPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000 });
+  const r = await browserPublicClient().waitForTransactionReceipt({ hash, timeout: 120_000, pollingInterval: 400 });
   if (r.status !== "success") throw new Error("Transaction reverted");
   return r;
 }
 
-/** Approve exactly `amount` if the current allowance is short. Never unlimited (FLOWS §0). */
-async function ensureAllowance(signer: Signer, token: Address, spender: Address, amount: bigint) {
-  const allowance = await browserPublicClient().readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [signer.address, spender] });
-  if (allowance >= amount) return;
-  const hash = await signer.sendTransaction({ to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, amount] }) });
-  await waitReceipt(hash);
+// Fixed gas limits for vault calls sent right behind their approval, before the approval is mined
+// (estimating then would revert on the missing allowance). Measured on mainnet: payBuyFee 109k to
+// 227k (first buy of a basket), paySellFee 52k, openPosition 499k with 2 stocks. Generous headroom;
+// unused gas isn't charged.
+const GAS = {
+  payBuyFee: 350_000n,
+  paySellFee: 140_000n,
+  openPosition: (n: number) => 260_000n + 220_000n * BigInt(n),
+};
+
+// Next nonce per wallet, so back-to-back transactions don't collide while the node's pending
+// count catches up. Only trusted briefly: a stale local count could skip a nonce and stall.
+const nextNonce = new Map<Address, { n: number; at: number }>();
+async function takeNonce(address: Address): Promise<number> {
+  const pending = await browserPublicClient().getTransactionCount({ address, blockTag: "pending" });
+  const local = nextNonce.get(address);
+  const n = local && Date.now() - local.at < 30_000 ? Math.max(pending, local.n) : pending;
+  nextNonce.set(address, { n: n + 1, at: Date.now() });
+  return n;
 }
 
-async function vaultTx(signer: Signer, fn: string, args: readonly unknown[]): Promise<Hash> {
+/** One transaction with a tracked nonce. A failed send clears the local count. */
+async function sendOne(signer: Signer, tx: Tx): Promise<Hash> {
+  try {
+    return await signer.sendTransaction({ ...tx, nonce: await takeNonce(signer.address) });
+  } catch (e) {
+    nextNonce.delete(signer.address);
+    throw e;
+  }
+}
+
+type Tx = { to: Address; data: `0x${string}`; value?: bigint; gas?: bigint };
+
+/**
+ * Sends transactions back to back with consecutive nonces, without waiting for each to be mined,
+ * then waits for all of them. Nonce order makes the chain execute them in sequence, so an approval
+ * always lands before the call that spends it. On BSC this turns N block waits into about one.
+ */
+async function sendInOrder(signer: Signer, txs: Tx[]): Promise<Hash[]> {
+  const hashes: Hash[] = [];
+  for (const tx of txs) hashes.push(await sendOne(signer, tx));
+  const receipts = await Promise.all(hashes.map((h) => browserPublicClient().waitForTransactionReceipt({ hash: h, timeout: 120_000, pollingInterval: 400 })));
+  const bad = receipts.findIndex((r) => r.status !== "success");
+  if (bad >= 0) throw new Error(bad < receipts.length - 1 ? "Approval reverted" : "Transaction reverted");
+  return hashes;
+}
+
+/** An exact approval tx if the current allowance is short, else nothing. Never unlimited (FLOWS §0). */
+async function approvalIfNeeded(owner: Address, token: Address, spender: Address, amount: bigint): Promise<Tx | null> {
+  const allowance = await browserPublicClient().readContract({ address: token, abi: erc20Abi, functionName: "allowance", args: [owner, spender] });
+  if (allowance >= amount) return null;
+  return { to: token, data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [spender, amount] }) };
+}
+
+/** Any approvals the call needs, then the vault call, sent in one burst. Returns the vault tx hash. */
+async function vaultTx(signer: Signer, fn: string, args: readonly unknown[], gas: bigint, approvals: (Tx | null)[] = []): Promise<Hash> {
   const data = encodeFunctionData({ abi: vaultAbi, functionName: fn as never, args: args as never });
-  const hash = await signer.sendTransaction({ to: vaultAddr(), data });
-  await waitReceipt(hash);
-  return hash;
+  const pre = approvals.filter((a): a is Tx => a !== null);
+  // With nothing to approve first, let the wallet estimate gas as usual.
+  const hashes = await sendInOrder(signer, [...pre, { to: vaultAddr(), data, gas: pre.length ? gas : undefined }]);
+  return hashes.at(-1)!;
 }
 
 /** Rough gas budget for a flow, used for the "You need about X BNB" check. */
@@ -94,8 +142,9 @@ export async function runIntent(opts: {
   if (intent.kind.startsWith("buy") && !intent.fee_receipt_id) {
     onProgress({ step: "fee", state: "active" });
     const fee = BigInt(intent.fee_amount!);
-    await ensureAllowance(signer, USDT_ADDRESS, vaultAddr(), fee);
-    const hash = await vaultTx(signer, "payBuyFee", [BigInt(intent.stack_id ?? 0), BigInt(intent.gross_amount!)]);
+    const hash = await vaultTx(signer, "payBuyFee", [BigInt(intent.stack_id ?? 0), BigInt(intent.gross_amount!)], GAS.payBuyFee, [
+      await approvalIfNeeded(signer.address, USDT_ADDRESS, vaultAddr(), fee),
+    ]);
     intent = await patch({ action: "fee_paid", txHash: hash });
   }
   if (intent.kind.startsWith("buy")) onProgress({ step: "fee", state: "done" });
@@ -103,7 +152,7 @@ export async function runIntent(opts: {
   // 1b. Release (sell / redeem a Stack position)
   if ((intent.kind === "sell_stack" || intent.kind === "redeem") && !intent.released_amounts) {
     onProgress({ step: "release", state: "active" });
-    const hash = await vaultTx(signer, "release", [BigInt(intent.position_id!), intent.bps!, intent.kind === "redeem" ? 0 : 1]);
+    const hash = await vaultTx(signer, "release", [BigInt(intent.position_id!), intent.bps!, intent.kind === "redeem" ? 0 : 1], 0n);
     intent = await patch({ action: "release", txHash: hash });
   }
   if (intent.kind === "sell_stack" || intent.kind === "redeem") onProgress({ step: "release", state: "done" });
@@ -164,13 +213,12 @@ export async function runIntent(opts: {
       }
       if (q.status === "needs_approval") {
         onProgress({ step, state: "active", note: "Approving" });
-        const hash = await signer.sendTransaction({ to: q.approve.token, data: q.approve.data });
-        await waitReceipt(hash);
+        await sendInOrder(signer, [{ to: q.approve.token, data: q.approve.data }]);
         continue; // re-quote after the approval lands
       }
       if (q.mode === "SWAP") {
         onProgress({ step, state: "active", note: "Swapping" });
-        const hash = await signer.sendTransaction({
+        const hash = await sendOne(signer, {
           to: q.tx.to,
           data: q.tx.data,
           value: BigInt(q.tx.value || "0"),
@@ -208,10 +256,11 @@ export async function runIntent(opts: {
   if (intent.kind === "buy_stack" && intent.status === "legs_done") {
     const amounts = intent.legs.map((l) => BigInt(l.actual_out!));
     onProgress({ step: "approve", state: "active" });
-    for (const l of intent.legs) await ensureAllowance(signer, getAddress(l.to_token), vaultAddr(), BigInt(l.actual_out!));
-    onProgress({ step: "approve", state: "done" });
+    // Every component approval and the deposit go out together; nonce order keeps them in sequence.
+    const approvals = await Promise.all(intent.legs.map((l) => approvalIfNeeded(signer.address, getAddress(l.to_token), vaultAddr(), BigInt(l.actual_out!))));
     onProgress({ step: "deposit", state: "active" });
-    const hash = await vaultTx(signer, "openPosition", [BigInt(intent.stack_id!), BigInt(intent.fee_receipt_id!), amounts]);
+    const hash = await vaultTx(signer, "openPosition", [BigInt(intent.stack_id!), BigInt(intent.fee_receipt_id!), amounts], GAS.openPosition(amounts.length), approvals);
+    onProgress({ step: "approve", state: "done" });
     intent = await patch({ action: "deposit", txHash: hash });
     onProgress({ step: "deposit", state: "done" });
   }
@@ -220,8 +269,9 @@ export async function runIntent(opts: {
   if ((intent.kind === "sell_stock" || intent.kind === "sell_stack") && intent.status === "legs_done") {
     onProgress({ step: "sellfee", state: "active" });
     const proceeds = intent.legs.reduce((s, l) => s + BigInt(l.actual_out ?? "0"), 0n);
-    await ensureAllowance(signer, USDT_ADDRESS, vaultAddr(), sellFee(proceeds));
-    const hash = await vaultTx(signer, "paySellFee", [BigInt(intent.position_id ?? 0), proceeds]);
+    const hash = await vaultTx(signer, "paySellFee", [BigInt(intent.position_id ?? 0), proceeds], GAS.paySellFee, [
+      await approvalIfNeeded(signer.address, USDT_ADDRESS, vaultAddr(), sellFee(proceeds)),
+    ]);
     intent = await patch({ action: "sell_fee", txHash: hash });
     onProgress({ step: "sellfee", state: "done" });
   }
@@ -247,13 +297,13 @@ type QuoteResponse =
       typedData: { domain: Record<string, unknown>; types: Record<string, { name: string; type: string }[]>; primaryType: string; message: Record<string, unknown> };
     };
 
-/** Poll every 2s for up to 90s (FLOWS §4). */
+/** Poll every second for up to 90s (FLOWS §4). */
 async function pollOrder(api: Api, orderId: string): Promise<"FILLED" | "FAILED" | "EXPIRED" | "PENDING"> {
   const until = Date.now() + 90_000;
   while (Date.now() < until) {
     const r = await api<{ status: "PENDING" | "FILLED" | "FAILED" | "EXPIRED" }>(`/api/orders/${orderId}`);
     if (r.status !== "PENDING") return r.status;
-    await sleep(2000);
+    await sleep(1000);
   }
   return "PENDING";
 }

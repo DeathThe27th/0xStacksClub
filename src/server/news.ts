@@ -54,3 +54,57 @@ export async function companyNews(ticker: string): Promise<NewsItem[] | null> {
   cache.set(t, { at: Date.now(), items });
   return items;
 }
+
+export type TaggedNewsItem = NewsItem & { tickers: string[] };
+
+/**
+ * News across several tickers, merged newest first. A story that covers more than one of the
+ * tickers appears once, tagged with each. Null when no provider key.
+ */
+export async function basketNews(tickers: string[]): Promise<TaggedNewsItem[] | null> {
+  const lists = await Promise.all(tickers.map(async (t) => ({ t, items: await companyNews(t).catch(() => [] as NewsItem[]) })));
+  if (lists.some((l) => l.items === null)) return null;
+  const byHeadline = new Map<string, TaggedNewsItem>();
+  for (const { t, items } of lists) {
+    // Up to 8 per stock, so one heavily covered name doesn't crowd out the rest.
+    for (const n of (items ?? []).slice(0, 8)) {
+      const hit = byHeadline.get(n.headline);
+      if (hit) {
+        if (!hit.tickers.includes(t)) hit.tickers.push(t);
+      } else byHeadline.set(n.headline, { ...n, tickers: [t] });
+    }
+  }
+  return [...byHeadline.values()].sort((a, b) => b.at - a.at).slice(0, 24);
+}
+
+const marketCache = new Map<string, { at: number; items: NewsItem[] }>();
+
+/** Finnhub market news for a category ("general" or "crypto"), cached for 15 minutes. */
+export async function marketNews(category: "general" | "crypto"): Promise<NewsItem[] | null> {
+  const key = serverEnv().FINNHUB_API_KEY;
+  if (!key) return null;
+  const hit = marketCache.get(category);
+  if (hit && Date.now() - hit.at < TTL) return hit.items;
+  const res = await fetch(`https://finnhub.io/api/v1/news?category=${category}`, {
+    headers: { "X-Finnhub-Token": key },
+    signal: AbortSignal.timeout(8000),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`News provider returned ${res.status}`);
+  const parsed = z.array(finnhubItem).safeParse(await res.json());
+  if (!parsed.success) throw new Error("News provider response had an unexpected shape");
+  const items = parsed.data
+    .sort((a, b) => b.datetime - a.datetime)
+    .slice(0, 100)
+    .map((n) => ({
+      id: String(n.id),
+      headline: n.headline,
+      summary: (n.summary ?? "").slice(0, 280),
+      source: n.source ?? "",
+      url: n.url,
+      image: n.image || null,
+      at: n.datetime * 1000,
+    }));
+  marketCache.set(category, { at: Date.now(), items });
+  return items;
+}

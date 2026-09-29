@@ -13,40 +13,47 @@ import { IntentProgress } from "./IntentSheet";
 
 type Target = { kind: "stock"; holding: Holding } | { kind: "stack"; ticker: string; positions: Position[]; initialPositionId?: number; initialMode?: "sell" | "redeem" };
 
-/** Sell sheet (UI_SPEC §6.3): the sell form in a sheet, then the progress checklist. */
+/** Sell sheet (UI_SPEC §6.3): the sell form in a sheet. Closes when the sale is done. */
 export function SellSheet({ open, onClose, target }: { open: boolean; onClose: () => void; target: Target }) {
-  const [started, setStarted] = useState<{ id: string; title: string } | null>(null);
   const [running, setRunning] = useState(false);
-  const close = () => {
-    setStarted(null);
-    onClose();
-  };
   return (
-    <Sheet open={open} onClose={close} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`} dismissable={!running}>
-      {started ? (
-        <IntentProgress intentId={started.id} title={started.title} onFinished={close} onRunning={setRunning} />
-      ) : (
-        <SellForm target={target} onStarted={(id, title) => setStarted({ id, title })} active={open} />
-      )}
+    <Sheet open={open} onClose={onClose} title={target.kind === "stock" ? `Sell ${target.holding.ticker}` : `$${target.ticker}`} dismissable={!running}>
+      <SellForm target={target} onDone={onClose} onBusy={setRunning} active={open} />
     </Sheet>
   );
 }
 
-/** Percent selector and estimate. Estimates are indicative; actual proceeds come from the fills. */
-export function SellForm({ target, onStarted, active = true }: { target: Target; onStarted: (intentId: string, title: string) => void; active?: boolean }) {
+/**
+ * Percent selector and estimate. Estimates are indicative; actual proceeds come from the fills.
+ * The sell button keeps spinning until the sale is done, then onDone.
+ */
+export function SellForm({
+  target,
+  onDone,
+  onBusy,
+  active = true,
+}: {
+  target: Target;
+  onDone?: () => void;
+  onBusy?: (busy: boolean) => void;
+  active?: boolean;
+}) {
   const api = useApi();
   const [pct, setPct] = useState(50);
   const [mode, setMode] = useState<"sell" | "redeem">(target.kind === "stack" ? (target.initialMode ?? "sell") : "sell");
   const [positionId, setPositionId] = useState<number | null>(target.kind === "stack" ? (target.initialPositionId ?? target.positions[0]?.id ?? null) : null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [started, setStarted] = useState<{ id: string; title: string } | null>(null);
+  const [running, setRunning] = useState(false);
 
+  useEffect(() => onBusy?.(busy || running), [busy, running, onBusy]);
   useEffect(() => {
-    if (!active) {
+    if (!active && !started) {
       setPct(50);
       setError(null);
     }
-  }, [active]);
+  }, [active, started]);
 
   const position = target.kind === "stack" ? target.positions.find((p) => p.id === positionId) : undefined;
   const grossValue = target.kind === "stock" ? target.holding.valueUsd : (position?.valueUsd ?? null);
@@ -64,12 +71,19 @@ export function SellForm({ target, onStarted, active = true }: { target: Target;
           : { kind: mode === "sell" ? "sell_stack" : "redeem", positionId, bps };
       const intent = await api<Intent>("/api/intents", { method: "POST", json: body });
       const what = target.kind === "stock" ? target.holding.ticker : `$${target.ticker}`;
-      onStarted(intent.id, mode === "redeem" ? `Redeeming ${pct}% of ${what}` : `Selling ${pct}% of ${what}`);
+      setStarted({ id: intent.id, title: mode === "redeem" ? `Redeeming ${pct}% of ${what}` : `Selling ${pct}% of ${what}` });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start");
-    } finally {
       setBusy(false);
     }
+  };
+
+  const finished = () => {
+    setStarted(null);
+    setRunning(false);
+    setBusy(false);
+    setPct(50);
+    onDone?.();
   };
 
   return (
@@ -162,9 +176,23 @@ export function SellForm({ target, onStarted, active = true }: { target: Target;
         <p className="mt-3 text-secondary text-text-muted">The position is reduced first, then each stock is sold in turn. If a sale fails, the unsold tokens stay in your wallet.</p>
       )}
       {error && <p className="mt-3 text-center text-secondary text-down">{error}</p>}
-      <Button className="mt-5 w-full" loading={busy} disabled={target.kind === "stack" && !position} onClick={confirm}>
-        {mode === "sell" ? `Sell ${pct}%` : `Redeem ${pct}%`}
-      </Button>
+      <div className="mt-5">
+        {started ? (
+          <IntentProgress
+            intentId={started.id}
+            title={started.title}
+            onFinished={finished}
+            onRunning={(r) => {
+              setRunning(r);
+              if (r) setBusy(false);
+            }}
+          />
+        ) : (
+          <Button className="w-full" loading={busy} disabled={target.kind === "stack" && !position} onClick={confirm}>
+            {mode === "sell" ? `Sell ${pct}%` : `Redeem ${pct}%`}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

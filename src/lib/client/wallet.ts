@@ -25,7 +25,7 @@ export function useActiveWallet(): ConnectedWallet | null {
 
 export type Signer = {
   address: Address;
-  sendTransaction: (tx: { to: Address; data: `0x${string}`; value?: bigint; gas?: bigint }) => Promise<Hash>;
+  sendTransaction: (tx: { to: Address; data: `0x${string}`; value?: bigint; gas?: bigint; nonce?: number }) => Promise<Hash>;
   signTypedData: (payload: {
     domain: Record<string, unknown>;
     types: Record<string, { name: string; type: string }[]>;
@@ -43,13 +43,14 @@ export function useSigner(): () => Promise<Signer> {
   const wallet = useActiveWallet();
   return useCallback(async () => {
     if (!wallet) throw new Error("No wallet connected");
-    await wallet.switchChain(bsc.id);
+    // Skip the round trip when the wallet is already on BSC.
+    if (wallet.chainId !== `eip155:${bsc.id}`) await wallet.switchChain(bsc.id);
     const provider = await wallet.getEthereumProvider();
     const address = wallet.address as Address;
     const client = createWalletClient({ account: address, chain: bsc, transport: custom(provider) });
     return {
       address,
-      sendTransaction: (tx) => client.sendTransaction({ account: address, chain: bsc, to: tx.to, data: tx.data, value: tx.value ?? 0n, gas: tx.gas }),
+      sendTransaction: (tx) => client.sendTransaction({ account: address, chain: bsc, to: tx.to, data: tx.data, value: tx.value ?? 0n, gas: tx.gas, nonce: tx.nonce }),
       signTypedData: async (p) => {
         // EIP712Domain is implied by viem; strip it if the payload includes it.
         const { EIP712Domain: _d, ...types } = p.types;

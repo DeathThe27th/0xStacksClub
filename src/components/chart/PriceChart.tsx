@@ -53,6 +53,7 @@ export function PriceChart({
   formatPrice,
   showReference,
   markers,
+  compact = false,
 }: {
   points: Point[];
   mode: "area" | "candles";
@@ -61,6 +62,8 @@ export function PriceChart({
   formatPrice: (n: number) => string;
   showReference?: boolean;
   markers?: TradeMarker[];
+  /** A shorter chart, for inline use (a basket's per-stock charts). */
+  compact?: boolean;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
@@ -240,7 +243,15 @@ export function PriceChart({
   }, [markers, points, mode, up, theme]);
 
   // Counter-zoomed so lightweight-charts' pointer maths lines up under the desktop page zoom.
-  return <div ref={el} className="h-[320px] w-full touch-pan-y select-none [zoom:calc(1/var(--app-zoom))] lg:h-[calc(420px*var(--app-zoom))]" />;
+  return (
+    <div
+      ref={el}
+      className={cn(
+        "w-full touch-pan-y select-none [zoom:calc(1/var(--app-zoom))]",
+        compact ? "h-[200px] lg:h-[calc(240px*var(--app-zoom))]" : "h-[320px] lg:h-[calc(420px*var(--app-zoom))]",
+      )}
+    />
+  );
 }
 
 /** Controls row under the chart (UI_SPEC §4.3), right-aligned. */

@@ -22,22 +22,13 @@ type Target = { kind: "stock"; component: BuyComponent } | { kind: "stack"; stac
 
 type Preview = { expectedOut: string; minOut: string; mode: string; expiresAt: number };
 
-/** Buy sheet (UI_SPEC §6.2): the buy form in a sheet, then the progress checklist. */
+/** Buy sheet (UI_SPEC §6.2): the buy form in a sheet. Closes when the buy is done. */
 export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; onClose: () => void; target: Target; onDeposit: () => void }) {
-  const [intentId, setIntentId] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
-  const close = () => {
-    setIntentId(null);
-    onClose();
-  };
   return (
-    <Sheet open={open} onClose={close} title={title} dismissable={!running}>
-      {intentId ? (
-        <IntentProgress intentId={intentId} title={buyingTitle(target)} onFinished={close} onRunning={setRunning} />
-      ) : (
-        <BuyForm target={target} onDeposit={onDeposit} onStarted={setIntentId} active={open} autoFocus />
-      )}
+    <Sheet open={open} onClose={onClose} title={title} dismissable={!running}>
+      <BuyForm target={target} onDeposit={onDeposit} onDone={onClose} onBusy={setRunning} active={open} autoFocus />
     </Sheet>
   );
 }
@@ -48,18 +39,21 @@ export function buyingTitle(target: Target) {
 
 /**
  * Amount, breakdown, review with fresh quotes (UI_SPEC §6.2). Used in the mobile sheet and inline in
- * the desktop trade panel. Calls onStarted with the new intent; the caller shows the checklist.
+ * the desktop trade panel. Confirm keeps spinning until the buy is done, then onDone.
  */
 export function BuyForm({
   target,
   onDeposit,
-  onStarted,
+  onDone,
+  onBusy,
   active = true,
   autoFocus = false,
 }: {
   target: Target;
   onDeposit: () => void;
-  onStarted: (intentId: string) => void;
+  onDone?: () => void;
+  /** True while a buy is running, so a sheet can refuse to close mid-trade. */
+  onBusy?: (busy: boolean) => void;
   active?: boolean;
   /** Sheet only: the always-open desktop panel must not steal focus on page load. */
   autoFocus?: boolean;
@@ -70,6 +64,8 @@ export function BuyForm({
   const [amount, setAmount] = useState("");
   const [step, setStep] = useState<"amount" | "review">("amount");
   const [creating, setCreating] = useState(false);
+  const [intentId, setIntentId] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(Date.now());
 
@@ -78,13 +74,14 @@ export function BuyForm({
   const minUsd = isStack && components.length >= 4 ? MIN_BUY_USD_LARGE : MIN_BUY_USD_SMALL;
   const decimals = dec.data;
 
+  useEffect(() => onBusy?.(creating || running), [creating, running, onBusy]);
   useEffect(() => {
-    if (!active) {
+    if (!active && !intentId) {
       setStep("amount");
       setAmount("");
       setError(null);
     }
-  }, [active]);
+  }, [active, intentId]);
   useEffect(() => {
     if (step !== "review") return;
     const id = setInterval(() => setNow(Date.now()), 500);
@@ -125,18 +122,16 @@ export function BuyForm({
 
   const previews = useQuery({
     queryKey: ["preview", components.map((c) => c.address).join(","), gross.toString()],
-    queryFn: async () => {
-      const out: (Preview | { error: string })[] = [];
-      for (let i = 0; i < components.length; i++) {
-        try {
-          out.push(await api<Preview>("/api/quote", { method: "POST", json: { from: USDT_ADDRESS, to: components[i]!.address, amount: alloc[i]!.toString() } }));
-        } catch (e) {
-          out.push({ error: (e as Error).message });
-        }
-      }
-      return out;
-    },
-    enabled: step === "review" && gross > 0n,
+    // All legs quoted at once: the review is only as slow as the slowest quote.
+    queryFn: () =>
+      Promise.all(
+        components.map((c, i) =>
+          api<Preview>("/api/quote", { method: "POST", json: { from: USDT_ADDRESS, to: c.address, amount: alloc[i]!.toString() } }).catch(
+            (e): { error: string } => ({ error: (e as Error).message }),
+          ),
+        ),
+      ),
+    enabled: step === "review" && gross > 0n && !intentId,
     refetchInterval: 25_000,
     staleTime: 0,
   });
@@ -152,14 +147,20 @@ export function BuyForm({
         method: "POST",
         json: target.kind === "stock" ? { kind: "buy_stock", assetAddress: target.component.address, grossAmount: gross.toString() } : { kind: "buy_stack", stackId: target.stackId, grossAmount: gross.toString() },
       });
-      setStep("amount");
-      setAmount("");
-      onStarted(intent.id);
+      setIntentId(intent.id);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "Couldn't start the buy");
-    } finally {
       setCreating(false);
     }
+  };
+
+  const finished = () => {
+    setIntentId(null);
+    setRunning(false);
+    setCreating(false);
+    setStep("amount");
+    setAmount("");
+    onDone?.();
   };
 
   const setMax = () => {
@@ -242,9 +243,11 @@ export function BuyForm({
         <>
           <div className="mb-4 flex items-center justify-between text-secondary">
             <span className="font-semibold text-text">Review · fresh quotes</span>
-            <span className={cn("tnum", quoteAge !== null && quoteAge < 8 ? "text-warn" : "text-text-muted")}>
-              {previews.isFetching ? "Refreshing…" : quoteAge !== null ? `Refreshes in ${quoteAge}s` : ""}
-            </span>
+            {!intentId && (
+              <span className={cn("tnum", quoteAge !== null && quoteAge < 8 ? "text-warn" : "text-text-muted")}>
+                {previews.isFetching ? "Refreshing…" : quoteAge !== null ? `Refreshes in ${quoteAge}s` : ""}
+              </span>
+            )}
           </div>
           <div className="space-y-3 rounded-card bg-surface-2 p-4">
             {components.map((c, i) => {
@@ -277,15 +280,29 @@ export function BuyForm({
             </p>
           )}
           {error && <p className="mt-3 text-center text-secondary text-down">{error}</p>}
-          <div className="mt-5 flex gap-2">
-            <Button variant="secondary" className="flex-1" onClick={() => setStep("amount")}>
-              Back
-            </Button>
-            <Button className="flex-[2]" loading={creating} disabled={!previews.data || !!previewError} onClick={confirm}>
-              Confirm
-            </Button>
+          <div className="mt-5">
+            {intentId ? (
+              <IntentProgress intentId={intentId} title={buyingTitle(target)} onFinished={finished} onRunning={(r) => {
+                  setRunning(r);
+                  if (r) setCreating(false);
+                }}
+              />
+            ) : creating ? (
+              <Button className="w-full" loading>
+                {buyingTitle(target)}
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button variant="secondary" className="flex-1" onClick={() => setStep("amount")}>
+                  Back
+                </Button>
+                <Button className="flex-[2]" disabled={!previews.data || !!previewError} onClick={confirm}>
+                  Confirm
+                </Button>
+              </div>
+            )}
           </div>
-          {previewError && <p className="mt-3 text-center text-[13px] text-text-muted">Can&apos;t buy right now: {previewError.error}</p>}
+          {!intentId && previewError && <p className="mt-3 text-center text-[13px] text-text-muted">Can&apos;t buy right now: {previewError.error}</p>}
         </>
       )}
     </div>

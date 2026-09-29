@@ -15,6 +15,7 @@ export type StackSummary = StackRow & {
   valueHeldUsd: number | null;
   holders: number;
   creatorEarnedRaw: string;
+  componentLogos: (string | null)[];
   friends?: Friends;
 };
 

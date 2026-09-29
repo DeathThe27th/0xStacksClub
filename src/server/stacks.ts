@@ -16,6 +16,8 @@ export type StackSummary = StackRow & {
   valueHeldUsd: number | null;
   holders: number;
   creatorEarnedRaw: string;
+  /** Logo per component, in recipe order. */
+  componentLogos: (string | null)[];
 };
 
 async function pricesFor(addresses: string[]): Promise<Map<string, AssetPriceRow>> {
@@ -106,17 +108,37 @@ async function heldUnits(stacks: StackRow[]): Promise<Map<number, bigint[]>> {
   return out;
 }
 
-async function decimalsFor(addresses: string[]): Promise<Map<string, number>> {
+async function assetMeta(addresses: string[]): Promise<Map<string, Pick<AssetRow, "address" | "decimals" | "logo_url">>> {
   if (!addresses.length) return new Map();
-  const rows = must(await db().from("assets").select("address, decimals").in("address", addresses)) as Pick<AssetRow, "address" | "decimals">[];
-  return new Map(rows.map((r) => [r.address, r.decimals]));
+  const rows = must(await db().from("assets").select("address, decimals, logo_url").in("address", addresses)) as Pick<AssetRow, "address" | "decimals" | "logo_url">[];
+  return new Map(rows.map((r) => [r.address, r]));
 }
 
-function heldValue(stack: StackRow, units: bigint[] | undefined, prices: Map<string, AssetPriceRow>, decimals: Map<string, number>): number | null {
+/**
+ * 24h move of the basket from its components' 24h changes, weighted by each component's current
+ * value in the launch recipe (launch units × price). Null when any price or change is missing.
+ */
+function componentMove24h(stack: StackRow, prices: Map<string, AssetPriceRow>): number | null {
+  if (!stack.launch_units) return null;
+  let total = 0;
+  let weighted = 0;
+  for (const [i, c] of stack.components.entries()) {
+    const p = prices.get(c.address);
+    const price = p?.price_usd == null ? null : Number(p.price_usd);
+    const ch = p?.change_24h == null ? null : Number(p.change_24h);
+    if (price === null || ch === null || !Number.isFinite(price) || !Number.isFinite(ch)) return null;
+    const v = Number(stack.launch_units[i]) * price;
+    total += v;
+    weighted += v * ch;
+  }
+  return total > 0 ? weighted / total : null;
+}
+
+function heldValue(stack: StackRow, units: bigint[] | undefined, prices: Map<string, AssetPriceRow>, meta: Map<string, Pick<AssetRow, "decimals">>): number | null {
   if (!units || units.every((u) => u === 0n)) return 0;
   const holdings = stack.components.map((c, i) => ({
     units: units[i] ?? 0n,
-    decimals: decimals.get(c.address) ?? -1,
+    decimals: meta.get(c.address)?.decimals ?? -1,
     price: prices.get(c.address)?.price_usd ?? null,
   }));
   // Never guess: a missing price or decimals on a held component means no number.
@@ -128,7 +150,7 @@ function heldValue(stack: StackRow, units: bigint[] | undefined, prices: Map<str
 export async function summarize(stacks: StackRow[]): Promise<StackSummary[]> {
   const addrs = [...new Set(stacks.flatMap((s) => s.components.map((c) => c.address)))];
   const ids = stacks.map((s) => Number(s.id));
-  const [prices, creators, holders, earned, dayAgo, weekAgo, held, decimals] = await Promise.all([
+  const [prices, creators, holders, earned, dayAgo, weekAgo, held, meta] = await Promise.all([
     pricesFor(addrs),
     creatorProfiles(stacks.map((s) => s.creator_id).filter((x): x is string => !!x)),
     holderCounts(ids),
@@ -136,7 +158,7 @@ export async function summarize(stacks: StackRow[]): Promise<StackSummary[]> {
     indexAgo(ids, 24),
     indexAgo(ids, 7 * 24),
     heldUnits(stacks),
-    decimalsFor(addrs),
+    assetMeta(addrs),
   ]);
   return stacks.map((s) => {
     const { index, reference } = currentIndex(s, prices);
@@ -148,11 +170,12 @@ export async function summarize(stacks: StackRow[]): Promise<StackSummary[]> {
       index,
       referenceIndex: reference,
       change: index === null ? null : (index / INDEX_BASE - 1) * 100,
-      change24h: index !== null && prev ? (index / prev - 1) * 100 : null,
+      change24h: componentMove24h(s, prices) ?? (index !== null && prev ? (index / prev - 1) * 100 : null),
       change7d: index !== null && prevWeek ? (index / prevWeek - 1) * 100 : null,
-      valueHeldUsd: heldValue(s, held.get(Number(s.id)), prices, decimals),
+      valueHeldUsd: heldValue(s, held.get(Number(s.id)), prices, meta),
       holders: holders.get(Number(s.id)) ?? 0,
       creatorEarnedRaw: (earned.get(Number(s.id)) ?? 0n).toString(),
+      componentLogos: s.components.map((c) => meta.get(c.address)?.logo_url ?? null),
     };
   });
 }

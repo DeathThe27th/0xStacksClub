@@ -15,8 +15,8 @@ import { UnfinishedBanner } from "./UnfinishedBanner";
  */
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const detail = /^\/app\/(stock|stack|position|club)\//.test(path) || path.startsWith("/app/create");
-  const market = path === "/app" || /^\/app\/(stock|stack|club)\//.test(path);
+  const detail = /^\/app\/(stock|basket|position|club)\//.test(path) || path.startsWith("/app/create");
+  const market = path === "/app" || /^\/app\/(stock|basket|club)\//.test(path);
   return (
     <div className="pt-safe lg:pt-0">
       <TopBar />

@@ -1,11 +1,9 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
-import { cn } from "@/lib/cn";
 import { useApi } from "@/lib/client/api";
 import { useAssetLookup } from "@/lib/client/assets";
 import { runIntent, StopError, type StepKey, type StepState } from "@/lib/client/runner";
@@ -50,10 +48,10 @@ const doneTitle: Record<Intent["kind"], (i: Intent, label: (a: string) => string
 };
 
 /**
- * Runs one intent and shows it as a single status line with a progress bar, in place of the form
- * that started it. Legs still run in sequence and each is persisted server-side; on failure it
- * offers Retry and "Stop and keep tokens" (FLOWS §3 failure handling). On success it toasts and
- * calls onFinished.
+ * Runs one intent behind a single button that keeps spinning until the trade is done, in place of
+ * the confirm button that started it. Legs still run in sequence and each is persisted
+ * server-side; on failure it offers Retry and "Stop and keep tokens" (FLOWS §3 failure handling).
+ * On success it toasts and calls onFinished.
  */
 export function IntentProgress({ intentId, title, onFinished, onRunning }: { intentId: string; title: string; onFinished: () => void; onRunning?: (running: boolean) => void }) {
   const api = useApi();
@@ -145,33 +143,18 @@ export function IntentProgress({ intentId, title, onFinished, onRunning }: { int
   };
 
   const steps = intent ? stepsFor(intent, assets.label) : [];
-  const doneCount = steps.filter((s) => states[s.key]?.state === "done").length;
   const current = steps.find((s) => states[s.key]?.state === "failed") ?? steps.find((s) => states[s.key]?.state === "active") ?? steps.find((s) => states[s.key]?.state !== "done");
-  const note = current ? states[current.key]?.note : undefined;
   const failed = !!stopped && !running;
   const boughtAny = intent?.legs.some((l) => l.status === "filled") ?? false;
-  const progress = steps.length ? Math.max(0.06, doneCount / steps.length) : 0.06;
 
   return (
-    <div className="py-2">
-      <div className="flex items-center gap-3">
-        <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full", failed ? "bg-down/15 text-down" : "bg-surface-2 text-link")}>
-          {failed ? <X size={18} strokeWidth={2.5} /> : <Loader2 size={18} className="animate-spin" />}
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-[16px] font-semibold">{failed ? `${current?.label ?? title} failed` : title}</p>
-          <p className={cn("truncate text-secondary", failed ? "text-down" : "text-text-muted")}>
-            {failed ? stopped.message : current ? `${current.label}${note ? ` · ${note}` : ""}…` : "Starting…"}
+    <div>
+      {failed ? (
+        <div className="space-y-2">
+          <p className="text-center text-secondary text-down" role="alert">
+            {current ? `${current.label} failed: ` : ""}
+            {stopped.message}
           </p>
-        </div>
-        {steps.length > 1 && <span className="shrink-0 text-secondary text-text-muted tnum">{Math.min(doneCount + 1, steps.length)}/{steps.length}</span>}
-      </div>
-      <div className="mt-4 h-1 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
-        <div className={cn("h-full rounded-full transition-[width] duration-500", failed ? "bg-down" : "bg-primary")} style={{ width: `${progress * 100}%` }} />
-      </div>
-
-      {failed && (
-        <div className="mt-5 space-y-2">
           {stopError && <p className="text-center text-secondary text-down">Couldn&apos;t stop: {stopError}</p>}
           <Button className="w-full" onClick={retry}>
             Retry
@@ -198,12 +181,16 @@ export function IntentProgress({ intentId, title, onFinished, onRunning }: { int
               </Button>
             ))}
         </div>
+      ) : (
+        <Button className="w-full" loading aria-live="polite" aria-label={current ? `${title}: ${current.label}` : title}>
+          {title}
+        </Button>
       )}
     </div>
   );
 }
 
-/** Resuming an unfinished intent from the banner: the same progress line in a sheet. */
+/** Resuming an unfinished intent from the banner: the same spinning button in a sheet. */
 export function IntentSheet({ intentId, title, open, onClose }: { intentId: string; title: string; open: boolean; onClose: () => void }) {
   const [running, setRunning] = useState(false);
   return (
