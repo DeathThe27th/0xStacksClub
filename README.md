@@ -213,9 +213,7 @@ A buy or sell is several transactions and several server checks. The runner
 
 - Router approvals for every leg go out in the same burst as the fee, so a leg doesn't stop to
   approve and re-quote. Legs that share a spender get one approval for their exact total.
-- Transactions are sent back to back with consecutive nonces and awaited together. With the
-  embedded wallet they are signed all at once and broadcast straight to the RPC, instead of one
-  wallet round trip each; any other wallet, or a failure to sign that way, uses the normal path.
+- Transactions are sent back to back with consecutive nonces and awaited together.
 - The database is about 0.2s per query from the function region, so the trade routes load an intent
   with its legs in one query, cache the profile and allowlist rows briefly, rate limit in memory
   and write the trade rows after the response.
