@@ -1,12 +1,13 @@
 "use client";
 
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Sheet } from "@/components/ui/Sheet";
 import { cn } from "@/lib/cn";
 import { APP_NAME } from "@/lib/constants";
 import { IMessageConnect, useIMessage } from "./IMessageConnect";
+import { TelegramConnect, useTelegram } from "./TelegramConnect";
 
 /**
  * The texting assistant, up front: on Home and beside the trade panel. Connects a phone in a sheet;
@@ -14,7 +15,9 @@ import { IMessageConnect, useIMessage } from "./IMessageConnect";
  */
 export function IMessageCard({ className }: { className?: string }) {
   const q = useIMessage();
+  const tg = useTelegram();
   const [open, setOpen] = useState(false);
+  const [tgOpen, setTgOpen] = useState(false);
   const data = q.data;
   // Nothing to offer until the server says texting is set up (or a phone is already linked).
   if (!data || (!data.available && !data.linked)) return null;
@@ -53,9 +56,19 @@ export function IMessageCard({ className }: { className?: string }) {
             </Button>
           )}
         </div>
+        {(tg.data?.available || tg.data?.linked) && (
+          <button onClick={() => setTgOpen(true)} className="mt-3 flex w-full items-center gap-2 text-left text-secondary text-text-muted hover:text-text">
+            <Send size={15} className={tg.data.linked ? "text-up" : undefined} />
+            {tg.data.linked ? "Telegram connected" : "Also on Telegram"}
+            <span className="ml-auto text-link">{tg.data.linked ? "Manage" : "Connect"}</span>
+          </button>
+        )}
       </section>
       <Sheet open={open} onClose={() => setOpen(false)} title="iMessage">
         <IMessageConnect />
+      </Sheet>
+      <Sheet open={tgOpen} onClose={() => setTgOpen(false)} title="Telegram">
+        <TelegramConnect />
       </Sheet>
     </>
   );

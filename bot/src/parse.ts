@@ -5,11 +5,13 @@ export type Command =
   | { kind: "link"; code: string }
   | { kind: "stop" }
   | { kind: "help" }
+  | { kind: "stocks"; sort: "volume" | "gainers" | "losers" }
   | { kind: "baskets" }
   | { kind: "portfolio" }
   | { kind: "price"; basket: string }
   | { kind: "club"; basket: string }
   | { kind: "buy"; amount: number | null; basket: string }
+  | { kind: "sell" }
   | { kind: "question"; text: string }
   | { kind: "unknown" };
 
@@ -30,11 +32,20 @@ export function parseCommand(input: string): Command {
 
   const link = /^link[\s:]*(\d{6})$/.exec(lower);
   if (link) return { kind: "link", code: link[1]! };
+  // Telegram's deep link arrives as "/start <code>"; a bare "/start" is just hello.
+  const start = /^\/start(?:@\w+)? ([A-Za-z0-9_-]{16,64})$/.exec(text);
+  if (start) return { kind: "link", code: start[1]! };
+  if (/^\/start(?:@\w+)?$/.test(lower)) return { kind: "help" };
   if (/^link\b/.test(lower)) return { kind: "link", code: "" };
   if (/^(stop|unlink|disconnect|unsubscribe)$/.test(lower)) return { kind: "stop" };
-  if (/^(help|\?|menu|commands)$/.test(lower)) return { kind: "help" };
-  if (/^(baskets?|top|top baskets|list)$/.test(lower)) return { kind: "baskets" };
+  if (/^\/?(help|\?|menu|commands)$/.test(lower)) return { kind: "help" };
+  if (/^(stocks?|top|top stocks|trending|list)$/.test(lower)) return { kind: "stocks", sort: "volume" };
+  if (/^(movers|gainers|top gainers)$/.test(lower)) return { kind: "stocks", sort: "gainers" };
+  if (/^(losers|top losers)$/.test(lower)) return { kind: "stocks", sort: "losers" };
+  if (/^(baskets?|top baskets)$/.test(lower)) return { kind: "baskets" };
   if (/^(portfolio|positions|holdings|balance|my portfolio)$/.test(lower)) return { kind: "portfolio" };
+
+  if (/^sell\b/.test(lower)) return { kind: "sell" };
 
   const price = /^price(?: of)? (.+)$/i.exec(text);
   if (price) return { kind: "price", basket: price[1]! };
@@ -64,12 +75,16 @@ export function parseLoose(input: string): Command {
     const cmd = parseCommand(`buy ${buy[1]!}`);
     if (cmd.kind === "buy") return cmd;
   }
+  if (/\b(sell|cash out|take profit)\b/.test(lower)) return { kind: "sell" };
   const club = /\b(?:club|telegram|group(?: chat)?)\b(?: (?:for|of|link for))? (.+)$/i.exec(text);
   if (club) return { kind: "club", basket: club[1]!.replace(/[?.!]+$/, "") };
   const price = /\b(?:price|value|how(?:'s| is| are)|what(?:'s| is) in|check)\b(?: (?:of|for|the))* (.+?)(?: doing| looking| worth| today| now)*[?.!]*$/i.exec(text);
   if (/\bmy\b/.test(lower) && /\b(week|weekly|7 days|month|perform\w*|how did|how have)\b/.test(lower)) return { kind: "question", text };
   if (/\b(portfolio|my positions|my holdings|my balance|how am i doing)\b/.test(lower)) return { kind: "portfolio" };
-  if (/\b(baskets|trending|top)\b/.test(lower) && !price) return { kind: "baskets" };
+  if (/\bbaskets?\b/.test(lower) && !price) return { kind: "baskets" };
+  if (/\b(gainers|movers|up the most)\b/.test(lower)) return { kind: "stocks", sort: "gainers" };
+  if (/\b(losers|down the most)\b/.test(lower)) return { kind: "stocks", sort: "losers" };
+  if (/\b(stocks|trending|top|hot)\b/.test(lower) && !price) return { kind: "stocks", sort: "volume" };
   if (price && !/\b(my|i)\b/.test(price[1]!.toLowerCase())) return { kind: "price", basket: price[1]! };
   if (/\bhelp\b|what can you do|^(hi|hello|hey|yo|start)\b/.test(lower)) return { kind: "help" };
   return { kind: "unknown" };

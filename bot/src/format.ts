@@ -1,4 +1,4 @@
-import type { BasketRef, Baskets, Buy, Club, Portfolio, Price, Stock } from "./api.js";
+import type { BasketDetail, Baskets, BuyLink, Club, Option, Portfolio, StockItem, Stocks } from "./api.js";
 
 // Every reply is built here, by code: links come from the site's API as-is and money is formatted
 // from its numbers. A missing number is said out loud ("price unavailable"), never filled in.
@@ -32,21 +32,24 @@ export function price(n: number): string {
 
 export function helpText(appName: string): string {
   return [
-    `${appName} by text:`,
+    `${appName} by text. Just ask, or use:`,
+    "stocks: the most traded stocks",
+    "movers: today's biggest gainers",
+    "price NVDA: a stock's price",
+    "buy 20 NVDA: get a link to confirm",
+    "portfolio: what you hold",
     "baskets: top baskets",
-    "price <basket>: value and what's inside",
-    "portfolio: your positions",
-    "buy <amount> <basket>: get a link to confirm",
-    "club <basket>: the holders' Telegram",
-    "stop: disconnect this number",
+    "stop: disconnect this chat",
   ].join("\n");
 }
 
 export const welcome = (appName: string, username: string) => `You're connected to ${appName} as @${username}. Text "help" to see what I can do.`;
 
 // Sent to numbers that haven't linked. Text only: no link before the person has an account link.
-export const notLinked = (appName: string) =>
-  `This number isn't connected to ${appName} yet. In the app, open Settings on your profile and tap Connect iMessage.`;
+export const notLinked = (appName: string, telegram = false) =>
+  telegram
+    ? `This chat isn't connected to ${appName} yet. In the app, tap Connect Telegram and press Start from there.`
+    : `This number isn't connected to ${appName} yet. In the app, tap Connect iMessage on the home screen.`;
 
 export const needPhone = () =>
   "I can only work with a phone number. On your iPhone, go to Settings, Messages, Send & Receive and start new conversations from your number, then connect again.";
@@ -54,19 +57,37 @@ export const needPhone = () =>
 export const linkUsage = () => "Send the 6-digit code from Connect iMessage in the app, like: link 123456";
 export const badCode = () => "That code didn't work. Codes last 10 minutes and only work from the number you entered. Get a new one in the app.";
 export const tooFast = () => "That's a lot of tries. Wait a few minutes and try again.";
-export const unlinked = (appName: string) => `Disconnected. This number no longer has access to your ${appName} account. You can connect again from the app.`;
-export const notConnected = () => "This number isn't connected, so there's nothing to disconnect.";
+export const unlinked = (appName: string) => `Disconnected. This chat no longer has access to your ${appName} account. You can connect again from the app.`;
+export const notConnected = () => "This chat isn't connected, so there's nothing to disconnect.";
+export const badTelegramLink = () => "That link didn't work or has expired. Tap Connect Telegram in the app to get a new one.";
 export const unreachable = (appName: string) => `I can't reach ${appName} right now. Try again in a bit.`;
 export const clarify = () => `I didn't catch that. Text "help" to see what I can do.`;
 export const textOnly = () => "I can only read text messages.";
 
-export function whichBasket(options: BasketRef[]): string {
-  return ["Which basket?", ...options.map((o, i) => `${i + 1}. ${o.name} ($${o.ticker})`), "Reply with the number."].join("\n");
+export function whichOne(options: Option[]): string {
+  const label = (o: Option) => (o.kind === "basket" ? `${o.name} ($${o.ticker}, basket)` : `${o.ticker} (${o.name})`);
+  return ["Which one?", ...options.map((o, i) => `${i + 1}. ${label(o)}`), "Reply with the number."].join("\n");
 }
 
-export const notFound = (query: string) => `I couldn't find a basket called "${query.slice(0, 40)}". Text "baskets" to see the top ones.`;
-export const needBasket = (verb: string) => `Which basket? For example: ${verb} ai kings`;
-export const needAmount = (basket: string) => `How much? For example: buy 25 ${basket}`;
+export const notFound = (query: string) => `I couldn't find a stock or basket called "${query.slice(0, 40)}". Text "stocks" to see what's trading.`;
+export const needName = (verb: string) => `Which stock? For example: ${verb} NVDA`;
+export const needAmount = (name: string) => `How much? For example: buy 20 ${name}`;
+
+function stockLine(s: StockItem): string {
+  const px = s.priceUsd === null ? "price unavailable" : `${price(s.priceUsd)}${s.change24h === null ? "" : ` ${pct(s.change24h)}`}`;
+  return `${s.ticker}: ${px}${s.marketOpen === false ? " (market closed)" : ""}`;
+}
+
+export function stocksReply(d: Stocks): string {
+  if (!d.items.length) return "No stocks are trading right now.";
+  const title = d.sort === "gainers" ? "Top gainers today:" : d.sort === "losers" ? "Biggest drops today:" : "Most traded stocks (price, 24h):";
+  return [title, ...d.items.map(stockLine), 'Text "price <ticker>" for one, or "buy 20 <ticker>".'].join("\n");
+}
+
+export function stockReply(s: StockItem): string {
+  const px = s.priceUsd === null ? "price unavailable" : `${price(s.priceUsd)}${s.change24h === null ? "" : ` ${pct(s.change24h)} 24h`}`;
+  return [`${s.ticker} (${s.name})`, `${px}${s.marketOpen === false ? " (market closed)" : ""}`, s.url].join("\n");
+}
 
 export function basketsReply(d: Baskets): string {
   if (!d.items.length) return "There are no baskets yet.";
@@ -78,8 +99,7 @@ export function basketsReply(d: Baskets): string {
   return ["Top baskets (index, 24h):", ...rows, 'Text "price <name>" for more.'].join("\n");
 }
 
-export function priceReply(p: Extract<Price, { match: "one" }>): string {
-  const b = p.basket;
+export function basketReply(b: BasketDetail): string {
   const head = [`${b.name} ($${b.ticker})`];
   if (b.index === null) head.push("Index unavailable right now.");
   else {
@@ -102,13 +122,13 @@ export function portfolioReply(p: Portfolio): string {
   else lines.push(`Total ${usd(p.totalUsd)}${p.change24hUsd === null || Math.abs(p.change24hUsd) < 0.005 ? "" : ` (${signedUsd(p.change24hUsd)} 24h)`}`);
   lines.push(`USDT ${usd(p.usdt)}`);
   const rows = [
+    ...p.stocks.map((s) => (s.valueUsd === null ? `${s.ticker}: value unavailable` : `${s.ticker}: ${usd(s.valueUsd)}${s.pnlUsd === null ? "" : `, ${signedUsd(s.pnlUsd)}`}`)),
     ...p.positions.map((x) => {
       const name = `${x.name ?? (x.ticker ? `$${x.ticker}` : "Basket")} #${x.id}`;
       if (x.valueUsd === null) return `${name}: value unavailable`;
       const pnl = x.pnlUsd === null ? "" : `, ${signedUsd(x.pnlUsd)}${x.pnlPct === null ? "" : ` (${pct(x.pnlPct)})`}`;
       return `${name}: ${usd(x.valueUsd)}${pnl}`;
     }),
-    ...p.stocks.map((s) => (s.valueUsd === null ? `${s.ticker}: value unavailable` : `${s.ticker}: ${usd(s.valueUsd)}${s.pnlUsd === null ? "" : `, ${signedUsd(s.pnlUsd)}`}`)),
   ];
   if (!rows.length) lines.push("No positions yet.");
   else {
@@ -119,17 +139,21 @@ export function portfolioReply(p: Portfolio): string {
   return lines.join("\n");
 }
 
-export function buyReply(b: Exclude<Buy, { match: "many" | "none" }>): string {
+export function buyReply(b: Exclude<BuyLink, { match: "many" | "none" }>): string {
   switch (b.match) {
     case "bad_amount":
-      return "That amount doesn't look right. For example: buy 25 ai kings";
+      return "That amount doesn't look right. For example: buy 20 NVDA";
     case "below_min":
       return `The minimum buy for ${b.basket.name} is ${plainUsd(b.minUsd)}.`;
     case "above_max":
       return `I can set up buys up to ${plainUsd(b.maxUsd)} by text. For more, buy in the app.`;
-    case "one": {
+    case "not_tradable":
+      return `${b.target.ticker} can't be bought right now.`;
+    case "stock":
+    case "basket": {
+      const name = b.match === "stock" ? b.target.ticker : b.basket.name;
       const note = b.closed.length ? `\nMarket closed for ${b.closed.join(", ")}, so the buy may not go through until it opens.` : "";
-      return `Buy ${plainUsd(b.amountUsd)} of ${b.basket.name}? Tap to open it and confirm:\n${b.url}${note}`;
+      return `Buy ${plainUsd(b.amountUsd)} of ${name}? Tap to open it and confirm:\n${b.url}${note}`;
     }
   }
 }
@@ -137,30 +161,31 @@ export function buyReply(b: Exclude<Buy, { match: "many" | "none" }>): string {
 const NO_DM = "Admins will never DM you first.";
 
 export function clubReply(c: Extract<Club, { match: "one" }>): string {
-  if (!c.isMember) return `You need to buy in to join the ${c.basket.name} club. Text "buy <amount> ${c.basket.name}" to get a link. ${NO_DM}`;
+  if (!c.isMember) return `You need to hold ${c.basket.name} to join its club. Text "buy <amount> ${c.basket.name}" to get a link. ${NO_DM}`;
   if (!c.url) return `${c.basket.name} doesn't have a club link yet.`;
   return `${c.basket.name} club on Telegram:\n${c.url}\n${NO_DM}`;
 }
 
-/** Facts for "how did my baskets do this week": figures by code; the model only adds a sentence. */
-export function weekReply(p: Portfolio, sentence: string | null): string {
-  if (!p.positions.length) return `You don't hold any baskets yet.\n${p.url}`;
-  const rows = p.positions.slice(0, MAX_ROWS).map((x) => {
-    const name = x.name ?? (x.ticker ? `$${x.ticker}` : `Basket #${x.id}`);
-    const week = x.basketChange7d === null || x.basketChange7d === undefined ? "7d move unavailable" : `basket ${pct(x.basketChange7d)} 7d`;
-    const pnl = x.pnlUsd === null ? "" : `, you ${signedUsd(x.pnlUsd)}${x.pnlPct === null ? "" : ` (${pct(x.pnlPct)})`} since buying`;
-    return `${name}: ${week}${pnl}`;
-  });
-  const lines = [...(sentence ? [sentence] : []), ...rows];
-  if (p.positions.length > MAX_ROWS) lines.push(`+${p.positions.length - MAX_ROWS} more in the app`);
+/** "How am I doing": every holding with what we actually know about it. Weekly profit isn't tracked. */
+export function performanceReply(p: Portfolio): string {
+  if (!p.positions.length && !p.stocks.length) return `You don't hold anything yet.\n${p.url}`;
+  const rows = [
+    ...p.stocks.map((s) => {
+      const day = s.change24h === null ? "24h move unavailable" : `${pct(s.change24h)} 24h`;
+      return `${s.ticker}: ${day}${s.pnlUsd === null ? "" : `, you ${signedUsd(s.pnlUsd)} since buying`}`;
+    }),
+    ...p.positions.map((x) => {
+      const name = x.name ?? (x.ticker ? `$${x.ticker}` : `Basket #${x.id}`);
+      const week = x.basketChange7d === null || x.basketChange7d === undefined ? "7d move unavailable" : `${pct(x.basketChange7d)} 7d`;
+      return `${name}: ${week}${x.pnlUsd === null ? "" : `, you ${signedUsd(x.pnlUsd)}${x.pnlPct === null ? "" : ` (${pct(x.pnlPct)})`} since buying`}`;
+    }),
+  ];
+  const lines = rows.slice(0, MAX_ROWS);
+  if (rows.length > MAX_ROWS) lines.push(`+${rows.length - MAX_ROWS} more in the app`);
   lines.push(p.url);
   return lines.join("\n");
 }
 
-export function stockReply(r: Extract<Stock, { match: "one" }>): string {
-  const s = r.stock;
-  const px = s.priceUsd === null ? "price unavailable" : `${price(s.priceUsd)}${s.change24h === null ? "" : ` ${pct(s.change24h)} 24h`}`;
-  return [`${s.ticker} (${s.name})`, `${px}${s.marketOpen === false ? " (market closed)" : ""}`, s.url].join("\n");
-}
+export const sellReply = (url: string) => `I can't sell by text. Open your portfolio, pick the stock and tap Sell:\n${url}`;
 
-export const thinkingTrouble = () => `I'm having trouble thinking right now. Try "baskets", "portfolio" or "price <basket>".`;
+export const thinkingTrouble = () => `I'm having trouble thinking right now. Try "stocks", "portfolio" or "price NVDA".`;

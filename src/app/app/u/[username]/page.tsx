@@ -2,7 +2,7 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity as ActivityIcon, Gift, Layers, LogOut, MessageCircle, Pencil, Settings, Wallet } from "lucide-react";
+import { Activity as ActivityIcon, Gift, Layers, LogOut, MessageCircle, Pencil, Send, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
@@ -11,6 +11,7 @@ import { Overview } from "@/components/desktop/Overview";
 import { BasketRow } from "@/components/market/Rows";
 import { IMessageConnect, useIMessage } from "@/components/profile/IMessageConnect";
 import { ProfileForm } from "@/components/profile/ProfileForm";
+import { TelegramConnect, useTelegram } from "@/components/profile/TelegramConnect";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { ActivityItem } from "@/components/social/ActivityItem";
 import { Avatar } from "@/components/ui/Avatar";
@@ -47,7 +48,7 @@ type UserResponse = {
   activity: Activity[];
 };
 
-type SettingsMode = "menu" | "edit" | "imessage" | null;
+type SettingsMode = "menu" | "edit" | "imessage" | "telegram" | null;
 
 function XIcon() {
   return (
@@ -299,11 +300,14 @@ function SettingsSheet({
   const router = useRouter();
   const [showValues, setShowValues] = useState(profile.show_values);
   const imessage = useIMessage(mode !== null);
+  const telegram = useTelegram(mode !== null);
   const hasEmbedded = !!user?.linkedAccounts.some((a) => a.type === "wallet" && "walletClientType" in a && a.walletClientType === "privy");
   return (
-    <Sheet open={mode !== null} onClose={() => setMode(null)} title={mode === "edit" ? "Edit profile" : mode === "imessage" ? "iMessage" : "Settings"}>
+    <Sheet open={mode !== null} onClose={() => setMode(null)} title={mode === "edit" ? "Edit profile" : mode === "imessage" ? "iMessage" : mode === "telegram" ? "Telegram" : "Settings"}>
       {mode === "imessage" ? (
         <IMessageConnect />
+      ) : mode === "telegram" ? (
+        <TelegramConnect />
       ) : mode === "edit" ? (
         <ProfileForm
           initial={profile}
@@ -339,6 +343,13 @@ function SettingsSheet({
             <span className="flex-1">{imessage.data?.linked ? "iMessage" : "Connect iMessage"}</span>
             {imessage.data?.linked && <span className="text-secondary text-text-muted tnum">{imessage.data.linked.phone}</span>}
           </button>
+          {(telegram.data?.available || telegram.data?.linked) && (
+            <button onClick={() => setMode("telegram")} className="press flex h-14 w-full items-center gap-3 rounded-card bg-surface-2 px-4 text-left text-[16px]">
+              <Send size={18} />
+              <span className="flex-1">{telegram.data.linked ? "Telegram" : "Connect Telegram"}</span>
+              {telegram.data.linked && <span className="text-secondary text-text-muted">Connected</span>}
+            </button>
+          )}
           {hasEmbedded && (
             <button onClick={() => exportWallet()} className="press flex h-14 w-full items-center gap-3 rounded-card bg-surface-2 px-4 text-[16px]">
               <Wallet size={18} /> Export wallet

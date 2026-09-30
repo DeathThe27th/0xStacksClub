@@ -15,6 +15,10 @@ const publicSchema = z.object({
   // Empty until the vault is deployed. Screens that need it show a "not deployed" state.
   NEXT_PUBLIC_VAULT_ADDRESS: address.optional().or(z.literal("").transform(() => undefined)),
   NEXT_PUBLIC_APP_URL: url,
+  // Privy key quorum the server signs with for text buys. Empty until that's set up.
+  NEXT_PUBLIC_PRIVY_SIGNER_ID: z.string().min(1).optional().or(z.literal("").transform(() => undefined)),
+  // Telegram bot username (without @), for the Connect Telegram link. Empty until the bot exists.
+  NEXT_PUBLIC_TELEGRAM_BOT: z.string().regex(/^[A-Za-z0-9_]{5,32}$/).optional().or(z.literal("").transform(() => undefined)),
 });
 
 const serverSchema = z.object({
@@ -33,6 +37,9 @@ const serverSchema = z.object({
   BOT_API_SECRET: z.string().min(32).optional(), // shared with the bot, `openssl rand -hex 32`
   SPECTRUM_PROJECT_ID: z.string().uuid().optional(), // Photon project, used to register phones
   SPECTRUM_PROJECT_SECRET: z.string().min(1).optional(),
+  // Private half of the Privy authorization key (the quorum in NEXT_PUBLIC_PRIVY_SIGNER_ID). Lets
+  // the server sign with the embedded wallet of a user who turned on text buys. Server only.
+  PRIVY_SIGNER_PRIVATE_KEY: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;
@@ -52,6 +59,8 @@ function parsePublic(): PublicEnv {
     NEXT_PUBLIC_USDT_ADDRESS: process.env.NEXT_PUBLIC_USDT_ADDRESS,
     NEXT_PUBLIC_VAULT_ADDRESS: process.env.NEXT_PUBLIC_VAULT_ADDRESS,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_PRIVY_SIGNER_ID: process.env.NEXT_PUBLIC_PRIVY_SIGNER_ID,
+    NEXT_PUBLIC_TELEGRAM_BOT: process.env.NEXT_PUBLIC_TELEGRAM_BOT,
   });
   if (!result.success) fail("public", result.error);
   return result.data;

@@ -30,9 +30,7 @@ describe("replies", () => {
   });
 
   it("says when a price is missing or a market is closed", () => {
-    const out = f.priceReply({
-      match: "one",
-      basket: {
+    const out = f.basketReply({
         name: "AI Kings",
         ticker: "AIK",
         index: 1042.18,
@@ -45,7 +43,6 @@ describe("replies", () => {
           { ticker: "NVDA", weightPct: 40, priceUsd: 185.2, change24h: 2.1, marketOpen: false },
           { ticker: "TSM", weightPct: 60, priceUsd: null, change24h: null, marketOpen: null },
         ],
-      },
     });
     expect(out.split("\n")).toEqual([
       "AI Kings ($AIK)",
@@ -57,8 +54,10 @@ describe("replies", () => {
   });
 
   it("builds the buy confirmation exactly", () => {
-    const out = f.buyReply({ match: "one", basket: { name: "AI Kings", ticker: "AIK" }, amountUsd: 25, url: "https://example.test/app/basket/1?buy=25", closed: [] });
+    const out = f.buyReply({ match: "basket", basket: { name: "AI Kings", ticker: "AIK" }, amountUsd: 25, url: "https://example.test/app/basket/1?buy=25", closed: [] });
     expect(out).toBe("Buy $25 of AI Kings? Tap to open it and confirm:\nhttps://example.test/app/basket/1?buy=25");
+    const stock = f.buyReply({ match: "stock", target: { kind: "stock", ticker: "NVDA", name: "NVIDIA" }, amountUsd: 20.5, url: "https://example.test/app/stock/bstock/0xabc?buy=20.5", closed: ["NVDA"] });
+    expect(stock).toBe("Buy $20.50 of NVDA? Tap to open it and confirm:\nhttps://example.test/app/stock/bstock/0xabc?buy=20.5\nMarket closed for NVDA, so the buy may not go through until it opens.");
     expect(f.buyReply({ match: "below_min", basket: { name: "AI Kings", ticker: "AIK" }, minUsd: 5 })).toBe("The minimum buy for AI Kings is $5.");
   });
 
@@ -69,7 +68,7 @@ describe("replies", () => {
     expect(member).toContain("Admins will never DM you first.");
     const outsider = f.clubReply({ ...base, isMember: false, hasLink: true, url: null });
     expect(outsider).not.toContain("t.me");
-    expect(outsider).toContain("You need to buy in");
+    expect(outsider).toContain("You need to hold AI Kings");
     expect(outsider).toContain("Admins will never DM you first.");
   });
 
@@ -88,15 +87,15 @@ describe("replies", () => {
     expect(out.split("\n")).toEqual([
       "Total $742.10 (+$12.30 24h)",
       "USDT $42.10",
+      "NVDA: $200.00",
       "AI Kings #12: $500.00, +$20.00 (+4.17%)",
       "Chip Makers #13: value unavailable",
-      "NVDA: $200.00",
       "https://example.test/app/u/ada",
     ]);
   });
 
   it("keeps links out of everything an unlinked number can receive", () => {
-    for (const s of [f.notLinked("App"), f.linkUsage(), f.badCode(), f.needPhone(), f.notConnected(), f.welcome("App", "ada")]) {
+    for (const s of [f.notLinked("App"), f.notLinked("App", true), f.linkUsage(), f.badCode(), f.badTelegramLink(), f.needPhone(), f.notConnected(), f.welcome("App", "ada")]) {
       expect(s).not.toMatch(/https?:|www\.|\.com|\.app/);
     }
   });

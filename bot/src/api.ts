@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 // Client for the site's /api/bot routes. The bot never talks to Binance, Supabase or the chain:
-// it sends a phone and a request here, and the site answers with data and ready-made links.
+// it sends a sender and a request here, and the site answers with data and ready-made links.
+// A sender is a phone in E.164 (iMessage, terminal) or `tg:<id>` (Telegram).
 
 export class ApiError extends Error {
   constructor(
@@ -21,6 +22,20 @@ const none = z.object({ match: z.literal("none") });
 
 const config = z.object({ appName: z.string().min(1), maxBuyUsd: z.number().positive(), facts: z.array(z.string()).default([]) });
 const me = z.object({ linked: z.boolean(), username: z.string().optional(), number: z.string().optional() });
+
+const stockItem = z.object({
+  ticker: z.string(),
+  name: z.string(),
+  provider: z.string(),
+  priceUsd: num,
+  change24h: num,
+  marketOpen: z.boolean().nullable(),
+  canTrade: z.boolean(),
+  url: z.string().url(),
+});
+const stocks = z.object({ sort: z.string(), items: z.array(stockItem), total: z.number() });
+const option = z.object({ kind: z.enum(["stock", "basket"]).optional(), ticker: z.string(), name: z.string() });
+const manyAny = z.object({ match: z.literal("many"), options: z.array(option).min(1) });
 const link = z.object({ ok: z.literal(true), username: z.string(), number: z.string().optional() });
 const unlink = z.object({ wasLinked: z.boolean(), photonUserId: z.string().nullable() });
 
@@ -29,20 +44,31 @@ const baskets = z.object({
   total: z.number(),
 });
 
-const price = z.discriminatedUnion("match", [
-  z.object({
-    match: z.literal("one"),
-    basket: basketRef.extend({
-      index: num,
-      change24h: num,
-      change7d: num,
-      sinceLaunch: num,
-      investedUsd: num,
-      url: z.string().url(),
-      components: z.array(z.object({ ticker: z.string(), weightPct: z.number(), priceUsd: num, change24h: num, marketOpen: z.boolean().nullable() })),
-    }),
-  }),
-  many,
+const basketDetail = basketRef.extend({
+  index: num,
+  change24h: num,
+  change7d: num,
+  sinceLaunch: num,
+  investedUsd: num,
+  url: z.string().url(),
+  components: z.array(z.object({ ticker: z.string(), weightPct: z.number(), priceUsd: num, change24h: num, marketOpen: z.boolean().nullable() })),
+});
+/** A stock first, a basket second, or a choice between what fits. */
+const lookup = z.discriminatedUnion("match", [
+  z.object({ match: z.literal("stock"), stock: stockItem }),
+  z.object({ match: z.literal("basket"), basket: basketDetail }),
+  manyAny,
+  none,
+]);
+
+const buyLink = z.discriminatedUnion("match", [
+  z.object({ match: z.literal("stock"), target: option, amountUsd: z.number().positive(), url: z.string().url(), closed: z.array(z.string()) }),
+  z.object({ match: z.literal("basket"), basket: basketRef, amountUsd: z.number().positive(), url: z.string().url(), closed: z.array(z.string()) }),
+  z.object({ match: z.literal("not_tradable"), target: option }),
+  z.object({ match: z.literal("below_min"), basket: basketRef, minUsd: z.number() }),
+  z.object({ match: z.literal("above_max"), basket: basketRef, maxUsd: z.number() }),
+  z.object({ match: z.literal("bad_amount") }),
+  manyAny,
   none,
 ]);
 
@@ -66,45 +92,21 @@ const portfolio = z.object({
   url: z.string().url(),
 });
 
-const buy = z.discriminatedUnion("match", [
-  z.object({ match: z.literal("one"), basket: basketRef, amountUsd: z.number().positive(), url: z.string().url(), closed: z.array(z.string()) }),
-  z.object({ match: z.literal("below_min"), basket: basketRef, minUsd: z.number() }),
-  z.object({ match: z.literal("above_max"), basket: basketRef, maxUsd: z.number() }),
-  z.object({ match: z.literal("bad_amount") }),
-  many,
-  none,
-]);
-
 const club = z.discriminatedUnion("match", [
   z.object({ match: z.literal("one"), basket: basketRef, isMember: z.boolean(), hasLink: z.boolean(), url: z.string().url().nullable(), basketUrl: z.string().url() }),
   many,
   none,
 ]);
 
-const stock = z.discriminatedUnion("match", [
-  z.object({
-    match: z.literal("one"),
-    stock: z.object({
-      ticker: z.string(),
-      name: z.string(),
-      provider: z.string(),
-      priceUsd: num,
-      change24h: num,
-      marketOpen: z.boolean().nullable(),
-      canTrade: z.boolean(),
-      url: z.string().url(),
-    }),
-  }),
-  z.object({ match: z.literal("many"), options: z.array(z.object({ ticker: z.string(), name: z.string() })).min(1) }),
-  none,
-]);
-
-export type Stock = z.infer<typeof stock>;
+export type StockItem = z.infer<typeof stockItem>;
+export type Stocks = z.infer<typeof stocks>;
+export type Lookup = z.infer<typeof lookup>;
+export type BuyLink = z.infer<typeof buyLink>;
+export type Option = z.infer<typeof option>;
+export type BasketDetail = z.infer<typeof basketDetail>;
 export type BotConfig = z.infer<typeof config>;
 export type Baskets = z.infer<typeof baskets>;
-export type Price = z.infer<typeof price>;
 export type Portfolio = z.infer<typeof portfolio>;
-export type Buy = z.infer<typeof buy>;
 export type Club = z.infer<typeof club>;
 export type BasketRef = z.infer<typeof basketRef>;
 
@@ -135,15 +137,15 @@ export function createApi(opts: { siteUrl: string; secret: string; fetchImpl?: t
 
   return {
     config: () => call("GET", "config", config),
-    me: (phone: string) => call("POST", "me", me, { phone }),
-    link: (phone: string, code: string) => call("POST", "link", link, { phone, code }),
-    unlink: (phone: string) => call("POST", "unlink", unlink, { phone }),
-    release: (phone: string, photonUserId: string) => call("POST", "release", z.object({ ok: z.boolean() }), { phone, photonUserId }),
-    baskets: (phone: string) => call("POST", "baskets", baskets, { phone }),
-    price: (phone: string, query: string) => call("POST", "price", price, { phone, query }),
-    portfolio: (phone: string, week = false) => call("POST", "portfolio", portfolio, { phone, week }),
-    buy: (phone: string, query: string, amount: number) => call("POST", "buy", buy, { phone, query, amount }),
-    club: (phone: string, query: string) => call("POST", "club", club, { phone, query }),
-    stock: (phone: string, query: string) => call("POST", "stock", stock, { phone, query }),
+    me: (sender: string) => call("POST", "me", me, { sender }),
+    link: (sender: string, code: string) => call("POST", "link", link, { sender, code }),
+    unlink: (sender: string) => call("POST", "unlink", unlink, { sender }),
+    release: (sender: string, photonUserId: string) => call("POST", "release", z.object({ ok: z.boolean() }), { sender, photonUserId }),
+    stocks: (sender: string, sort: "volume" | "gainers" | "losers" = "volume") => call("POST", "stocks", stocks, { sender, sort }),
+    lookup: (sender: string, query: string) => call("POST", "lookup", lookup, { sender, query }),
+    buyLink: (sender: string, query: string, amount: number) => call("POST", "buylink", buyLink, { sender, query, amount }),
+    baskets: (sender: string) => call("POST", "baskets", baskets, { sender }),
+    portfolio: (sender: string, week = false) => call("POST", "portfolio", portfolio, { sender, week }),
+    club: (sender: string, query: string) => call("POST", "club", club, { sender, query }),
   };
 }

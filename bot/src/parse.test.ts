@@ -21,6 +21,8 @@ describe("parseCommand", () => {
     expect(parseCommand("link 12345")).toEqual({ kind: "link", code: "" });
     expect(parseCommand("STOP")).toEqual({ kind: "stop" });
     expect(parseCommand("unlink")).toEqual({ kind: "stop" });
+    expect(parseCommand("/start AbCdEfGhIjKlMnOpQrStUvWx")).toEqual({ kind: "link", code: "AbCdEfGhIjKlMnOpQrStUvWx" });
+    expect(parseCommand("/start")).toEqual({ kind: "help" });
   });
 
   it("reads the simple commands in any case", () => {
@@ -28,6 +30,10 @@ describe("parseCommand", () => {
     expect(parseCommand("hey")).toEqual({ kind: "unknown" });
     expect(parseLoose("hey")).toEqual({ kind: "help" });
     expect(parseCommand("baskets")).toEqual({ kind: "baskets" });
+    expect(parseCommand("Stocks")).toEqual({ kind: "stocks", sort: "volume" });
+    expect(parseCommand("movers")).toEqual({ kind: "stocks", sort: "gainers" });
+    expect(parseCommand("price NVDA")).toEqual({ kind: "price", basket: "NVDA" });
+    expect(parseCommand("buy 20 nvda")).toEqual({ kind: "buy", amount: 20, basket: "nvda" });
     expect(parseCommand("Portfolio")).toEqual({ kind: "portfolio" });
     expect(parseCommand("price AI Kings")).toEqual({ kind: "price", basket: "AI Kings" });
     expect(parseCommand("club ai kings")).toEqual({ kind: "club", basket: "ai kings" });
@@ -50,9 +56,13 @@ describe("parseLoose", () => {
   it("finds the command inside a sentence", () => {
     expect(parseLoose("can you show my portfolio please")).toEqual({ kind: "portfolio" });
     expect(parseLoose("what are the top baskets")).toEqual({ kind: "baskets" });
+    expect(parseLoose("what's hot today")).toEqual({ kind: "stocks", sort: "volume" });
+    expect(parseLoose("show me the top gainers")).toEqual({ kind: "stocks", sort: "gainers" });
     expect(parseLoose("how is ai kings doing?")).toEqual({ kind: "price", basket: "ai kings" });
     expect(parseLoose("i want to buy 50 of chip makers")).toEqual({ kind: "buy", amount: 50, basket: "chip makers" });
     expect(parseLoose("telegram for ai kings")).toEqual({ kind: "club", basket: "ai kings" });
+    expect(parseLoose("i want to sell my nvda")).toEqual({ kind: "sell" });
+    expect(parseCommand("sell nvda")).toEqual({ kind: "sell" });
   });
 
   it("gives up on the rest", () => {

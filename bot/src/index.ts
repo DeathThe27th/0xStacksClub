@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { Spectrum, contact, type Message, type Space } from "spectrum-ts";
 import { imessage } from "spectrum-ts/providers/imessage";
+import { telegram } from "spectrum-ts/providers/telegram";
 import { terminal } from "spectrum-ts/providers/terminal";
 import { createApi, type BotConfig } from "./api.js";
 import { loadConfig } from "./config.js";
@@ -15,6 +16,8 @@ const cfg = loadConfig();
 setLogLevel(cfg.LOG_LEVEL);
 const isTerminal = cfg.BOT_PROVIDER === "terminal";
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Phones are masked in logs; Telegram ids are shortened the same way. */
+const maskSender = (s: string) => (s.startsWith("tg:") ? `tg:***${s.slice(-3)}` : maskPhone(s));
 
 const api = createApi({ siteUrl: cfg.SITE_URL, secret: cfg.BOT_API_SECRET });
 
@@ -41,18 +44,27 @@ const handle = createHandler({
   assistant: cfg.GEMINI_API_KEY ? createAssistant({ apiKey: cfg.GEMINI_API_KEY, model: cfg.GEMINI_MODEL, fallbackModel: cfg.GEMINI_FALLBACK_MODEL }) : undefined,
 });
 
+// Telegram rides along with iMessage when a bot token is set. Photon relays its webhook, so the
+// bot still needs no open port.
+const withTelegram = !isTerminal && !!cfg.SPECTRUM_TELEGRAM_BOT_TOKEN;
+const cloud = { projectId: cfg.SPECTRUM_PROJECT_ID!, projectSecret: cfg.SPECTRUM_PROJECT_SECRET!, options: { logLevel: cfg.LOG_LEVEL } };
 const app = isTerminal
   ? await Spectrum({ providers: [terminal.config()], options: { logLevel: cfg.LOG_LEVEL } })
-  : await Spectrum({
-      projectId: cfg.SPECTRUM_PROJECT_ID!,
-      projectSecret: cfg.SPECTRUM_PROJECT_SECRET!,
-      providers: [imessage.config()],
-      options: { logLevel: cfg.LOG_LEVEL },
-    });
+  : withTelegram
+    ? await Spectrum({ ...cloud, providers: [imessage.config(), telegram.config({ botToken: cfg.SPECTRUM_TELEGRAM_BOT_TOKEN! })] })
+    : await Spectrum({ ...cloud, providers: [imessage.config()] });
 
-/** The sender's phone in E.164, a reason we can't serve them, or null to ignore the message. */
+/**
+ * Who sent this: a phone in E.164 (iMessage, terminal) or `tg:<id>` (Telegram). Or a reason we
+ * can't serve them, or null to ignore the message.
+ */
 function senderOf(space: Space, message: Message): { phone: string } | { reject: string } | null {
   if (isTerminal) return { phone: cfg.TERMINAL_PHONE! };
+  if (message.platform === "telegram") {
+    const id = message.sender?.id;
+    // A private chat's id is the user's id. Groups and channels are out of scope.
+    return id && /^\d+$/.test(id) && space.id === id ? { phone: `tg:${id}` } : null;
+  }
   if (message.platform !== "imessage") return null;
   if (imessage(space).type !== "dm") return null; // group chats are out of scope
   const sender = imessage(message).sender;
@@ -62,9 +74,11 @@ function senderOf(space: Space, message: Message): { phone: string } | { reject:
   return isPhone(handle) ? { phone: handle } : { reject: needPhone() };
 }
 
+const isIMessage = (space: Space) => space.__platform === "imessage";
+
 async function send(space: Space, text: string): Promise<boolean> {
-  // Terminal chats don't go through Photon, so they don't count against its daily limit.
-  if (!isTerminal && !quota.take()) {
+  // Only iMessage goes through Photon's lines, so only it counts against the daily limit.
+  if (isIMessage(space) && !quota.take()) {
     log("error", "daily send limit reached, not replying", { sent: quota.sent() });
     return false;
   }
@@ -84,7 +98,7 @@ async function deliver(space: Space, outs: Out[]) {
       if (!(await send(space, out.text))) return;
     } else if (isTerminal) {
       await space.send(`[contact card: ${botConfig.appName}]`);
-    } else if (quota.take()) {
+    } else if (isIMessage(space) && quota.take()) {
       // On the shared pool the line's own card says "Spectrum". A card we build carries the app's
       // name with the number this user texts, so saving it names the thread properly.
       const number = out.contactCard.number;
@@ -121,7 +135,7 @@ async function onMessage(space: Space, message: Message) {
   if (!who) return;
   const key = "phone" in who ? who.phone : space.id;
   if (throttled(key)) {
-    log("warn", "throttled", { from: "phone" in who ? maskPhone(who.phone) : "non-phone" });
+    log("warn", "throttled", { from: "phone" in who ? maskSender(who.phone) : "non-phone" });
     return;
   }
 
@@ -133,7 +147,7 @@ async function onMessage(space: Space, message: Message) {
       else if (message.content.type !== "text") outs = [{ text: textOnly() }];
       else {
         const text = message.content.text;
-        log("info", "inbound", { from: maskPhone(who.phone), chars: text.length });
+        log("info", "inbound", { from: maskSender(who.phone), chars: text.length });
         outs = await space.responding(() => handle(who.phone, text));
       }
       await deliver(space, outs);
@@ -158,7 +172,7 @@ async function shutdown(signal: string) {
 process.once("SIGINT", () => void shutdown("SIGINT"));
 process.once("SIGTERM", () => void shutdown("SIGTERM"));
 
-log("info", "bot started", { provider: cfg.BOT_PROVIDER, app: botConfig.appName, gemini: cfg.GEMINI_API_KEY ? cfg.GEMINI_MODEL : "off", sentToday: quota.sent() });
+log("info", "bot started", { provider: withTelegram ? "imessage+telegram" : cfg.BOT_PROVIDER, app: botConfig.appName, gemini: cfg.GEMINI_API_KEY ? cfg.GEMINI_MODEL : "off", sentToday: quota.sent() });
 
 for await (const [space, message] of app.messages) {
   void onMessage(space, message);

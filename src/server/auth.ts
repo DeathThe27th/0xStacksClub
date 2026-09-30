@@ -6,6 +6,10 @@ import type { ProfileRow } from "@/lib/supabase/types";
 import { db, must } from "@/server/db";
 
 let privy: PrivyClient | undefined;
+/** The server's Privy client. */
+export function privyClient() {
+  return client();
+}
 function client() {
   const env = serverEnv();
   return (privy ??= new PrivyClient({ appId: env.NEXT_PUBLIC_PRIVY_APP_ID, appSecret: env.PRIVY_APP_SECRET }));

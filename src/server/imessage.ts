@@ -253,10 +253,10 @@ export async function unlinkPhone(rawPhone: string): Promise<{ wasLinked: boolea
 }
 
 /** `number` is the pool number this phone texts, i.e. the bot's number as this user sees it. */
-export type BotUser = { profile: ProfileRow; wallet: Address; phone: string; number: string };
+export type PhoneUser = { profile: ProfileRow; wallet: Address; phone: string; number: string };
 
 /** The account behind a phone, or null when it isn't linked (or the profile is gone). */
-export async function linkedUser(rawPhone: string): Promise<BotUser | null> {
+export async function linkedUser(rawPhone: string): Promise<PhoneUser | null> {
   const phone = normalizePhone(rawPhone);
   if (!phone) return null;
   const link = must(await db().from("phone_links").select("*").eq("phone", phone).maybeSingle()) as LinkRow | null;
@@ -264,11 +264,4 @@ export async function linkedUser(rawPhone: string): Promise<BotUser | null> {
   const profile = must(await db().from("profiles").select("*").eq("id", link.profile_id).maybeSingle()) as ProfileRow | null;
   if (!profile || profile.privy_id !== link.privy_id) return null;
   return { profile, wallet: getAddress(link.wallet_address), phone, number: link.assigned_number };
-}
-
-/** Per-phone budget for bot requests, so one chat can't drain the RPC or the database. */
-export async function botRateLimit(rawPhone: string) {
-  const phone = normalizePhone(rawPhone);
-  if (!phone) throw new HttpError(400, "Bad phone", "bad_phone");
-  await rateLimit(`bot:${phoneKey(phone)}`, 30, 60);
 }

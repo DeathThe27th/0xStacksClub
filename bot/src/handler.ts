@@ -1,4 +1,4 @@
-import { ApiError, type Api, type BasketRef, type BotConfig } from "./api.js";
+import { ApiError, type Api, type BotConfig, type Option } from "./api.js";
 import * as f from "./format.js";
 import { log } from "./log.js";
 import type { Assistant, Turn } from "./assistant.js";
@@ -12,7 +12,7 @@ import { createTools } from "./tools.js";
 export type Out = { text: string } | { contactCard: { number?: string } } | { run: () => Promise<void> };
 
 type BasketCommand = Extract<Command, { basket: string }>;
-type Pending = { cmd: BasketCommand; options: BasketRef[]; at: number };
+type Pending = { cmd: BasketCommand; options: Option[]; at: number };
 
 const PICK_TTL_MS = 5 * 60_000;
 const LINKED_TTL_MS = 60_000;
@@ -52,6 +52,8 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     return say(text);
   }
 
+  const isTelegram = (sender: string) => sender.startsWith("tg:");
+
   async function link(phone: string, code: string): Promise<Out[]> {
     if (!code) return unlinkedReply(phone, f.linkUsage());
     try {
@@ -59,10 +61,11 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
       accounts.set(phone, { until: now() + LINKED_TTL_MS, username: r.username, number: r.number });
       unlinkedReplies.delete(phone);
       chats.delete(phone);
-      // Welcome first, with no link in it, then the contact card so they can save the number.
-      return [{ text: f.welcome(deps.config().appName, r.username) }, { contactCard: { number: r.number } }];
+      const hello = { text: f.welcome(deps.config().appName, r.username) };
+      // Welcome first, with no link in it, then (on iMessage) the contact card so they can save the number.
+      return isTelegram(phone) ? [hello] : [hello, { contactCard: { number: r.number } }];
     } catch (e) {
-      if (e instanceof ApiError && e.code === "bad_code") return unlinkedReply(phone, f.badCode());
+      if (e instanceof ApiError && e.code === "bad_code") return unlinkedReply(phone, isTelegram(phone) ? f.badTelegramLink() : f.badCode());
       if (e instanceof ApiError && e.code === "validation") return unlinkedReply(phone, f.linkUsage());
       throw e;
     }
@@ -97,14 +100,10 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     return { ...p.cmd, basket: chosen.ticker };
   }
 
-  function ambiguous(phone: string, cmd: BasketCommand, r: { match: "many"; options: BasketRef[] } | { match: "none" }): Out[] {
+  function ambiguous(phone: string, cmd: BasketCommand, r: { match: "many"; options: Option[] } | { match: "none" }): Out[] {
     if (r.match === "none") return say(f.notFound(cmd.basket));
     picks.set(phone, { cmd, options: r.options, at: now() });
-    return say(f.whichBasket(r.options));
-  }
-
-  async function question(phone: string): Promise<Out[]> {
-    return say(f.weekReply(await api.portfolio(phone, true), null));
+    return say(f.whichOne(r.options));
   }
 
   async function run(phone: string, cmd: Command, text: string): Promise<Out[]> {
@@ -112,29 +111,35 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     switch (cmd.kind) {
       case "help":
         return say(f.helpText(appName));
+      case "stocks":
+        return say(f.stocksReply(await api.stocks(phone, cmd.sort)));
       case "baskets":
         return say(f.basketsReply(await api.baskets(phone)));
       case "portfolio":
         return say(f.portfolioReply(await api.portfolio(phone)));
       case "question":
-        return question(phone);
+        return say(f.performanceReply(await api.portfolio(phone, true)));
+      case "sell":
+        return say(f.sellReply((await api.portfolio(phone)).url));
       case "price": {
-        if (!cmd.basket.trim()) return say(f.needBasket("price"));
-        const r = await api.price(phone, cmd.basket);
-        return r.match === "one" ? say(f.priceReply(r)) : ambiguous(phone, cmd, r);
+        if (!cmd.basket.trim()) return say(f.needName("price"));
+        const r = await api.lookup(phone, cmd.basket);
+        if (r.match === "stock") return say(f.stockReply(r.stock));
+        if (r.match === "basket") return say(f.basketReply(r.basket));
+        return ambiguous(phone, cmd, r);
       }
       case "club": {
-        if (!cmd.basket.trim()) return say(f.needBasket("club"));
+        if (!cmd.basket.trim()) return say("Which basket's club?");
         const r = await api.club(phone, cmd.basket);
         return r.match === "one" ? say(f.clubReply(r)) : ambiguous(phone, cmd, r);
       }
       case "buy": {
-        if (!cmd.basket.trim()) return say(f.needBasket("buy 25"));
+        if (!cmd.basket.trim()) return say(f.needName("buy 20"));
         if (cmd.amount === null) return say(f.needAmount(cmd.basket));
         // Checked here and again on the site; the link only pre-fills a form the user must confirm.
         if (!Number.isFinite(cmd.amount) || cmd.amount <= 0) return say(f.buyReply({ match: "bad_amount" }));
         if (cmd.amount > maxBuyUsd) return say(f.buyReply({ match: "above_max", basket: { name: cmd.basket, ticker: "" }, maxUsd: maxBuyUsd }));
-        const r = await api.buy(phone, cmd.basket, cmd.amount);
+        const r = await api.buyLink(phone, cmd.basket, cmd.amount);
         return r.match === "many" || r.match === "none" ? ambiguous(phone, cmd, r) : say(f.buyReply(r));
       }
       case "link":
@@ -155,7 +160,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
       text,
       history: chat.turns,
       grounding: chat.grounding,
-      tools: createTools(api, phone, cfg),
+      tools: createTools(api, phone, cfg, { contactCard: !isTelegram(phone) }),
       appName: cfg.appName,
       facts: cfg.facts,
       username: acct.username,
@@ -186,7 +191,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     if (cmd.kind === "link") return link(phone, cmd.code);
     if (cmd.kind === "stop") return stop(phone);
     const acct = await account(phone);
-    if (!acct) return unlinkedReply(phone, f.notLinked(deps.config().appName));
+    if (!acct) return unlinkedReply(phone, f.notLinked(deps.config().appName, isTelegram(phone)));
     // The exact commands answer instantly from our own code. Everything else is a conversation.
     const exact = cmd.kind !== "unknown" && !(cmd.kind === "buy" && cmd.amount === null);
     const pick = !exact && picks.has(phone) && /^\s*\$?[\w ]{1,40}\s*$/.test(text) ? resolvePick(phone, text) : null;
@@ -221,7 +226,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
         log("warn", "api error", { status: e.status, code: e.code });
         if (e.code === "not_linked") {
           accounts.delete(phone);
-          return unlinkedReply(phone, f.notLinked(deps.config().appName));
+          return unlinkedReply(phone, f.notLinked(deps.config().appName, isTelegram(phone)));
         }
         if (e.code === "rate_limited") return say(f.tooFast());
       } else {

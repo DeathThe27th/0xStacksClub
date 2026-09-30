@@ -2,6 +2,15 @@
 
 Social market for tokenized stocks and creator-made stock baskets on BNB Smart Chain mainnet (chain ID 56).
 
+## Product focus
+
+- Stocks first. Single tokenized stocks are the centre of the product: home, social, stats and the
+  texting assistant all lead with stocks. Baskets are one feature among others and mostly live on
+  the site.
+- The texting assistant (iMessage and Telegram, `bot/`) is the headline feature. It is on Home and
+  beside the trade panel. The bot is its own package, never calls Binance, Supabase or the vault,
+  and only talks to `/api/bot/*`. See `bot/README.md`.
+
 ## Naming
 
 - The user-facing name is `APP_NAME` in `src/lib/constants.ts`. Never hardcode it.

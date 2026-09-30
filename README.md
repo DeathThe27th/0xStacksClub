@@ -83,6 +83,7 @@ cp .env.example .env.local        # fill in the values below
 | `CRON_SECRET` | Vercel + local | `openssl rand -hex 32` |
 | `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
 | `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
+| `NEXT_PUBLIC_TELEGRAM_BOT` | Vercel + local, optional | Telegram bot username without `@`; turns on Connect Telegram |
 | `BSCSCAN_API_KEY` | local shell | contract verification |
 | `DEPLOYER_PRIVATE_KEY`, `PLATFORM_FEE_RECIPIENT`, `USDT_ADDRESS` | your shell only | never in Vercel or any file |
 
@@ -92,7 +93,8 @@ cp .env.example .env.local        # fill in the values below
 
 1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
    buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
-   link reports) and `0004_imessage.sql` (phone links for the iMessage bot) in order.
+   link reports), `0004_imessage.sql` (phone links for the iMessage bot) and `0005_assistant.sql`
+   (Telegram links, assistant settings) in order.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
    the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
    you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,
@@ -169,11 +171,12 @@ Set the environment variables above for **Production and Preview** in the Vercel
 (`vercel env add NAME production` and `vercel env add NAME preview`), then push the branch.
 `vercel.json` sets the framework to Next.js and the function region to `sin1`.
 
-## iMessage bot
+## Texting assistant (iMessage and Telegram)
 
-Users can text the app: prices, their portfolio, a link to confirm a buy, and a basket's club link.
-The bot lives in [`bot/`](bot) as its own package and runs as a long-lived process on a VPS; see
-[`bot/README.md`](bot/README.md) for setup, terminal testing and pm2.
+Users can text the app like a person: stock prices, movers, their portfolio, and a link that opens
+the buy form with the amount filled in. It is on Home and beside the trade panel, not only in
+Settings. The bot lives in [`bot/`](bot) as its own package and runs as a long-lived process on a
+VPS; see [`bot/README.md`](bot/README.md) for setup, Telegram, terminal testing and pm2.
 
 - The bot never calls Binance, Supabase or the vault and never signs anything. It calls
   `/api/bot/*` with the `x-bot-secret` header (`BOT_API_SECRET`), and those routes reuse
@@ -184,12 +187,27 @@ The bot lives in [`bot/`](bot) as its own package and runs as a long-lived proce
   (`0004_imessage.sql`), readable by the server only.
 - On Photon's shared pool each phone is registered as a Photon user and gets its own number, so the
   app needs `SPECTRUM_PROJECT_ID` and `SPECTRUM_PROJECT_SECRET` too.
-- `/app/basket/[id]?buy=25` opens the normal buy form with the amount filled in.
+- `/app/stock/[provider]/[address]?buy=25` and `/app/basket/[id]?buy=25` open the normal buy form
+  with the amount filled in.
+- Telegram users connect from **Connect Telegram** (a `t.me/<bot>?start=<code>` link). Links live
+  in `telegram_links` (`0005_assistant.sql`), server only.
+
+## Trade speed
+
+A buy or sell is several transactions and several server checks. The runner
+([`src/lib/runner.ts`](src/lib/runner.ts), shared by the browser) keeps the waits short:
+
+- Router approvals for every leg go out in the same burst as the fee, so a leg doesn't stop to
+  approve and re-quote. Legs that share a spender get one approval for their exact total.
+- Transactions are sent back to back with consecutive nonces and awaited together.
+- The swap's hash is saved while it is being mined; independent Binance calls run in parallel.
+- The Privy wallet lookup behind every API call is cached for a minute per server instance.
 
 ## Tests
 
 - `contracts/test`: 44 unit tests (validation, fee math and rounding, receipt misuse, fee-on-transfer
   rejection, partial and full release, soulbound, pause, claims, withdrawal caps), 4 invariants,
   2 BSC fork tests.
-- `src/**/*.test.ts` (Vitest): fee and allocation math, release rounding, Stack index, position
+- `src/**/*.test.ts` (Vitest): the trade runner against a simulated wallet and chain, basket name
+  matching, phone handling, fee and allocation math, release rounding, Stack index, position
   valuation and PnL, Binance request signing against the auth doc's example, RFQ typed-data parsing.

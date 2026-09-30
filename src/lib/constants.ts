@@ -20,5 +20,10 @@ export const DEFAULT_SLIPPAGE_PERCENT = "1";
 
 /** iMessage bot: largest buy a text can pre-fill. The buy sheet still applies every real check. */
 export const BOT_MAX_BUY_USD = 10_000;
+/** Text buys: default and maximum limits a user can set. */
+export const BOT_TRADE_CAP_DEFAULT_USD = 50;
+export const BOT_TRADE_DAILY_DEFAULT_USD = 200;
+/** How long a text buy waits for "yes". */
+export const BOT_ORDER_TTL_MS = 5 * 60_000;
 /** How long a Connect iMessage code stays valid. */
 export const PHONE_CODE_TTL_MS = 10 * 60_000;

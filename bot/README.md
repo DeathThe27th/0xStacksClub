@@ -1,7 +1,8 @@
-# iMessage bot
+# Texting assistant (iMessage and Telegram)
 
-A long-lived Node process that answers texts over iMessage using Photon's Spectrum SDK
-(`spectrum-ts`). It is its own package and deploys separately from the Next.js app.
+A long-lived Node process that answers texts over iMessage, and Telegram if a bot token is set,
+using Photon's Spectrum SDK (`spectrum-ts`). It is its own package and deploys separately from the
+Next.js app.
 
 The bot holds no Binance, Supabase or wallet secrets and never signs or sends a transaction. Every
 message becomes a call to the site's `/api/bot/*` routes (shared-secret header), which do the work
@@ -11,21 +12,21 @@ from `SITE_URL`; neither is hardcoded here.
 
 ## What it does
 
-With `GEMINI_API_KEY` set, the bot holds a normal conversation. Gemini reads each message, calls the
-bot's tools for anything factual, and writes the reply in its own words:
+Stocks come first. With `GEMINI_API_KEY` set, the bot holds a normal conversation. Gemini reads each
+message, calls the bot's tools for anything factual, and writes the reply in its own words:
 
 | Tool | What it does |
 | --- | --- |
-| `list_baskets` | Top baskets with index and 24h change |
-| `get_basket` | One basket: index, changes, each stock with weight, price and market state |
-| `get_stock` | One stock token: price, 24h change, market state |
-| `get_portfolio` | The user's total, USDT, positions with PnL, single stocks |
-| `make_buy_link` | A link that opens the basket's buy form with the amount filled in |
-| `get_club_link` | The basket's Telegram link, for holders only |
-| `send_contact_card` | A contact card for this number under the app's name |
+| `list_stocks` | Tradable stocks with price and 24h change: most traded, gainers or losers |
+| `get_price` | One stock by ticker or company name (or a basket, if the name is a basket) |
+| `get_portfolio` | The user's total, USDT, stocks held with PnL, basket positions |
+| `make_buy_link` | A link that opens the stock's buy form with the amount filled in |
+| `list_baskets` | Top baskets, only when the user asks about baskets |
+| `get_club_link` | A basket's Telegram club link, for holders only |
+| `send_contact_card` | A contact card for this number under the app's name (iMessage) |
 
-It can also answer questions about how the app works (fees, minimums, what a basket is) from facts
-served by `/api/bot/config`, and everyday questions briefly from general knowledge.
+It can also answer questions about how the app works (fees, minimums) from facts served by
+`/api/bot/config`, and everyday questions briefly from general knowledge.
 
 What the model can't do: a reply is only sent if every link, dollar amount and percentage in it
 appears in a tool result, the product facts or the user's own message, and if it contains any link a
@@ -33,14 +34,14 @@ tool said it must (the buy confirm link, the club warning). Otherwise the bot se
 own code builds for the same data. The model never sees wallet addresses or keys, and no tool can
 buy, sell or sign.
 
-These exact commands skip the model and answer instantly: `help`, `baskets`, `portfolio`,
-`price <basket>`, `buy <amount> <basket>`, `club <basket>`. `link <code>` and `stop` are always
-handled by code. If Gemini is slow, overloaded or rate limited, the bot tries
-`GEMINI_FALLBACK_MODEL`, then falls back to keyword matching. Without a key it only uses the
-commands.
+These exact commands skip the model and answer instantly: `help`, `stocks`, `movers`, `losers`,
+`price <name>`, `buy <amount> <name>`, `portfolio`, `baskets`, `club <basket>`, `sell`. `link <code>`
+(iMessage), `/start <code>` (Telegram) and `stop` are always handled by code. If Gemini is slow,
+overloaded or rate limited, the bot tries `GEMINI_FALLBACK_MODEL`, then falls back to keyword
+matching. Without a key it only uses the commands.
 
-The free Gemini tier often takes 5 to 10 seconds per call, and a reply that needs data takes two
-calls, so conversational replies can take 10 to 20 seconds. A paid key is much faster.
+The free Gemini tier often takes 5 to 15 seconds per call, and a reply that needs data takes two
+calls, so conversational replies can take 10 to 30 seconds. A paid key is much faster.
 
 ## How a phone gets connected (shared pool)
 
@@ -57,6 +58,20 @@ to registered phones. So:
 
 The site needs `SPECTRUM_PROJECT_ID` and `SPECTRUM_PROJECT_SECRET` for step 2, so those two are
 set in Vercel as well as here.
+
+## Telegram
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) (`/newbot`). It gives you a token and the
+   bot gets a username.
+2. Put the token in `SPECTRUM_TELEGRAM_BOT_TOKEN` in this folder's `.env` and restart the bot. In
+   cloud mode Spectrum registers the bot's webhook through Photon on startup, so no port is opened.
+   If nothing arrives, check that Telegram is enabled for the project in the Photon dashboard
+   (Platforms).
+3. Put the bot's username (without `@`) in `NEXT_PUBLIC_TELEGRAM_BOT` in Vercel and redeploy.
+4. In the app, **Connect Telegram** opens `t.me/<bot>?start=<code>`. Pressing Start connects that
+   Telegram account. The code is random, single use and lasts 10 minutes.
+
+Only private chats are answered. Telegram messages don't count against the iMessage daily limit.
 
 ## Setup
 
@@ -75,6 +90,7 @@ cp .env.example .env     # then fill it in
 | `BOT_API_SECRET` | `openssl rand -hex 32`. Must equal `BOT_API_SECRET` in Vercel. |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional. Default model `gemini-3.5-flash-lite`. |
 | `GEMINI_FALLBACK_MODEL` | Optional. Default `gemini-3.1-flash-lite`. |
+| `SPECTRUM_TELEGRAM_BOT_TOKEN` | Optional. BotFather token; turns Telegram on alongside iMessage. |
 | `BOT_PROVIDER` | `imessage` (default) or `terminal` |
 | `TERMINAL_PHONE` | Terminal provider only: the phone the terminal stands in for (E.164) |
 | `DAILY_SEND_LIMIT` | Default 4500. Photon's hard limit is 5,000 messages per server per day. |

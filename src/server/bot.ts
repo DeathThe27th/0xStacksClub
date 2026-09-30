@@ -7,7 +7,8 @@ import type { AssetPriceRow, AssetRow, StackRow } from "@/lib/supabase/types";
 import { clubAccess, getClubLink } from "@/server/clubs";
 import { db, must } from "@/server/db";
 import { handler, HttpError, json, readJson } from "@/server/http";
-import { botRateLimit, linkedUser, requireBot, type BotUser } from "@/server/imessage";
+import { botRateLimit, resolveSender, type BotUser } from "@/server/assistant";
+import { requireBot } from "@/server/imessage";
 import { portfolioFor } from "@/server/portfolio";
 import { componentAssets, getStackSummary, listStacks, summarize } from "@/server/stacks";
 
@@ -15,26 +16,35 @@ import { componentAssets, getStackSummary, listStacks, summarize } from "@/serve
 // it sends a phone and a request, these helpers do the work with the same server code the site
 // uses, and every link in a reply is built here from NEXT_PUBLIC_APP_URL.
 
-export const phoneBody = z.object({ phone: z.string().min(8).max(20) });
+// `sender` is a phone in E.164 (iMessage) or `tg:<id>` (Telegram). `phone` is the older name for
+// the same field, still accepted.
+export const phoneBody = z.object({ sender: z.string().min(3).max(40).optional(), phone: z.string().min(3).max(40).optional() });
 
-type WithPhone = z.ZodType<{ phone: string }>;
+type SenderBody = z.ZodType<{ sender?: string; phone?: string }>;
 const noStore = { headers: { "cache-control": "private, no-store" } };
 
-/** A /api/bot route: shared-secret check, body validation and a per-phone rate limit. */
-export function botRoute<T extends WithPhone>(schema: T, fn: (body: z.infer<T>) => Promise<unknown>) {
+function senderOf(body: { sender?: string; phone?: string }): string {
+  const sender = body.sender ?? body.phone;
+  if (!sender) throw new HttpError(400, "sender is required", "validation");
+  return sender;
+}
+
+/** A /api/bot route: shared-secret check, body validation and a per-sender rate limit. */
+export function botRoute<T extends SenderBody>(schema: T, fn: (body: z.infer<T>, sender: string) => Promise<unknown>) {
   return handler(async (req: Request) => {
     requireBot(req);
     const body = await readJson(req, schema);
-    await botRateLimit(body.phone);
-    return json(await fn(body), noStore);
+    const sender = senderOf(body);
+    await botRateLimit(sender);
+    return json(await fn(body, sender), noStore);
   });
 }
 
-/** Same, for routes that need the account behind the phone. An unlinked phone gets 403 `not_linked`. */
-export function linkedBotRoute<T extends WithPhone>(schema: T, fn: (body: z.infer<T>, user: BotUser) => Promise<unknown>) {
-  return botRoute(schema, async (body) => {
-    const user = await linkedUser(body.phone);
-    if (!user) throw new HttpError(403, "This phone isn't connected to an account", "not_linked");
+/** Same, for routes that need the account behind the sender. An unlinked one gets 403 `not_linked`. */
+export function linkedBotRoute<T extends SenderBody>(schema: T, fn: (body: z.infer<T>, user: BotUser) => Promise<unknown>) {
+  return botRoute(schema, async (body, sender) => {
+    const user = await resolveSender(sender);
+    if (!user) throw new HttpError(403, "This chat isn't connected to an account", "not_linked");
     return fn(body, user);
   });
 }
