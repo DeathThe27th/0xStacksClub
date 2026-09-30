@@ -1,6 +1,7 @@
 "use client";
 
-import { BadgeCheck, Check, Copy, History, Share, Star } from "lucide-react";
+import { BadgeCheck, Check, ChevronLeft, Copy, History, Share, Star } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
@@ -30,6 +31,7 @@ export function DetailTopBar({
   onWatch?: () => void;
   onHistory?: () => void;
 }) {
+  const router = useRouter();
   const [copied, setCopied] = useState(false);
   const share = async () => {
     const url = window.location.href;
@@ -37,7 +39,15 @@ export function DetailTopBar({
     else await navigator.clipboard.writeText(url);
   };
   return (
-    <header className="flex items-center gap-3 pl-gutter pr-1 pt-3 lg:px-0 lg:pt-0">
+    <header className="flex items-center gap-3 pl-1 pr-1 pt-3 lg:px-0 lg:pt-0">
+      {/* Phone only: detail pages hide the bottom nav, so this is the way out. Desktop has the market pane. */}
+      <button
+        onClick={() => (window.history.length > 1 ? router.back() : router.push("/app"))}
+        aria-label="Back"
+        className="press -mr-2 grid h-11 w-9 shrink-0 place-items-center text-text-muted hover:text-text lg:hidden"
+      >
+        <ChevronLeft size={26} />
+      </button>
       <TokenLogo src={logo} label={title} basket={basket} size={40} />
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-center gap-1 text-[18px] font-bold leading-tight">

@@ -24,7 +24,10 @@ export function BottomNav() {
       href: username ? `/app/u/${username}` : "/app",
       label: "Profile",
       icon: <Avatar src={me.data?.profile?.avatar_url} name={username ?? "?"} size={28} />,
-      active: !!username && path.startsWith(`/app/u/${username}`),
+      // Exact match: `/app/u/ada` must not light up on `/app/u/adam`.
+      active: !!username && path === `/app/u/${username}`,
+      // Until the profile has loaded there is nowhere to go; don't send the tap to Home.
+      pending: !username,
     },
   ];
   return (
@@ -33,15 +36,18 @@ export function BottomNav() {
       className="fixed inset-x-0 z-40 mx-auto max-w-app px-4 lg:hidden"
       style={{ bottom: "calc(12px + env(safe-area-inset-bottom))" }}
     >
-      <ul className="flex h-nav items-center justify-between rounded-full border border-border bg-surface/85 px-2 shadow-[0_16px_40px_-16px_rgba(0,0,0,0.9)] backdrop-blur-xl">
+      <ul className="flex h-nav items-center justify-between rounded-full border border-border bg-surface/85 px-2 shadow-[0_16px_40px_-16px_rgb(0_0_0/var(--nav-shadow))] backdrop-blur-xl">
         {items.map((it) => (
-          <li key={it.label} className="flex-1">
+          <li key={it.label} className="min-w-0 flex-1">
             <Link
               href={it.href}
               aria-label={it.label}
               aria-current={it.active ? "page" : undefined}
+              aria-disabled={"pending" in it && it.pending ? true : undefined}
+              onClick={"pending" in it && it.pending ? (e) => e.preventDefault() : undefined}
               className={cn(
-                "press mx-auto grid h-12 w-[60px] place-items-center rounded-full transition-colors",
+                // Capped at 60px, but free to shrink so five items still fit a 320px phone.
+                "press mx-auto grid h-12 w-full max-w-[60px] place-items-center rounded-full transition-colors",
                 it.active ? "bg-surface-2 text-text shadow-[inset_0_1px_8px_rgb(var(--text)/0.06)]" : "text-text-muted hover:text-text",
               )}
             >

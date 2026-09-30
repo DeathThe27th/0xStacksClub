@@ -20,6 +20,7 @@
   --up: 34 197 94;
   --down: 255 68 48;
   --warn: 245 165 36;
+  --nav-shadow: 0.9; /* alpha of the floating nav's drop shadow */
   color-scheme: dark;
 }
 
@@ -41,6 +42,7 @@
   --up: 22 163 74;
   --down: 220 38 38;
   --warn: 196 120 6;
+  --nav-shadow: 0.22;
   color-scheme: light;
 }
 
@@ -65,6 +67,7 @@
   --up: 10 118 92;
   --down: 206 40 50;
   --warn: 176 104 6;
+  --nav-shadow: 0.22;
   color-scheme: light;
 }
 
