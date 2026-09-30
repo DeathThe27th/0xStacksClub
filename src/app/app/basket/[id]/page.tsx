@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
 import { PriceChart, type Point } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
 import { FeedTab } from "@/components/detail/Feed";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/cn";
 import { APP_NAME, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
 import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
+import { useBuyParam } from "@/lib/client/buyParam";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
 import { vaultAddr } from "@/lib/client/runner";
 import type { AssetItem, StackSummary } from "@/lib/client/types";
@@ -46,19 +47,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
   const [tab, setTab] = useState<"trades" | "feed" | "about">("trades");
   const trades = useTrades("stack", id);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "history" | null>(null);
-  // `?buy=25` (links from the iMessage bot) opens the normal buy form with the amount filled in.
-  const [buyAmount, setBuyAmount] = useState<string>();
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const buy = url.searchParams.get("buy");
-    if (buy === null) return;
-    url.searchParams.delete("buy");
-    window.history.replaceState(null, "", url.toString());
-    if (!/^\d{1,5}(\.\d{1,2})?$/.test(buy)) return;
-    setBuyAmount(buy);
-    // Desktop shows the form in the side panel; only the mobile layout needs the sheet opened.
-    if (!window.matchMedia("(min-width: 1024px)").matches) setSheet("buy");
-  }, []);
+  const buyAmount = useBuyParam(() => setSheet("buy"));
   const watch = useWatch("stack", id);
   const portfolio = usePortfolio();
 

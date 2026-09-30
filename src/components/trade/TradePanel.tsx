@@ -2,6 +2,7 @@
 
 import { ArrowLeftRight, Wallet } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IMessageCard } from "@/components/profile/IMessageCard";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/cn";
 import { usd } from "@/lib/format";
@@ -52,7 +53,8 @@ export function TradePanel({
   const needsDeposit = usdt !== null && usdt < minBuyUsd;
 
   return (
-    <aside className="hidden rounded-card border border-border bg-surface p-5 lg:block">
+    <div className="hidden lg:block">
+    <aside className="rounded-card border border-border bg-surface p-5">
       {canSell && (
         <div role="tablist" className="mb-5 grid grid-cols-2 rounded-chip bg-surface-2 p-1">
           {(["buy", "sell"] as const).map((s) => (
@@ -106,5 +108,8 @@ export function TradePanel({
       )}
 
     </aside>
+    {/* Desktop home is a stock page, so the texting assistant sits right under the trade panel. */}
+    <IMessageCard className="mt-4" />
+    </div>
   );
 }

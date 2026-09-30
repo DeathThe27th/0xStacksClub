@@ -25,6 +25,7 @@ import { cn } from "@/lib/cn";
 import { APP_NAME, MIN_BUY_USD_SMALL, PROVIDER_LABEL, type Provider } from "@/lib/constants";
 import { compact, pct, price as fmtPrice, shortAddress, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
+import { useBuyParam } from "@/lib/client/buyParam";
 import { usePortfolio, useWatch } from "@/lib/client/queries";
 import type { AssetItem, Holding } from "@/lib/client/types";
 
@@ -61,6 +62,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "compare" | "history" | null>(null);
   // Snapshot at open: selling 100% drops the holding on refetch, which must not close the checklist.
   const [sellHolding, setSellHolding] = useState<Holding | null>(null);
+  const buyAmount = useBuyParam(() => setSheet("buy"));
   const watch = useWatch("asset", address);
   const portfolio = usePortfolio();
   const appVolume = useTrades("asset", address).volume;
@@ -208,6 +210,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
           disabledReason={disabled}
           onDeposit={() => setSheet("deposit")}
           onCompare={multiProvider ? () => setSheet("compare") : undefined}
+          buyAmount={buyAmount}
         />
         <PositionCard holding={holding} />
         </div>
@@ -231,6 +234,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
           open
           onClose={() => setSheet(null)}
           onDeposit={() => setSheet("deposit")}
+          initialAmount={buyAmount}
           target={{ kind: "stock", component: { address: a.address, ticker: a.ticker, provider: a.provider, logoUrl: a.logo_url, price: detail.data?.price ?? null, decimals: a.decimals, weightBps: 10_000 } }}
         />
       )}

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Balance, MarketTabs } from "@/components/market/MarketTabs";
+import { IMessageCard } from "@/components/profile/IMessageCard";
 import { TopTrades } from "@/components/market/TopTrades";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
@@ -26,6 +27,7 @@ export default function Home() {
             <Wordmark size={26} />
           </header>
           <Balance onDeposit={() => setDepositOpen(true)} />
+          <IMessageCard className="mx-gutter mt-4" />
           <TopTrades />
           <MarketTabs className="mt-6 px-gutter" />
         </PullToRefresh>

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -11,9 +12,9 @@ import { APP_NAME } from "@/lib/constants";
 import { useApi } from "@/lib/client/api";
 import { normalizePhone } from "@/lib/phone";
 
-type Status = {
+export type IMessageStatus = {
   available: boolean;
-  linked: { phone: string; since: string } | null;
+  linked: { phone: string; since: string; number: string } | null;
   pending: { code: string; expiresAt: string; phone: string; number: string; smsUrl: string } | null;
 };
 
@@ -21,10 +22,11 @@ const KEY = ["imessage"];
 
 export function useIMessage(enabled = true) {
   const api = useApi();
+  const { ready, authenticated } = usePrivy();
   return useQuery({
     queryKey: KEY,
-    queryFn: () => api<Status>("/api/imessage"),
-    enabled,
+    queryFn: () => api<IMessageStatus>("/api/imessage"),
+    enabled: enabled && ready && authenticated,
     // While a code is waiting for its text, watch for the link to land.
     refetchInterval: (q) => (q.state.data?.pending ? 3000 : false),
   });
@@ -41,11 +43,11 @@ export function IMessageConnect() {
   const q = useIMessage();
   const [phone, setPhone] = useState("");
   const [now, setNow] = useState(() => Date.now());
-  const set = (s: Status) => qc.setQueryData(KEY, s);
+  const set = (s: IMessageStatus) => qc.setQueryData(KEY, s);
 
-  const start = useMutation({ mutationFn: () => api<Status>("/api/imessage", { method: "POST", json: { phone } }), onSuccess: set });
+  const start = useMutation({ mutationFn: () => api<IMessageStatus>("/api/imessage", { method: "POST", json: { phone } }), onSuccess: set });
   const stop = useMutation({
-    mutationFn: () => api<Status>("/api/imessage", { method: "DELETE" }),
+    mutationFn: () => api<IMessageStatus>("/api/imessage", { method: "DELETE" }),
     onSuccess: (s) => {
       set(s);
       start.reset();

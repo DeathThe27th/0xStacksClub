@@ -280,19 +280,19 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
   const route = routes.find((r) => r.isBest) ?? routes[0];
   if (!route) throw new HttpError(422, "No route for this trade right now");
   // Stop before anything is approved or signed if the best route is far off the market price.
+  // The approval lookup doesn't depend on that check, so both run at once.
   const buying = from === USDT_ADDRESS;
-  await requireFairQuote({
-    side: buying ? "buy" : "sell",
-    asset,
-    usdtRaw: buying ? amount : BigInt(route.toTokenAmount),
-    usdtDecimals: await getUsdtDecimals(),
-    tokenRaw: buying ? BigInt(route.toTokenAmount) : amount,
-  });
-
-  // Spender for the exact approval. RFQ approvals are vendor-specific (binance-notes §5).
-  const approvals = await getApproveTx({ token: from, amount, vendor: route.executionMode === "RFQ" ? route.vendorName : undefined }).catch(
-    quoteError,
-  );
+  const [, approvals] = await Promise.all([
+    requireFairQuote({
+      side: buying ? "buy" : "sell",
+      asset,
+      usdtRaw: buying ? amount : BigInt(route.toTokenAmount),
+      usdtDecimals: await getUsdtDecimals(),
+      tokenRaw: buying ? BigInt(route.toTokenAmount) : amount,
+    }),
+    // Spender for the exact approval. RFQ approvals are vendor-specific (binance-notes §5).
+    getApproveTx({ token: from, amount, vendor: route.executionMode === "RFQ" ? route.vendorName : undefined }).catch(quoteError),
+  ]);
   const spender = approvals[0] ? getAddress(approvals[0].dexContractAddress) : null;
   if (!spender) throw new HttpError(502, "Binance returned no approval spender");
   const allowance = await publicClient().readContract({ address: from, abi: erc20Abi, functionName: "allowance", args: [wallet, spender] });
@@ -310,13 +310,11 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
     };
   }
 
-  const balanceBefore = await balanceOf(wallet, to);
-  let built;
-  try {
-    built = await buildSwap({ from, to, amount, userAddress: wallet, quoteId: route.quoteId, slippagePercent: DEFAULT_SLIPPAGE_PERCENT });
-  } catch (e) {
-    quoteError(e);
-  }
+  // Nothing moves between these two, so the balance snapshot and the swap build run together.
+  const [balanceBefore, built] = await Promise.all([
+    balanceOf(wallet, to),
+    buildSwap({ from, to, amount, userAddress: wallet, quoteId: route.quoteId, slippagePercent: DEFAULT_SLIPPAGE_PERCENT }).catch(quoteError),
+  ]);
   const expiresAt = Date.now() + 25_000;
   const expected = BigInt(route.toTokenAmount);
 
@@ -372,6 +370,44 @@ export async function quoteLeg(ctx: AuthContext, intent: IntentWithLegs, legInde
     order_id: null,
   });
   return { status: "ready", mode: "RFQ", expectedOut: expected.toString(), minOut: minOut.toString(), expiresAt, typedData };
+}
+
+/**
+ * The exact router approvals this intent's unfilled legs will need, one per token and spender (legs
+ * that share a spender are summed). The client sends them together with the fee, so a leg doesn't
+ * stop for its own approval and re-quote. Best effort: a leg we can't route here is left out and
+ * approves when it's quoted, as before.
+ */
+export async function legApprovals(ctx: AuthContext, intent: IntentWithLegs): Promise<{ token: Address; spender: Address; amount: string }[]> {
+  if (intent.kind === "sell_stack" && !intent.released_amounts) return [];
+  const wallet = ctx.wallet;
+  const need = new Map<string, { token: Address; spender: Address; amount: bigint }>();
+  for (const l of intent.legs) {
+    const amount = BigInt(l.amount_in);
+    if (l.status !== "pending" || amount === 0n) continue;
+    try {
+      const from = getAddress(l.from_token);
+      const to = getAddress(l.to_token);
+      await requireTradable(from === USDT_ADDRESS ? to : from, "trade");
+      const routes = await getQuote({ from, to, amount, userAddress: wallet });
+      const route = routes.find((r) => r.isBest) ?? routes[0];
+      if (!route) continue;
+      const approvals = await getApproveTx({ token: from, amount, vendor: route.executionMode === "RFQ" ? route.vendorName : undefined });
+      if (!approvals[0]) continue;
+      const spender = getAddress(approvals[0].dexContractAddress);
+      const key = `${from}:${spender}`;
+      const cur = need.get(key);
+      need.set(key, { token: from, spender, amount: (cur?.amount ?? 0n) + amount });
+    } catch {
+      // Closed market, no liquidity, not tradable: the leg's own quote reports it properly.
+    }
+  }
+  const out: { token: Address; spender: Address; amount: string }[] = [];
+  for (const n of need.values()) {
+    const allowance = await publicClient().readContract({ address: n.token, abi: erc20Abi, functionName: "allowance", args: [wallet, n.spender] });
+    if (allowance < n.amount) out.push({ token: n.token, spender: n.spender, amount: n.amount.toString() });
+  }
+  return out;
 }
 
 /**

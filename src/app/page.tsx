@@ -34,7 +34,7 @@ function Landing() {
         <h1>
           <Wordmark size={48} />
         </h1>
-        <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Build and share your own stock baskets.</p>
+        <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Trade them in the app or by text.</p>
       </div>
       <div className="relative pb-8">
         <Button className="w-full" onClick={() => login()} disabled={!ready} loading={!ready}>

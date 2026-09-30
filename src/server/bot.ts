@@ -50,10 +50,10 @@ function botFacts(): string[] {
   const feePct = Number(FEE_BPS) / 100;
   const creatorPct = (Number(FEE_BPS) * Number(CREATOR_SHARE_BPS)) / Number(BPS) / 100;
   return [
-    `${APP_NAME} is a social market for tokenized stocks and baskets of them on BNB Smart Chain.`,
-    "A basket is a fixed recipe of 2 to 5 tokenized stocks with set weights. The recipe never changes and nothing is rebalanced.",
+    `${APP_NAME} is a social market for tokenized stocks on BNB Smart Chain. Stocks are the main thing: you buy, hold and sell single stock tokens like NVDA or TSLA.`,
+    "Stock tokens are issued by providers (bStocks and Ondo). They are not direct shares in the company. A bought stock sits in the user's own wallet.",
+    "Baskets are a side feature: a fixed recipe of 2 to 5 stocks with set weights, made by a user. The recipe never changes and nothing is rebalanced.",
     "Buying a basket creates the user's own position holding the exact tokens bought. A basket has no token or price of its own; its index starts at 1,000 at launch.",
-    "Stock tokens are issued by providers (bStocks and Ondo). They are not direct shares in the company.",
     "Everything is bought and sold with USDT on BNB Smart Chain. Users also need a little BNB for network fees.",
     `The buy fee is ${feePct}% of the amount, charged once. On a basket buy the basket's creator gets ${creatorPct}% of the amount (a quarter of the fee). The sell fee is ${feePct}% of the proceeds. Creating a basket has no app fee.`,
     `Minimum buy is $${MIN_BUY_USD_SMALL} for a single stock or a basket of up to 3 stocks, and $${MIN_BUY_USD_LARGE} for a basket of 4 or 5.`,
@@ -202,38 +202,126 @@ export async function botClub(user: BotUser, query: string) {
   };
 }
 
-/** A single stock token by ticker or company name: price, 24h move and market state. */
-export async function botStock(query: string) {
-  const q = query.replace(/[%_,()*$]/g, "").trim();
-  if (!q) return { match: "none" as const };
+type StockOut = {
+  ticker: string;
+  name: string;
+  provider: string;
+  address: string;
+  priceUsd: number | null;
+  change24h: number | null;
+  marketOpen: boolean | null;
+  canTrade: boolean;
+  url: string;
+};
+
+const stockUrl = (a: Pick<AssetRow, "provider" | "address">) => appUrl(`/app/stock/${a.provider}/${a.address}`);
+
+function stockOut(a: AssetRow, price: AssetPriceRow | null): StockOut {
+  return {
+    ticker: a.ticker,
+    name: a.name,
+    provider: a.provider,
+    address: a.address,
+    priceUsd: price?.price_usd == null ? null : Number(price.price_usd),
+    change24h: price?.change_24h == null ? null : Number(price.change_24h),
+    marketOpen: price?.market_open ?? null,
+    canTrade: a.can_trade,
+    url: stockUrl(a),
+  };
+}
+
+// One entry per stock, like the site's lists: the tradable bStocks token stands for the ticker.
+const stockRank = (a: AssetRow) => (a.can_trade ? 2 : 0) + (a.provider === "bstock" ? 1 : 0);
+
+type StockMatch = { match: "one"; asset: AssetRow } | { match: "many"; options: { ticker: string; name: string }[] } | { match: "none" };
+
+async function findStock(query: string): Promise<StockMatch> {
+  const q = query.replace(/[%_,()*$]/g, "").replace(/\b(stock|shares?|token)\b/gi, " ").trim();
+  if (!q) return { match: "none" };
   const like = `%${q}%`;
   const rows = must(
     await db().from("assets").select("*").eq("can_browse", true).or(`ticker.ilike.${like},symbol.ilike.${like},name.ilike.${like}`).limit(40),
   ) as AssetRow[];
-  if (!rows.length) return { match: "none" as const };
-  // One entry per stock, like the site's search: the tradable bStocks token stands for the ticker.
-  const rank = (a: AssetRow) => (a.can_trade ? 2 : 0) + (a.provider === "bstock" ? 1 : 0);
+  if (!rows.length) return { match: "none" };
   const byTicker = new Map<string, AssetRow>();
   for (const a of rows) {
     const cur = byTicker.get(a.ticker);
-    if (!cur || rank(a) > rank(cur)) byTicker.set(a.ticker, a);
+    if (!cur || stockRank(a) > stockRank(cur)) byTicker.set(a.ticker, a);
   }
   const exact = byTicker.get(q.toUpperCase());
   const picks = exact ? [exact] : [...byTicker.values()];
-  if (picks.length > 1) return { match: "many" as const, options: picks.slice(0, 5).map((a) => ({ ticker: a.ticker, name: a.name })) };
-  const a = picks[0]!;
-  const price = must(await db().from("asset_prices").select("*").eq("address", a.address).maybeSingle()) as AssetPriceRow | null;
-  return {
-    match: "one" as const,
-    stock: {
-      ticker: a.ticker,
-      name: a.name,
-      provider: a.provider,
-      priceUsd: price?.price_usd == null ? null : Number(price.price_usd),
-      change24h: price?.change_24h == null ? null : Number(price.change_24h),
-      marketOpen: price?.market_open ?? null,
-      canTrade: a.can_trade,
-      url: appUrl(`/app/stock/${a.provider}/${a.address}`),
-    },
-  };
+  if (picks.length > 1) return { match: "many", options: picks.slice(0, 5).map((a) => ({ ticker: a.ticker, name: a.name })) };
+  return { match: "one", asset: picks[0]! };
+}
+
+async function priceRow(address: string): Promise<AssetPriceRow | null> {
+  return must(await db().from("asset_prices").select("*").eq("address", address).maybeSingle()) as AssetPriceRow | null;
+}
+
+/** A single stock token by ticker or company name: price, 24h move and market state. */
+export async function botStock(query: string) {
+  const m = await findStock(query);
+  if (m.match !== "one") return m;
+  return { match: "one" as const, stock: stockOut(m.asset, await priceRow(m.asset.address)) };
+}
+
+/** "stocks": the tradable stocks, most traded first, or the day's biggest movers. */
+export async function botStocks(sort: "volume" | "gainers" | "losers" = "volume", limit = 6) {
+  const assets = must(await db().from("assets").select("*").eq("can_browse", true).eq("can_trade", true)) as AssetRow[];
+  const prices = must(await db().from("asset_prices").select("*").in("address", assets.map((a) => a.address))) as AssetPriceRow[];
+  const priceBy = new Map(prices.map((p) => [p.address, p]));
+  const byTicker = new Map<string, AssetRow>();
+  for (const a of assets) {
+    const cur = byTicker.get(a.ticker);
+    if (!cur || stockRank(a) > stockRank(cur)) byTicker.set(a.ticker, a);
+  }
+  const n = (v: string | null | undefined) => (v == null ? null : Number(v));
+  const rows = [...byTicker.values()].map((a) => ({ a, p: priceBy.get(a.address) ?? null }));
+  rows.sort((x, y) => {
+    if (sort === "gainers") return (n(y.p?.change_24h) ?? -1e9) - (n(x.p?.change_24h) ?? -1e9);
+    if (sort === "losers") return (n(x.p?.change_24h) ?? 1e9) - (n(y.p?.change_24h) ?? 1e9);
+    return (n(y.p?.volume_24h) ?? 0) - (n(x.p?.volume_24h) ?? 0);
+  });
+  return { sort, items: rows.slice(0, limit).map(({ a, p }) => stockOut(a, p)), total: rows.length };
+}
+
+/**
+ * What the user means by a name: a stock first, a basket second. An exact ticker always wins; a
+ * name that fits both kinds comes back as a choice.
+ */
+export async function botLookup(query: string) {
+  const [stock, basket] = await Promise.all([findStock(query), findBasket(query)]);
+  const q = query.replace(/^\$/, "").trim().toUpperCase();
+  if (stock.match === "one" && (stock.asset.ticker === q || basket.kind === "none")) {
+    return { match: "stock" as const, stock: stockOut(stock.asset, await priceRow(stock.asset.address)) };
+  }
+  if (basket.kind === "one" && stock.match === "none") {
+    const r = await botPrice(basket.basket.ticker);
+    return r.match === "one" ? { match: "basket" as const, basket: r.basket } : { match: "none" as const };
+  }
+  const options = [
+    ...(stock.match === "one" ? [{ kind: "stock" as const, ticker: stock.asset.ticker, name: stock.asset.name }] : []),
+    ...(stock.match === "many" ? stock.options.map((o) => ({ kind: "stock" as const, ...o })) : []),
+    ...(basket.kind === "one" ? [{ kind: "basket" as const, ticker: basket.basket.ticker, name: basket.basket.name }] : []),
+    ...(basket.kind === "many" ? basket.options.map((o) => ({ kind: "basket" as const, ticker: o.ticker, name: o.name })) : []),
+  ];
+  return options.length ? { match: "many" as const, options: options.slice(0, 6) } : { match: "none" as const };
+}
+
+/** A link that opens the stock's (or basket's) buy form with the amount filled in. Nothing is bought. */
+export async function botBuyLinkAny(query: string, amount: number) {
+  if (!Number.isFinite(amount) || amount <= 0) return { match: "bad_amount" as const };
+  const usd = Math.round(amount * 100) / 100;
+  const found = await botLookup(query);
+  if (found.match === "none" || found.match === "many") return found;
+  if (found.match === "basket") {
+    const r = await botBuyLink(found.basket.ticker, usd);
+    return r.match === "one" ? { ...r, match: "basket" as const } : r;
+  }
+  const s = found.stock;
+  const target = { kind: "stock" as const, ticker: s.ticker, name: s.name };
+  if (!s.canTrade) return { match: "not_tradable" as const, target };
+  if (usd < MIN_BUY_USD_SMALL) return { match: "below_min" as const, basket: { name: s.ticker, ticker: s.ticker }, minUsd: MIN_BUY_USD_SMALL };
+  if (usd > BOT_MAX_BUY_USD) return { match: "above_max" as const, basket: { name: s.ticker, ticker: s.ticker }, maxUsd: BOT_MAX_BUY_USD };
+  return { match: "stock" as const, target, amountUsd: usd, url: `${s.url}?buy=${usd}`, closed: s.marketOpen === false ? [s.ticker] : [] };
 }

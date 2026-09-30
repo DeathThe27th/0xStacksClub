@@ -118,7 +118,8 @@ type CodeRow = Omit<LinkRow, "linked_at"> & { code: string; attempts: number; ex
 
 export type IMessageStatus = {
   available: boolean;
-  linked: { phone: string; since: string } | null;
+  /** `number` is the pool number this user texts: the assistant's number as they see it. */
+  linked: { phone: string; since: string; number: string } | null;
   pending: { code: string; expiresAt: string; phone: string; number: string; smsUrl: string } | null;
 };
 
@@ -133,7 +134,7 @@ export async function imessageStatus(profileId: string): Promise<IMessageStatus>
   const c = must(code) as CodeRow | null;
   return {
     available: imessageConfigured(),
-    linked: l ? { phone: maskPhone(l.phone), since: l.linked_at } : null,
+    linked: l ? { phone: maskPhone(l.phone), since: l.linked_at, number: l.assigned_number } : null,
     pending: c ? { code: c.code, expiresAt: c.expires_at, phone: maskPhone(c.phone), number: c.assigned_number, smsUrl: smsLink(c.assigned_number, linkText(c.code)) } : null,
   };
 }
