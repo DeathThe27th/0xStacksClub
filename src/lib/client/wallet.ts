@@ -3,7 +3,7 @@
 import { usePrivy, useWallets, type ConnectedWallet } from "@privy-io/react-auth";
 import { useCallback, useMemo } from "react";
 import type { Signer } from "@/lib/runner";
-import { createPublicClient, createWalletClient, custom, http, type Address, type Hash } from "viem";
+import { createPublicClient, createWalletClient, custom, http, type Address } from "viem";
 import { bsc } from "viem/chains";
 import { publicEnv } from "@/lib/env";
 

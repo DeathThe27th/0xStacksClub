@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, Check, ChevronLeft, ImagePlus, Lock, Plus, Search, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronLeft, ImagePlus, Lock, LockOpen, Minus, Plus, Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { decodeEventLog, encodeFunctionData, formatUnits, getAddress } from "viem";
@@ -13,7 +13,8 @@ import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 import { PROVIDER_LABEL, type Provider } from "@/lib/constants";
 import { vaultAbi } from "@/lib/contracts/vault";
-import { price as fmtPrice } from "@/lib/format";
+import { price as fmtPrice, usd } from "@/lib/format";
+import { equalWeights, MIN_BPS, moveBoundary, proportionalWeights, setWeight, TOTAL_BPS } from "@/lib/weights";
 import { useApi } from "@/lib/client/api";
 import { squareCrop } from "@/lib/client/image";
 import { vaultAddr } from "@/lib/client/runner";
@@ -23,6 +24,8 @@ import { normalizeTelegramUrl } from "@/lib/telegram";
 
 type Pick = { ticker: string; options: AssetItem[]; chosen: string };
 const COLORS = ["#3D5AFE", "#22C55E", "#F5A524", "#A855F7", "#06B6D4"];
+/** Text colour that reads on each of COLORS (white on the blue and purple, near-black on the rest). */
+const COLORS_INK = ["#FFFFFF", "#04210F", "#2B1A00", "#FFFFFF", "#032A31"];
 
 export default function CreateStack() {
   const router = useRouter();
@@ -30,10 +33,7 @@ export default function CreateStack() {
   const [picks, setPicks] = useState<Pick[]>([]);
   const [weights, setWeights] = useState<number[]>([]); // bps
 
-  const setEqual = (n: number) => {
-    const base = Math.floor(10_000 / n);
-    setWeights(Array.from({ length: n }, (_, i) => (i === 0 ? 10_000 - base * (n - 1) : base)));
-  };
+  const setEqual = (n: number) => setWeights(equalWeights(n));
 
   return (
     <div className="px-gutter pt-3 lg:mx-auto lg:max-w-[640px] lg:px-0 lg:pt-8">
@@ -58,7 +58,7 @@ export default function CreateStack() {
           }}
         />
       )}
-      {step === 2 && <WeightStep picks={picks} weights={weights} setWeights={setWeights} onEqual={() => setEqual(picks.length)} onNext={() => setStep(3)} />}
+      {step === 2 && <WeightStep picks={picks} weights={weights} setWeights={setWeights} onNext={() => setStep(3)} />}
       {step === 3 && <DetailsStep picks={picks} weights={weights} />}
     </div>
   );
@@ -177,47 +177,171 @@ function PickStep({ picks, setPicks, onNext }: { picks: Pick[]; setPicks: (p: Pi
 // Step 2: weights
 // ---------------------------------------------------------------------------
 
-function WeightStep({ picks, weights, setWeights, onEqual, onNext }: { picks: Pick[]; weights: number[]; setWeights: (w: number[]) => void; onEqual: () => void; onNext: () => void }) {
-  const total = weights.reduce((a, b) => a + b, 0);
-  const ok = total === 10_000 && weights.every((w) => w > 0);
+/** Buy used to show what a weight means in money: $100, less the 1% buy fee. */
+const EXAMPLE_NET_USD = 99;
+/** One drag or stepper tick: 1%. Exact values (down to 0.01%) can be typed. */
+const STEP_BPS = 100;
+
+/**
+ * The split is one bar. Drag a boundary to move weight between two neighbours, or set a number on
+ * a row and the unlocked others make room. Every edit goes through src/lib/weights.ts, so the
+ * total is always exactly 100% and there is no "doesn't add up" state to fix.
+ */
+function WeightStep({ picks, weights, setWeights, onNext }: { picks: Pick[]; weights: number[]; setWeights: (w: number[]) => void; onNext: () => void }) {
+  const [locked, setLocked] = useState<Set<number>>(new Set());
+  const [drag, setDrag] = useState<{ k: number; x: number; start: number[] } | null>(null);
+  const bar = useRef<HTMLDivElement>(null);
+  const assets = picks.map((p) => p.options.find((o) => o.address === p.chosen) ?? p.options[0]!);
+  const byCap = proportionalWeights(assets.map((a) => (a.price?.market_cap ? Number(a.price.market_cap) : null)));
+  const same = (a: number[] | null, b: number[]) => !!a && a.length === b.length && a.every((v, i) => v === b[i]);
+  const equal = equalWeights(picks.length);
+  const ok = weights.length === picks.length && weights.reduce((a, b) => a + b, 0) === TOTAL_BPS && weights.every((w) => w >= MIN_BPS);
+
+  const toggleLock = (i: number) => {
+    const next = new Set(locked);
+    if (!next.delete(i)) next.add(i);
+    // Two stocks have to stay free: the one being changed and one to take up the slack.
+    if (next.size < locked.size || next.size <= picks.length - 2) setLocked(next);
+  };
+  const preset = (w: number[]) => {
+    setLocked(new Set());
+    setWeights(w);
+  };
+
+  let cumulative = 0;
   return (
     <div className="pb-28 lg:pb-0">
       <h2 className="mt-6 text-[22px] font-bold">Set the weights</h2>
-      <p className="mt-1 text-secondary text-text-muted">Each buy splits the money by these weights. They can&apos;t change after launch.</p>
+      <p className="mt-1 text-secondary text-text-muted">Drag the bar or set a number. It always adds up to 100%, and it can&apos;t change after launch.</p>
 
-      <div className="mt-6 flex items-center gap-5">
-        <Donut weights={weights} />
-        <div>
-          <p className={cn("text-[28px] font-bold tnum", ok ? "text-text" : "text-down")}>{(total / 100).toFixed(2)}%</p>
-          <p className="text-secondary text-text-muted">{ok ? "Adds up to 100%" : `Must total 100.00%`}</p>
-          <button onClick={onEqual} className="press mt-2 h-9 rounded-chip bg-surface-2 px-3 text-[14px] font-medium">
-            Equal weights
-          </button>
-        </div>
+      <div
+        ref={bar}
+        className="relative mt-5 flex h-[68px] gap-[2px] overflow-hidden rounded-card bg-bg select-none"
+        role="group"
+        aria-label="Weight split"
+      >
+        {picks.map((p, i) => {
+          const w = weights[i] ?? 0;
+          return (
+            <div
+              key={p.ticker}
+              className={cn("flex min-w-0 flex-col items-center justify-center gap-0.5 overflow-hidden", !drag && "transition-[flex-basis] duration-200 ease-out")}
+              style={{ flexBasis: `${w / 100}%`, background: COLORS[i], color: COLORS_INK[i] }}
+            >
+              {w >= 900 && <span className="text-[12px] font-semibold leading-none">{p.ticker}</span>}
+              {w >= 600 && <span className="text-[15px] font-bold leading-none tnum">{Math.round(w / 100)}%</span>}
+            </div>
+          );
+        })}
+        {picks.slice(0, -1).map((p, k) => {
+          cumulative += weights[k] ?? 0;
+          const fixed = locked.has(k) || locked.has(k + 1);
+          const next = picks[k + 1]!;
+          const move = (delta: number) => setWeights(moveBoundary(weights, k, delta));
+          return (
+            <button
+              key={p.ticker}
+              type="button"
+              role="slider"
+              aria-label={`Between ${p.ticker} and ${next.ticker}`}
+              aria-valuemin={1}
+              aria-valuemax={Math.round(((weights[k] ?? 0) + (weights[k + 1] ?? 0) - MIN_BPS) / 100)}
+              aria-valuenow={Math.round((weights[k] ?? 0) / 100)}
+              aria-valuetext={`${p.ticker} ${((weights[k] ?? 0) / 100).toFixed(2)}%, ${next.ticker} ${((weights[k + 1] ?? 0) / 100).toFixed(2)}%`}
+              disabled={fixed}
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setDrag({ k, x: e.clientX, start: weights });
+                navigator.vibrate?.(5);
+              }}
+              onPointerMove={(e) => {
+                if (!drag || drag.k !== k || !bar.current) return;
+                const bps = ((e.clientX - drag.x) / bar.current.clientWidth) * TOTAL_BPS;
+                setWeights(moveBoundary(drag.start, k, Math.round(bps / STEP_BPS) * STEP_BPS));
+              }}
+              onPointerUp={() => setDrag(null)}
+              onPointerCancel={() => setDrag(null)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowRight" || e.key === "ArrowUp") move(STEP_BPS);
+                else if (e.key === "ArrowLeft" || e.key === "ArrowDown") move(-STEP_BPS);
+                else return;
+                e.preventDefault();
+              }}
+              className={cn(
+                "absolute top-0 grid h-full w-8 -translate-x-1/2 touch-none place-items-center",
+                fixed ? "cursor-not-allowed" : "cursor-ew-resize",
+                !drag && "transition-[left] duration-200 ease-out",
+              )}
+              style={{ left: `${cumulative / 100}%` }}
+            >
+              <span
+                className={cn(
+                  "h-8 w-[7px] rounded-full border border-text/15 bg-bg shadow-[0_1px_4px_rgb(0_0_0/0.35)] transition-transform duration-150",
+                  fixed ? "opacity-40" : drag?.k === k ? "scale-y-125" : "",
+                )}
+              />
+            </button>
+          );
+        })}
       </div>
 
-      <ul className="mt-6 space-y-5">
-        {picks.map((p, i) => (
-          <li key={p.ticker}>
-            <div className="flex items-center gap-3">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: COLORS[i] }} />
-              <span className="flex-1 text-[16px] font-semibold">{p.ticker}</span>
-              <WeightInput label={`${p.ticker} weight percent`} bps={weights[i]!} onChange={(v) => setWeights(weights.map((w, j) => (j === i ? v : w)))} />
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={10_000}
-              step={50}
-              value={weights[i]}
-              onChange={(e) => setWeights(weights.map((w, j) => (j === i ? Number(e.target.value) : w)))}
-              aria-label={`${p.ticker} weight`}
-              className="mt-2 w-full"
-              style={{ accentColor: COLORS[i] }}
-            />
-          </li>
-        ))}
+      <div className="mt-3 flex items-center gap-2">
+        <PresetChip active={same(equal, weights)} onClick={() => preset(equal)}>
+          Equal
+        </PresetChip>
+        {byCap && (
+          <PresetChip active={same(byCap, weights)} onClick={() => preset(byCap)}>
+            By market cap
+          </PresetChip>
+        )}
+      </div>
+
+      <ul className="mt-4 divide-y divide-border/70">
+        {picks.map((p, i) => {
+          const w = weights[i] ?? 0;
+          const isLocked = locked.has(i);
+          const othersFree = picks.some((_, j) => j !== i && !locked.has(j));
+          const set = (v: number) => setWeights(setWeight(weights, i, v, locked));
+          return (
+            <li key={p.ticker} className="flex items-center gap-3 py-3">
+              <span className="shrink-0 rounded-full p-[2px]" style={{ background: COLORS[i] }}>
+                <span className="block rounded-full bg-bg p-[2px]">
+                  <TokenLogo src={assets[i]!.logo_url} label={p.ticker} size={32} />
+                </span>
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[16px] font-semibold">{p.ticker}</p>
+                <p className="truncate text-[13px] text-text-muted tnum">{usd((EXAMPLE_NET_USD * w) / TOTAL_BPS)} of $100</p>
+              </div>
+              <div className={cn("flex h-11 shrink-0 items-center rounded-chip border bg-surface", isLocked ? "border-border opacity-60" : "border-border focus-within:border-primary")}>
+                <button type="button" onClick={() => set(w - STEP_BPS)} disabled={isLocked || !othersFree || w <= MIN_BPS} aria-label={`Less ${p.ticker}`} className="press grid h-full w-10 place-items-center text-text-muted hover:text-text disabled:opacity-40">
+                  <Minus size={16} />
+                </button>
+                <WeightInput label={`${p.ticker} weight percent`} bps={w} disabled={isLocked || !othersFree} onChange={set} />
+                <button type="button" onClick={() => set(w + STEP_BPS)} disabled={isLocked || !othersFree} aria-label={`More ${p.ticker}`} className="press grid h-full w-10 place-items-center text-text-muted hover:text-text disabled:opacity-40">
+                  <Plus size={16} />
+                </button>
+              </div>
+              {picks.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => toggleLock(i)}
+                  disabled={!isLocked && locked.size >= picks.length - 2}
+                  aria-pressed={isLocked}
+                  aria-label={isLocked ? `Unlock ${p.ticker}` : `Keep ${p.ticker} at this weight`}
+                  className={cn("press -mr-2 grid h-11 w-10 shrink-0 place-items-center disabled:opacity-30", isLocked ? "text-text" : "text-text-muted hover:text-text")}
+                >
+                  {isLocked ? <Lock size={17} /> : <LockOpen size={17} />}
+                </button>
+              )}
+            </li>
+          );
+        })}
       </ul>
+      <p className="mt-3 text-[13px] leading-5 text-text-muted">
+        Dollar amounts are what a $100 buy puts into each stock after the 1% fee.{picks.length > 2 && " Lock a stock to hold its weight while you change the others."}
+      </p>
+
       <Footer>
         <Button className="w-full" disabled={!ok} onClick={onNext}>
           Next: details
@@ -227,47 +351,46 @@ function WeightStep({ picks, weights, setWeights, onEqual, onNext }: { picks: Pi
   );
 }
 
-/** Percent field that keeps the typed text ("33.", "0.5") while editing; bps is the source of truth. */
-function WeightInput({ label, bps, onChange }: { label: string; bps: number; onChange: (bps: number) => void }) {
-  const [draft, setDraft] = useState<string | null>(null);
+function PresetChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <label className="flex h-10 items-center rounded-chip border border-border bg-surface px-3 focus-within:border-primary">
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn("press h-9 rounded-chip px-3.5 text-[14px] font-medium transition-colors", active ? "bg-chip-active text-text" : "bg-chip text-text-muted hover:text-text")}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Percent field that keeps the typed text ("33.", "0.5") while editing; bps is the source of truth. */
+function WeightInput({ label, bps, disabled, onChange }: { label: string; bps: number; disabled?: boolean; onChange: (bps: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown = (bps / 100).toFixed(bps % 100 === 0 ? 0 : 2);
+  return (
+    <label className="flex h-full items-center">
       <input
         inputMode="decimal"
         aria-label={label}
-        value={draft ?? (bps / 100).toString()}
-        onFocus={() => setDraft((bps / 100).toString())}
+        disabled={disabled}
+        value={draft ?? shown}
+        onFocus={(e) => {
+          setDraft(shown);
+          e.currentTarget.select();
+        }}
         onBlur={() => setDraft(null)}
         onChange={(e) => {
           const v = e.target.value.replace(/[^0-9.]/g, "");
           if (!/^\d{0,3}(\.\d{0,2})?$/.test(v)) return;
           setDraft(v);
-          onChange(Math.round(Math.min(100, Number(v) || 0) * 100));
+          // Applied as typed once it's a usable number; the others make room straight away.
+          if (Number(v) >= 1) onChange(Math.round(Math.min(100, Number(v)) * 100));
         }}
-        className="w-14 bg-transparent text-right text-[16px] outline-none tnum"
+        className="w-[52px] bg-transparent text-right text-[16px] font-semibold outline-none tnum disabled:text-text-muted"
       />
-      <span className="ml-0.5 text-text-muted">%</span>
+      <span className="ml-0.5 text-[14px] text-text-muted">%</span>
     </label>
-  );
-}
-
-function Donut({ weights }: { weights: number[] }) {
-  const total = weights.reduce((a, b) => a + b, 0) || 1;
-  const r = 38;
-  const c = 2 * Math.PI * r;
-  let offset = 0;
-  return (
-    <svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="Weight split">
-      <circle cx="52" cy="52" r={r} fill="none" stroke="rgb(var(--surface-2))" strokeWidth="16" />
-      {weights.map((w, i) => {
-        const len = (w / total) * c;
-        const el = (
-          <circle key={i} cx="52" cy="52" r={r} fill="none" stroke={COLORS[i]} strokeWidth="16" strokeDasharray={`${Math.max(0, len - 2)} ${c}`} strokeDashoffset={-offset} transform="rotate(-90 52 52)" />
-        );
-        offset += len;
-        return el;
-      })}
-    </svg>
   );
 }
 
