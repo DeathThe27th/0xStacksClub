@@ -62,6 +62,10 @@ describe("parseLoose", () => {
     expect(parseLoose("i want to buy 50 of chip makers")).toEqual({ kind: "buy", amount: 50, basket: "chip makers" });
     expect(parseLoose("telegram for ai kings")).toEqual({ kind: "club", basket: "ai kings" });
     expect(parseLoose("i want to sell my nvda")).toEqual({ kind: "sell" });
+    expect(parseCommand("news")).toEqual({ kind: "news", name: "" });
+    expect(parseCommand("news on nvda")).toEqual({ kind: "news", name: "nvda" });
+    expect(parseLoose("any news about tesla?")).toEqual({ kind: "news", name: "tesla" });
+    expect(parseLoose("what's happening today")).toEqual({ kind: "news", name: "" });
     expect(parseCommand("sell nvda")).toEqual({ kind: "sell" });
   });
 

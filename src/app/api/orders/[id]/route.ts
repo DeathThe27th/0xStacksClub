@@ -4,6 +4,6 @@ import { pollOrder } from "@/server/intents";
 
 /** RFQ order status normalized to PENDING | FILLED | FAILED | EXPIRED, with balance verification. */
 export const GET = handler(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const ctx = await requireProfile(req);
+  const ctx = await requireProfile(req, { cachedProfile: true });
   return json(await pollOrder(ctx, (await params).id));
 });

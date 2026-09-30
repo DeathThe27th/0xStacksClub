@@ -202,6 +202,9 @@ export function createRunner(deps: { chain: ChainReader; vault: () => Address })
     const { backend, signer } = opts;
     const onProgress = opts.onProgress ?? (() => undefined);
 
+    // The approvals lookup is the slowest read of the run (it asks Binance for a route), so it
+    // starts alongside the first load instead of after it.
+    const early = routerApprovals(backend);
     let intent = await backend.load();
     if (["done", "cancelled", "failed"].includes(intent.status)) return intent;
 
@@ -209,7 +212,7 @@ export function createRunner(deps: { chain: ChainReader; vault: () => Address })
     if (intent.kind.startsWith("buy") && !intent.fee_receipt_id) {
       onProgress({ step: "fee", state: "active" });
       const fee = BigInt(intent.fee_amount!);
-      const [feeApproval, routers] = await Promise.all([approvalIfNeeded(signer.address, USDT_ADDRESS, deps.vault(), fee), routerApprovals(backend)]);
+      const [feeApproval, routers] = await Promise.all([approvalIfNeeded(signer.address, USDT_ADDRESS, deps.vault(), fee), early]);
       const hash = await vaultTx(signer, "payBuyFee", [BigInt(intent.stack_id ?? 0), BigInt(intent.gross_amount!)], GAS.payBuyFee, [...routers, feeApproval]);
       intent = await backend.advance({ action: "fee_paid", txHash: hash });
     }
@@ -226,7 +229,8 @@ export function createRunner(deps: { chain: ChainReader; vault: () => Address })
 
     // Sells: approve the router for every unsold leg in one burst before the first quote.
     if (intent.kind.startsWith("sell") && intent.legs.some((l) => l.status === "pending")) {
-      const routers = await routerApprovals(backend);
+      // A basket sell only knows its amounts after the release above, so it asks again.
+      const routers = intent.kind === "sell_stock" ? await early : await routerApprovals(backend);
       if (routers.length) await sendInOrder(signer, routers).catch(() => undefined);
     }
 

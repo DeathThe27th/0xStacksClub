@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireProfile } from "@/server/auth";
-import { handler, json, rateLimit, readJson } from "@/server/http";
+import { handler, json, readJson, softRateLimit } from "@/server/http";
 import { advanceIntent, loadIntent } from "@/server/intents";
 
 const hash = z.string().regex(/^0x[0-9a-fA-F]{64}$/).transform((s) => s as `0x${string}`);
@@ -19,13 +19,13 @@ const body = z.discriminatedUnion("action", [
 ]);
 
 export const GET = handler(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const ctx = await requireProfile(req);
+  const ctx = await requireProfile(req, { cachedProfile: true });
   return json(await loadIntent((await params).id, ctx));
 });
 
 /** Advance one step. The server verifies the tx or order against chain/Binance before saving. */
 export const PATCH = handler(async (req: Request, { params }: { params: Promise<{ id: string }> }) => {
-  const ctx = await requireProfile(req);
-  await rateLimit(`intent-patch:${ctx.profile.id}`, 60, 60);
+  const ctx = await requireProfile(req, { cachedProfile: true });
+  softRateLimit(`intent-patch:${ctx.profile.id}`, 60, 60);
   return json(await advanceIntent(ctx, (await params).id, await readJson(req, body)));
 });

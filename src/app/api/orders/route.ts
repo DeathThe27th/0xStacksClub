@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { requireProfile } from "@/server/auth";
-import { handler, json, rateLimit, readJson } from "@/server/http";
+import { handler, json, readJson, softRateLimit } from "@/server/http";
 import { loadIntent, submitOrder } from "@/server/intents";
 
 const body = z.object({
@@ -13,8 +13,8 @@ const body = z.object({
 
 /** Submit a signed RFQ order. Idempotency key is derived from intentId:legIndex:attempt. */
 export const POST = handler(async (req: Request) => {
-  const ctx = await requireProfile(req);
-  await rateLimit(`orders:${ctx.profile.id}`, 30, 60);
+  const ctx = await requireProfile(req, { cachedProfile: true });
+  softRateLimit(`orders:${ctx.profile.id}`, 30, 60);
   const b = await readJson(req, body);
   const intent = await loadIntent(b.intentId, ctx);
   return json(await submitOrder(ctx, intent, b.legIndex, b.signature as `0x${string}`));

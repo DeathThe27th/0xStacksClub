@@ -12,6 +12,7 @@ export type Command =
   | { kind: "club"; basket: string }
   | { kind: "buy"; amount: number | null; basket: string }
   | { kind: "sell" }
+  | { kind: "news"; name: string }
   | { kind: "question"; text: string }
   | { kind: "unknown" };
 
@@ -46,6 +47,8 @@ export function parseCommand(input: string): Command {
   if (/^(portfolio|positions|holdings|balance|my portfolio)$/.test(lower)) return { kind: "portfolio" };
 
   if (/^sell\b/.test(lower)) return { kind: "sell" };
+  const news = /^(?:news|briefing|brief|headlines)(?: (?:on|for|about))?(?: (.+))?$/i.exec(text);
+  if (news) return { kind: "news", name: news[1] ?? "" };
 
   const price = /^price(?: of)? (.+)$/i.exec(text);
   if (price) return { kind: "price", basket: price[1]! };
@@ -76,6 +79,9 @@ export function parseLoose(input: string): Command {
     if (cmd.kind === "buy") return cmd;
   }
   if (/\b(sell|cash out|take profit)\b/.test(lower)) return { kind: "sell" };
+  const newsOn = /\b(?:news|headlines|happening|going on)\b(?: (?:on|for|about|with))? ?(.*?)[?.!]*$/i.exec(text);
+  if (newsOn) return { kind: "news", name: /^(today|now|me|in the market|the market)?$/i.test(newsOn[1] ?? "") ? "" : newsOn[1]! };
+  if (/\b(briefing|brief me|catch me up)\b/.test(lower)) return { kind: "news", name: "" };
   const club = /\b(?:club|telegram|group(?: chat)?)\b(?: (?:for|of|link for))? (.+)$/i.exec(text);
   if (club) return { kind: "club", basket: club[1]!.replace(/[?.!]+$/, "") };
   const price = /\b(?:price|value|how(?:'s| is| are)|what(?:'s| is) in|check)\b(?: (?:of|for|the))* (.+?)(?: doing| looking| worth| today| now)*[?.!]*$/i.exec(text);

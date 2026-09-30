@@ -1,4 +1,4 @@
-import type { BasketDetail, Baskets, BuyLink, Club, Option, Portfolio, StockItem, Stocks } from "./api.js";
+import type { BasketDetail, Baskets, BuyLink, Club, News, NewsItem, Option, Portfolio, StockItem, Stocks } from "./api.js";
 
 // Every reply is built here, by code: links come from the site's API as-is and money is formatted
 // from its numbers. A missing number is said out loud ("price unavailable"), never filled in.
@@ -37,6 +37,7 @@ export function helpText(appName: string): string {
     "movers: today's biggest gainers",
     "price NVDA: a stock's price",
     "buy 20 NVDA: get a link to confirm",
+    "news NVDA: the latest on a stock (or just \"news\")",
     "portfolio: what you hold",
     "baskets: top baskets",
     "stop: disconnect this chat",
@@ -184,6 +185,31 @@ export function performanceReply(p: Portfolio): string {
   if (rows.length > MAX_ROWS) lines.push(`+${rows.length - MAX_ROWS} more in the app`);
   lines.push(p.url);
   return lines.join("\n");
+}
+
+export function ago(at: number, now = Date.now()): string {
+  const h = Math.max(0, (now - at) / 3600_000);
+  return h < 1 ? `${Math.max(1, Math.round(h * 60))}m ago` : h < 36 ? `${Math.round(h)}h ago` : `${Math.round(h / 24)}d ago`;
+}
+
+// Headlines come from outside. One carrying a link or a wallet address isn't a headline we repeat.
+const clean = (items: NewsItem[]) => items.filter((n) => !/https?:|www\.|0x[0-9a-fA-F]{8,}/.test(n.headline));
+const headline = (n: NewsItem, now: number) => `- ${n.headline.slice(0, 140)} (${n.source || "news"}, ${ago(n.at, now)})`;
+
+/** News as plain headlines, used when the model can't word it. */
+export function newsReply(r: Exclude<News, { match: "many" | "none" }>, now = Date.now()): string {
+  if (!r.connected) return "News isn't connected right now.";
+  if (r.match === "one") {
+    const items = clean(r.items);
+    if (!items.length) return `No recent news on ${r.stock.ticker}.`;
+    return [`${r.stock.ticker} news:`, ...items.slice(0, 4).map((n) => headline(n, now)), items[0]!.url].join("\n");
+  }
+  const lines: string[] = [];
+  const yours = clean(r.yours);
+  const market = clean(r.market);
+  if (yours.length) lines.push(`Your stocks (${r.holdings.join(", ")}):`, ...yours.slice(0, 3).map((n) => headline(n, now)));
+  if (market.length) lines.push("Market:", ...market.slice(0, 3).map((n) => headline(n, now)));
+  return lines.length ? lines.join("\n") : "No news right now.";
 }
 
 export const sellReply = (url: string) => `I can't sell by text. Open your portfolio, pick the stock and tap Sell:\n${url}`;

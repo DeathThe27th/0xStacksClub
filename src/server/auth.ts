@@ -56,7 +56,13 @@ export type AuthContext = { privyId: string; wallet: Address; wallets: Address[]
  * wallets it's using (`x-wallet-address`); we only accept it if Privy lists it on this user.
  * Without the header, the user's embedded wallet is used.
  */
-export async function authenticate(req: Request): Promise<AuthContext> {
+const profileCache = new Map<string, { profile: ProfileRow; at: number }>();
+
+/**
+ * `cachedProfile`: reuse the profile row for up to a minute. Only for routes that need the
+ * profile's id and nothing that a profile edit changes (the trade path).
+ */
+export async function authenticate(req: Request, opts: { cachedProfile?: boolean } = {}): Promise<AuthContext> {
   const header = req.headers.get("authorization");
   const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
   if (!token) throw new AuthError("Missing access token");
@@ -83,13 +89,20 @@ export async function authenticate(req: Request): Promise<AuthContext> {
     wallet = (wallets.find((w) => w.embedded) ?? wallets[0]!).address;
   }
 
-  const profile = must(await db().from("profiles").select("*").eq("privy_id", privyId).maybeSingle()) as ProfileRow | null;
+  const hit = opts.cachedProfile ? profileCache.get(privyId) : undefined;
+  let profile: ProfileRow | null;
+  if (hit && Date.now() - hit.at < WALLET_TTL_MS) profile = hit.profile;
+  else {
+    profile = must(await db().from("profiles").select("*").eq("privy_id", privyId).maybeSingle()) as ProfileRow | null;
+    if (profile) profileCache.set(privyId, { profile, at: Date.now() });
+    if (profileCache.size > 5000) profileCache.delete(profileCache.keys().next().value!);
+  }
   return { privyId, wallet, wallets: wallets.map((w) => w.address), profile };
 }
 
 /** Same as authenticate, but the user must have finished onboarding. */
-export async function requireProfile(req: Request): Promise<AuthContext & { profile: ProfileRow }> {
-  const ctx = await authenticate(req);
+export async function requireProfile(req: Request, opts: { cachedProfile?: boolean } = {}): Promise<AuthContext & { profile: ProfileRow }> {
+  const ctx = await authenticate(req, opts);
   if (!ctx.profile) throw new AuthError("Finish onboarding first", 403);
   return ctx as AuthContext & { profile: ProfileRow };
 }

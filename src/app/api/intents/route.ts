@@ -16,7 +16,7 @@ const body = z.discriminatedUnion("kind", [
 
 /** Server computes fee and per-leg allocation from the chain recipe. */
 export const POST = handler(async (req: Request) => {
-  const ctx = await requireProfile(req);
+  const ctx = await requireProfile(req, { cachedProfile: true });
   await rateLimit(`intents:${ctx.profile.id}`, 20, 60);
   return json(await createIntent(ctx, await readJson(req, body)));
 });

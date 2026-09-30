@@ -4,7 +4,7 @@ import { USDT_ADDRESS } from "@/lib/constants";
 import { requireProfile } from "@/server/auth";
 import { requireTradable } from "@/server/assets/store";
 import { BinanceError, getQuote } from "@/server/binance";
-import { handler, HttpError, json, rateLimit, readJson } from "@/server/http";
+import { handler, HttpError, json, readJson, softRateLimit } from "@/server/http";
 import { getUsdtDecimals, loadIntent, quoteLeg } from "@/server/intents";
 import { requireFairQuote } from "@/server/priceGuard";
 
@@ -16,8 +16,8 @@ const body = z.union([
 ]);
 
 export const POST = handler(async (req: Request) => {
-  const ctx = await requireProfile(req);
-  await rateLimit(`quote:${ctx.profile.id}`, 60, 60);
+  const ctx = await requireProfile(req, { cachedProfile: true });
+  softRateLimit(`quote:${ctx.profile.id}`, 60, 60);
   const b = await readJson(req, body);
 
   if ("intentId" in b) {

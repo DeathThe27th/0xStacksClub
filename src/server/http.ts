@@ -56,6 +56,24 @@ export function json(data: unknown, init?: ResponseInit & { cacheSeconds?: numbe
   return NextResponse.json(data, { ...init, headers });
 }
 
+// The database is a long way from where the functions run (about 0.2s per query), and one trade
+// makes half a dozen API calls. Routes on that path use this in-memory bucket instead of the
+// Postgres one: same limits, per server instance, no round trip.
+const buckets = new Map<string, { tokens: number; at: number }>();
+export function softRateLimit(key: string, capacity = 60, perSeconds = 60) {
+  const now = Date.now();
+  const b = buckets.get(key) ?? { tokens: capacity, at: now };
+  b.tokens = Math.min(capacity, b.tokens + ((now - b.at) / 1000) * (capacity / perSeconds));
+  b.at = now;
+  if (b.tokens < 1) {
+    buckets.set(key, b);
+    throw new HttpError(429, "Too many requests, slow down a little", "rate_limited");
+  }
+  b.tokens -= 1;
+  buckets.set(key, b);
+  if (buckets.size > 10_000) buckets.delete(buckets.keys().next().value!);
+}
+
 /** Per-user token bucket in Postgres (take_token in the migration). */
 export async function rateLimit(key: string, capacity = 20, perSeconds = 60) {
   const { data, error } = await db().rpc("take_token", { p_key: key, capacity, per_seconds: perSeconds });

@@ -3,10 +3,11 @@ import { z } from "zod";
 import { matchBasket, type BasketMatch } from "@/lib/basketMatch";
 import { APP_NAME, BOT_MAX_BUY_USD, BPS, CREATOR_SHARE_BPS, FEE_BPS, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
 import { serverEnv } from "@/lib/env";
-import type { AssetPriceRow, AssetRow, StackRow } from "@/lib/supabase/types";
+import type { AssetPriceRow, AssetRow, HolderRow, StackRow } from "@/lib/supabase/types";
 import { clubAccess, getClubLink } from "@/server/clubs";
 import { db, must } from "@/server/db";
 import { handler, HttpError, json, readJson } from "@/server/http";
+import { basketNews, companyNews, marketNews, type NewsItem } from "@/server/news";
 import { botRateLimit, resolveSender, type BotUser } from "@/server/assistant";
 import { requireBot } from "@/server/imessage";
 import { portfolioFor } from "@/server/portfolio";
@@ -334,4 +335,34 @@ export async function botBuyLinkAny(query: string, amount: number) {
   if (usd < MIN_BUY_USD_SMALL) return { match: "below_min" as const, basket: { name: s.ticker, ticker: s.ticker }, minUsd: MIN_BUY_USD_SMALL };
   if (usd > BOT_MAX_BUY_USD) return { match: "above_max" as const, basket: { name: s.ticker, ticker: s.ticker }, maxUsd: BOT_MAX_BUY_USD };
   return { match: "stock" as const, target, amountUsd: usd, url: `${s.url}?buy=${usd}`, closed: s.marketOpen === false ? [s.ticker] : [] };
+}
+
+type NewsOut = { headline: string; summary: string; source: string; url: string; at: number; tickers?: string[] };
+const newsOut = (n: NewsItem & { tickers?: string[] }): NewsOut => ({ headline: n.headline, summary: n.summary.slice(0, 220), source: n.source, url: n.url, at: n.at, ...(n.tickers ? { tickers: n.tickers } : {}) });
+
+/**
+ * "news": with a name, the latest stories on that stock plus its price, so a reply can set one
+ * beside the other. Without one, a briefing: stories on the stocks this user holds, then the
+ * market's top headlines. `connected: false` when no news provider key is set.
+ */
+export async function botNews(user: BotUser, query?: string) {
+  if (query?.trim()) {
+    const m = await findStock(query);
+    if (m.match !== "one") return m;
+    const [items, price] = await Promise.all([companyNews(m.asset.ticker), priceRow(m.asset.address)]);
+    return { match: "one" as const, connected: items !== null, stock: stockOut(m.asset, price), items: (items ?? []).slice(0, 6).map(newsOut) };
+  }
+  const held = must(await db().from("holders").select("target_id, net_units").eq("profile_id", user.profile.id).eq("target_type", "asset")) as Pick<HolderRow, "target_id" | "net_units">[];
+  const addresses = held.filter((h) => Number(h.net_units) > 0).map((h) => h.target_id);
+  const tickers = addresses.length
+    ? [...new Set((must(await db().from("assets").select("ticker").in("address", addresses)) as Pick<AssetRow, "ticker">[]).map((a) => a.ticker))].slice(0, 5)
+    : [];
+  const [mine, market] = await Promise.all([tickers.length ? basketNews(tickers) : Promise.resolve([]), marketNews("general")]);
+  return {
+    match: "briefing" as const,
+    connected: market !== null && mine !== null,
+    holdings: tickers,
+    yours: (mine ?? []).slice(0, 5).map(newsOut),
+    market: (market ?? []).slice(0, 5).map(newsOut),
+  };
 }

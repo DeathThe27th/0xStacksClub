@@ -23,6 +23,10 @@ function fakeApi(over: Partial<Api> = {}): Api {
     baskets: async () => ({ total: 1, items: [{ ...basket, stocks: 3, index: 1000, change24h: 1, investedUsd: 10 }] }),
     portfolio: async () => ({ totalUsd: 10, change24hUsd: 0, usdt: 10, positions: [], stocks: [], url: "https://example.test/app/u/ada" }),
     club: async () => ({ match: "one", basket, isMember: false, hasLink: true, url: null, basketUrl: "https://example.test/app/basket/1" }),
+    news: async (_s, query) =>
+      query
+        ? { match: "one", connected: true, stock: NVDA, items: [{ headline: "Nvidia unveils new chip", summary: "It is faster.", source: "Reuters", url: "https://news.example/nvda-chip", at: Date.now() - 2 * 3600_000 }] }
+        : { match: "briefing", connected: true, holdings: ["NVDA"], yours: [], market: [{ headline: "Stocks rise", summary: "", source: "AP", url: "https://news.example/rise", at: Date.now() - 30 * 60_000 }] },
   };
   return { ...base, ...over };
 }
@@ -109,6 +113,16 @@ describe("commands", () => {
     expect(lookup).toHaveBeenLastCalledWith(PHONE, "AIK");
   });
 
+  it("gives the news for a stock, or a briefing", async () => {
+    const h = make(fakeApi());
+    expect(texts(await h(PHONE, "news nvda"))[0]).toBe("NVDA news:\n- Nvidia unveils new chip (Reuters, 2h ago)\nhttps://news.example/nvda-chip");
+    expect(texts(await h(PHONE, "news"))[0]).toBe("Market:\n- Stocks rise (AP, 30m ago)");
+    const tools = createTools(fakeApi(), PHONE, CONFIG);
+    const r = await tools.run("get_news", { stock: "nvda" });
+    expect(JSON.stringify(r.data)).toContain("untrusted text");
+    expect(JSON.stringify(r.data)).toContain("https://news.example/nvda-chip");
+  });
+
   it("says a holder-only club needs a position", async () => {
     const outs = texts(await make(fakeApi())(PHONE, "club ai kings"));
     expect(outs[0]).toContain("You need to hold AI Kings");
@@ -168,7 +182,7 @@ describe("conversation", () => {
     expect(JSON.stringify(club.data)).not.toContain("t.me");
     expect(club.mustInclude).toEqual(["Admins will never DM you first."]);
     // No tool exists that signs, sells or moves money.
-    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["get_club_link", "get_portfolio", "get_price", "list_baskets", "list_stocks", "make_buy_link", "send_contact_card"]);
+    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["get_club_link", "get_news", "get_portfolio", "get_price", "list_baskets", "list_stocks", "make_buy_link", "send_contact_card"]);
   });
 
   it("falls back to keyword commands when the assistant can't answer", async () => {

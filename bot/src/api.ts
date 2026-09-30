@@ -98,6 +98,16 @@ const club = z.discriminatedUnion("match", [
   none,
 ]);
 
+const newsItem = z.object({ headline: z.string(), summary: z.string(), source: z.string(), url: z.string().url(), at: z.number(), tickers: z.array(z.string()).optional() });
+const news = z.discriminatedUnion("match", [
+  z.object({ match: z.literal("one"), connected: z.boolean(), stock: stockItem, items: z.array(newsItem) }),
+  z.object({ match: z.literal("briefing"), connected: z.boolean(), holdings: z.array(z.string()), yours: z.array(newsItem), market: z.array(newsItem) }),
+  z.object({ match: z.literal("many"), options: z.array(z.object({ ticker: z.string(), name: z.string() })).min(1) }),
+  none,
+]);
+
+export type News = z.infer<typeof news>;
+export type NewsItem = z.infer<typeof newsItem>;
 export type StockItem = z.infer<typeof stockItem>;
 export type Stocks = z.infer<typeof stocks>;
 export type Lookup = z.infer<typeof lookup>;
@@ -147,5 +157,6 @@ export function createApi(opts: { siteUrl: string; secret: string; fetchImpl?: t
     baskets: (sender: string) => call("POST", "baskets", baskets, { sender }),
     portfolio: (sender: string, week = false) => call("POST", "portfolio", portfolio, { sender, week }),
     club: (sender: string, query: string) => call("POST", "club", club, { sender, query }),
+    news: (sender: string, query?: string) => call("POST", "news", news, { sender, ...(query ? { query } : {}) }),
   };
 }

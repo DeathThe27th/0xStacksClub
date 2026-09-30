@@ -19,6 +19,7 @@ message, calls the bot's tools for anything factual, and writes the reply in its
 | --- | --- |
 | `list_stocks` | Tradable stocks with price and 24h change: most traded, gainers or losers |
 | `get_price` | One stock by ticker or company name (or a basket, if the name is a basket) |
+| `get_news` | News on one stock with its price, or a briefing on the user's stocks and the market |
 | `get_portfolio` | The user's total, USDT, stocks held with PnL, basket positions |
 | `make_buy_link` | A link that opens the stock's buy form with the amount filled in |
 | `list_baskets` | Top baskets, only when the user asks about baskets |
@@ -35,7 +36,7 @@ own code builds for the same data. The model never sees wallet addresses or keys
 buy, sell or sign.
 
 These exact commands skip the model and answer instantly: `help`, `stocks`, `movers`, `losers`,
-`price <name>`, `buy <amount> <name>`, `portfolio`, `baskets`, `club <basket>`, `sell`. `link <code>`
+`price <name>`, `buy <amount> <name>`, `news [name]`, `portfolio`, `baskets`, `club <basket>`, `sell`. `link <code>`
 (iMessage), `/start <code>` (Telegram) and `stop` are always handled by code. If Gemini is slow,
 overloaded or rate limited, the bot tries `GEMINI_FALLBACK_MODEL`, then falls back to keyword
 matching. Without a key it only uses the commands.

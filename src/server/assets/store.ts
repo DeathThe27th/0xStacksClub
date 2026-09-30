@@ -74,9 +74,21 @@ export async function getAsset(address: string): Promise<AssetWithPrice | null> 
   return { ...a, price: p };
 }
 
+// The allowlist row only changes when assets are re-seeded, and a single trade checks it several
+// times. Kept for 30 seconds per server instance.
+const assetCache = new Map<string, { row: AssetRow | null; at: number }>();
+async function assetRow(address: string): Promise<AssetRow | null> {
+  const addr = getAddress(address);
+  const hit = assetCache.get(addr);
+  if (hit && Date.now() - hit.at < 30_000) return hit.row;
+  const row = must(await db().from("assets").select("*").eq("address", addr).maybeSingle()) as AssetRow | null;
+  assetCache.set(addr, { row, at: Date.now() });
+  return row;
+}
+
 /** Allowlist check for anything that moves money. Never trust a client-supplied token. */
 export async function requireTradable(address: string, purpose: "trade" | "stack"): Promise<AssetRow> {
-  const a = await getAsset(address);
+  const a = await assetRow(address);
   if (!a) throw new Error(`Unknown asset ${address}`);
   if (purpose === "trade" && !a.can_trade) throw new Error(`${a.symbol} is not enabled for trading`);
   if (purpose === "stack" && !a.can_stack) throw new Error(`${a.symbol} is not enabled for baskets`);

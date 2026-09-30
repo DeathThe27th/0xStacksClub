@@ -121,6 +121,12 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
         return say(f.performanceReply(await api.portfolio(phone, true)));
       case "sell":
         return say(f.sellReply((await api.portfolio(phone)).url));
+      case "news": {
+        const r = await api.news(phone, cmd.name || undefined);
+        if (r.match === "none") return say(f.notFound(cmd.name));
+        if (r.match === "many") return say(f.whichOne(r.options.map((o) => ({ ...o, kind: "stock" as const }))));
+        return say(f.newsReply(r));
+      }
       case "price": {
         if (!cmd.basket.trim()) return say(f.needName("price"));
         const r = await api.lookup(phone, cmd.basket);

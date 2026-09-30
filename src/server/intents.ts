@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { after } from "next/server";
 import {
   decodeEventLog,
   encodeFunctionData,
@@ -53,13 +54,15 @@ async function minBuyRaw(components: number): Promise<bigint> {
 export type IntentWithLegs = IntentRow & { legs: IntentLegRow[] };
 
 export async function loadIntent(id: string, ctx: AuthContext): Promise<IntentWithLegs> {
-  const intent = must(await db().from("intents").select("*").eq("id", id).maybeSingle()) as IntentRow | null;
+  // The intent and its legs in one round trip.
+  const intent = must(
+    await db().from("intents").select("*, legs:intent_legs(*)").eq("id", id).order("leg_index", { referencedTable: "intent_legs" }).maybeSingle(),
+  ) as IntentWithLegs | null;
   if (!intent || intent.profile_id !== ctx.profile?.id) throw new HttpError(404, "Intent not found");
   if (intent.wallet_address !== ctx.wallet.toLowerCase()) {
     throw new HttpError(409, "This intent was started with a different wallet. Switch back to continue.");
   }
-  const legs = must(await db().from("intent_legs").select("*").eq("intent_id", id).order("leg_index")) as IntentLegRow[];
-  return { ...intent, legs };
+  return { ...intent, legs: intent.legs ?? [] };
 }
 
 async function setIntent(id: string, patch: Partial<IntentRow>) {
@@ -198,10 +201,10 @@ export async function createIntent(ctx: AuthContext & { profile: NonNullable<Aut
   }
 
   const intent = must(await db().from("intents").insert({ ...base, ...row }).select("*").single()) as IntentRow;
-  if (legs.length) {
-    must(await db().from("intent_legs").insert(legs.map((l, i) => ({ intent_id: intent.id, leg_index: i, ...l }))));
-  }
-  return loadIntent(intent.id, ctx);
+  const saved = legs.length
+    ? (must(await db().from("intent_legs").insert(legs.map((l, i) => ({ intent_id: intent.id, leg_index: i, ...l }))).select("*")) as IntentLegRow[])
+    : [];
+  return { ...intent, legs: saved.sort((a, b) => a.leg_index - b.leg_index) } satisfies IntentWithLegs;
 }
 
 async function requireUsdt(wallet: Address, gross: bigint) {
@@ -487,8 +490,9 @@ export async function pollOrder(ctx: AuthContext, orderId: string) {
       await failLeg(intent, l.leg_index, `Received ${actual} below minimum ${minOut}`);
       return { status: "FAILED" as const, raw: s.status, error: "Received less than the minimum" };
     }
-    await setLeg(intent.id, l.leg_index, { status: "filled", actual_out: actual.toString(), tx_hash: s.txHash ?? null, error: null });
-    await afterLegFilled(ctx, intent.id);
+    const filled = { status: "filled" as const, actual_out: actual.toString(), tx_hash: s.txHash ?? null, error: null };
+    await setLeg(intent.id, l.leg_index, filled);
+    await afterLegFilled(ctx, { ...intent, legs: intent.legs.map((x) => (x.leg_index === l.leg_index ? { ...x, ...filled } : x)) });
   } else if ((status === "FAILED" || status === "EXPIRED") && l.status === "submitted") {
     await setLeg(intent.id, l.leg_index, { status: status === "EXPIRED" ? "expired" : "failed", error: `Order ${s.status}` });
     await setIntent(intent.id, { status: "partial", error: `Leg ${l.leg_index + 1} ${s.status.toLowerCase()}` });
@@ -542,8 +546,10 @@ export async function advanceIntent(ctx: AuthContext, id: string, input: Advance
     case "leg_sent": {
       const l = leg(intent, input.legIndex);
       if (l.mode !== "SWAP" || l.status !== "quoted") throw new HttpError(409, "Leg isn't waiting for a swap tx");
-      await setLeg(intent.id, l.leg_index, { tx_hash: input.txHash, status: "signed" });
-      if (intent.status === "fee_paid" || intent.status === "created") await setIntent(intent.id, { status: "legs_running" });
+      await Promise.all([
+        setLeg(intent.id, l.leg_index, { tx_hash: input.txHash, status: "signed" }),
+        intent.status === "fee_paid" || intent.status === "created" ? setIntent(intent.id, { status: "legs_running" }) : null,
+      ]);
       break;
     }
     case "leg": {
@@ -569,8 +575,9 @@ export async function advanceIntent(ctx: AuthContext, id: string, input: Advance
         await failLeg(intent, l.leg_index, `Received ${delta} below minimum ${minOut}`);
         throw new HttpError(422, "Received less than the minimum");
       }
-      await setLeg(intent.id, l.leg_index, { status: "filled", actual_out: delta.toString(), tx_hash: input.txHash, error: null });
-      await afterLegFilled(ctx, intent.id);
+      const filled = { status: "filled" as const, actual_out: delta.toString(), tx_hash: input.txHash, error: null };
+      await setLeg(intent.id, l.leg_index, filled);
+      await afterLegFilled(ctx, { ...intent, legs: intent.legs.map((x) => (x.leg_index === l.leg_index ? { ...x, ...filled } : x)) });
       break;
     }
     case "resubmit":
@@ -634,8 +641,10 @@ export async function advanceIntent(ctx: AuthContext, id: string, input: Advance
         throw new HttpError(422, "Sell fee doesn't match the proceeds");
       }
       await setIntent(intent.id, { sell_fee_tx_hash: input.txHash, status: "done" });
-      await recordTrade(ctx, intent, "sell");
-      await syncTx(input.txHash).catch(() => undefined);
+      later(async () => {
+        await recordTrade(ctx, { ...intent, sell_fee_tx_hash: input.txHash }, "sell");
+        await syncTx(input.txHash).catch(() => undefined);
+      });
       break;
     }
     case "retry": {
@@ -666,15 +675,29 @@ export async function advanceIntent(ctx: AuthContext, id: string, input: Advance
   return loadIntent(id, ctx);
 }
 
-async function afterLegFilled(ctx: AuthContext, intentId: string) {
-  const intent = await loadIntent(intentId, ctx);
+/** `intent` already carries the leg that was just filled, so nothing is read back. */
+async function afterLegFilled(ctx: AuthContext, intent: IntentWithLegs) {
   const allDone = intent.legs.every((l) => l.status === "filled" || l.status === "skipped");
   if (!allDone) return;
   if (intent.kind === "buy_stock") {
     await setIntent(intent.id, { status: "done" });
-    await recordTrade(ctx, intent, "buy");
+    // The buy is complete and saved; the trade and activity rows are written after the response.
+    later(() => recordTrade(ctx, intent, "buy"));
   } else {
     await setIntent(intent.id, { status: "legs_done" });
+  }
+}
+
+/**
+ * Runs bookkeeping after the response has gone out, so the user isn't kept waiting for it. Outside
+ * a request (scripts, tests) it simply runs.
+ */
+function later(fn: () => Promise<unknown>) {
+  const run = () => fn().catch((e: unknown) => console.error("[intents] deferred write failed", e instanceof Error ? e.message : e));
+  try {
+    after(run);
+  } catch {
+    void run();
   }
 }
 
@@ -683,8 +706,11 @@ async function afterLegFilled(ctx: AuthContext, intentId: string) {
 // ---------------------------------------------------------------------------
 
 async function priceOf(address: string): Promise<AssetRow & { price_usd: string | null }> {
-  const a = must(await db().from("assets").select("*").eq("address", getAddress(address)).single()) as AssetRow;
-  const p = must(await db().from("asset_prices").select("price_usd").eq("address", a.address).maybeSingle()) as { price_usd: string | null } | null;
+  const addr = getAddress(address);
+  const [a, p] = await Promise.all([
+    db().from("assets").select("*").eq("address", addr).single().then(must) as Promise<AssetRow>,
+    db().from("asset_prices").select("price_usd").eq("address", addr).maybeSingle().then(must) as Promise<{ price_usd: string | null } | null>,
+  ]);
   return { ...a, price_usd: p?.price_usd ?? null };
 }
 
@@ -699,14 +725,16 @@ async function recordTrade(ctx: AuthContext, intent: IntentWithLegs, side: "buy"
     const units = BigInt(l.actual_out!);
     const usd = toUsd(BigInt(intent.gross_amount!));
     const price = usd / (Number(units) / 10 ** asset.decimals);
-    await db().from("trades").upsert(
-      { profile_id: profileId, intent_id: intent.id, side, asset_address: asset.address, usd_amount: usd, units: units.toString(), price_usd: price, tx_hash: l.tx_hash },
-      { onConflict: "intent_id,side,asset_address,stack_id", ignoreDuplicates: true },
-    );
-    await db().from("activity").upsert(
-      { profile_id: profileId, type: "buy", target_type: "asset", target_id: asset.address, usd_amount: usd, tx_hash: intent.fee_tx_hash },
-      { onConflict: "tx_hash,type", ignoreDuplicates: true },
-    );
+    await Promise.all([
+      db().from("trades").upsert(
+        { profile_id: profileId, intent_id: intent.id, side, asset_address: asset.address, usd_amount: usd, units: units.toString(), price_usd: price, tx_hash: l.tx_hash },
+        { onConflict: "intent_id,side,asset_address,stack_id", ignoreDuplicates: true },
+      ),
+      db().from("activity").upsert(
+        { profile_id: profileId, type: "buy", target_type: "asset", target_id: asset.address, usd_amount: usd, tx_hash: intent.fee_tx_hash },
+        { onConflict: "tx_hash,type", ignoreDuplicates: true },
+      ),
+    ]);
   } else if (intent.kind === "buy_stack") {
     await db().from("trades").insert({
       profile_id: profileId,
