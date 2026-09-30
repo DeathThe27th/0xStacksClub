@@ -1,35 +1,48 @@
-import { ApiError, type Api, type BasketRef, type BotConfig, type Portfolio } from "./api.js";
+import { ApiError, type Api, type BasketRef, type BotConfig } from "./api.js";
 import * as f from "./format.js";
 import { log } from "./log.js";
-import type { Nlu } from "./nlu.js";
+import type { Assistant, Turn } from "./assistant.js";
 import { parseAmount, parseCommand, parseLoose, type Command } from "./parse.js";
+import { createTools } from "./tools.js";
 
-/** What to send back, in order. `run` is work to do after the messages before it have gone out. */
-export type Out = { text: string } | { contactCard: true } | { run: () => Promise<void> };
+/**
+ * What to send back, in order. `contactCard.number` is the pool number this user texts; with it the
+ * card is saved under the app's name. `run` is work to do after the messages before it have gone out.
+ */
+export type Out = { text: string } | { contactCard: { number?: string } } | { run: () => Promise<void> };
 
 type BasketCommand = Extract<Command, { basket: string }>;
 type Pending = { cmd: BasketCommand; options: BasketRef[]; at: number };
 
 const PICK_TTL_MS = 5 * 60_000;
 const LINKED_TTL_MS = 60_000;
-const MIN_CONFIDENCE = 0.6;
+/** How much of a conversation the assistant sees: the last few messages, while they're recent. */
+const HISTORY_TURNS = 8;
+const HISTORY_TTL_MS = 30 * 60_000;
 /** Replies an unlinked number can get per hour. After that we stay quiet instead of repeating ourselves. */
 const UNLINKED_REPLIES_PER_HOUR = 3;
 
 const say = (text: string): Out[] => [{ text }];
 
-export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: Nlu; now?: () => number }) {
-  const { api, nlu } = deps;
+type Account = { until: number; username?: string; number?: string };
+type Chat = { turns: Turn[]; grounding: string[]; at: number };
+
+export function createHandler(deps: { api: Api; config: () => BotConfig; assistant?: Assistant; now?: () => number }) {
+  const { api, assistant } = deps;
   const now = deps.now ?? Date.now;
   const picks = new Map<string, Pending>();
-  const linkedUntil = new Map<string, number>();
+  const accounts = new Map<string, Account>();
+  const chats = new Map<string, Chat>();
   const unlinkedReplies = new Map<string, number[]>();
 
-  async function isLinked(phone: string): Promise<boolean> {
-    if ((linkedUntil.get(phone) ?? 0) > now()) return true;
+  async function account(phone: string): Promise<Account | null> {
+    const cached = accounts.get(phone);
+    if (cached && cached.until > now()) return cached;
     const me = await api.me(phone);
-    if (me.linked) linkedUntil.set(phone, now() + LINKED_TTL_MS);
-    return me.linked;
+    if (!me.linked) return null;
+    const a = { until: now() + LINKED_TTL_MS, username: me.username, number: me.number };
+    accounts.set(phone, a);
+    return a;
   }
 
   function unlinkedReply(phone: string, text: string): Out[] {
@@ -43,10 +56,11 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
     if (!code) return unlinkedReply(phone, f.linkUsage());
     try {
       const r = await api.link(phone, code);
-      linkedUntil.set(phone, now() + LINKED_TTL_MS);
+      accounts.set(phone, { until: now() + LINKED_TTL_MS, username: r.username, number: r.number });
       unlinkedReplies.delete(phone);
+      chats.delete(phone);
       // Welcome first, with no link in it, then the contact card so they can save the number.
-      return [{ text: f.welcome(deps.config().appName, r.username) }, { contactCard: true }];
+      return [{ text: f.welcome(deps.config().appName, r.username) }, { contactCard: { number: r.number } }];
     } catch (e) {
       if (e instanceof ApiError && e.code === "bad_code") return unlinkedReply(phone, f.badCode());
       if (e instanceof ApiError && e.code === "validation") return unlinkedReply(phone, f.linkUsage());
@@ -56,8 +70,9 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
 
   async function stop(phone: string): Promise<Out[]> {
     const r = await api.unlink(phone);
-    linkedUntil.delete(phone);
+    accounts.delete(phone);
     picks.delete(phone);
+    chats.delete(phone);
     if (!r.wasLinked) return unlinkedReply(phone, f.notConnected());
     const out: Out[] = [{ text: f.unlinked(deps.config().appName) }];
     // The shared line can only message registered phones, so the slot is freed after the goodbye.
@@ -88,14 +103,8 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
     return say(f.whichBasket(r.options));
   }
 
-  async function question(phone: string, text: string): Promise<Out[]> {
-    const p = await api.portfolio(phone, true);
-    let sentence: string | null = null;
-    if (nlu && p.positions.length) {
-      const { facts, numbers } = weekFacts(p);
-      sentence = await nlu.answer(text, facts, numbers);
-    }
-    return say(f.weekReply(p, sentence));
+  async function question(phone: string): Promise<Out[]> {
+    return say(f.weekReply(await api.portfolio(phone, true), null));
   }
 
   async function run(phone: string, cmd: Command, text: string): Promise<Out[]> {
@@ -108,7 +117,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
       case "portfolio":
         return say(f.portfolioReply(await api.portfolio(phone)));
       case "question":
-        return question(phone, cmd.text);
+        return question(phone);
       case "price": {
         if (!cmd.basket.trim()) return say(f.needBasket("price"));
         const r = await api.price(phone, cmd.basket);
@@ -136,47 +145,71 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
     }
   }
 
-  /** Plain English: Gemini labels it, our code checks the label. Falls back to keywords on any failure. */
-  async function understand(text: string): Promise<Command | "clarify"> {
-    const parsed = nlu ? await nlu.parse(text) : null;
-    if (!parsed) return parseLoose(text);
-    if (parsed.intent === "unknown" || parsed.confidence < MIN_CONFIDENCE) {
-      const loose = parseLoose(text);
-      return loose.kind === "unknown" ? "clarify" : loose;
-    }
-    const basket = (parsed.basket ?? "").trim();
-    switch (parsed.intent) {
-      case "help":
-      case "baskets":
-      case "portfolio":
-        return { kind: parsed.intent };
-      case "question":
-        return { kind: "question", text };
-      case "price":
-      case "club":
-        return { kind: parsed.intent, basket };
-      case "buy":
-        return { kind: "buy", amount: parsed.amount !== null && parsed.amount > 0 ? Math.round(parsed.amount * 100) / 100 : null, basket };
-    }
+  /** The conversation: Gemini answers with our tools. Null means it couldn't, so keywords take over. */
+  async function converse(phone: string, text: string, acct: Account): Promise<Out[] | null> {
+    if (!assistant) return null;
+    const saved = chats.get(phone);
+    const chat: Chat = saved && now() - saved.at < HISTORY_TTL_MS ? saved : { turns: [], grounding: [], at: now() };
+    const cfg = deps.config();
+    const r = await assistant.reply({
+      text,
+      history: chat.turns,
+      grounding: chat.grounding,
+      tools: createTools(api, phone, cfg),
+      appName: cfg.appName,
+      facts: cfg.facts,
+      username: acct.username,
+    });
+    if (!r) return null;
+    chats.set(phone, {
+      turns: [...chat.turns, { role: "user" as const, text }, { role: "model" as const, text: r.text }].slice(-HISTORY_TURNS),
+      // Figures and links from the last few turns stay quotable in follow-ups.
+      grounding: [...chat.grounding, r.grounding].filter(Boolean).slice(-4),
+      at: now(),
+    });
+    return r.contactCard ? [{ text: r.text }, { contactCard: { number: acct.number } }] : say(r.text);
+  }
+
+  /** Keyword path, used when there's no model or it failed. */
+  async function keywords(phone: string, cmd: Command, text: string): Promise<Out[]> {
+    const picked = resolvePick(phone, text);
+    if (picked) return run(phone, picked, text);
+    if (cmd.kind !== "unknown") return run(phone, cmd, text);
+    if (parseAmount(text) !== null) return say(f.clarify());
+    const loose = parseLoose(text);
+    if (loose.kind === "unknown") return say(assistant ? f.thinkingTrouble() : f.clarify());
+    return run(phone, loose, text);
   }
 
   async function route(phone: string, text: string): Promise<Out[]> {
     const cmd = parseCommand(text);
     if (cmd.kind === "link") return link(phone, cmd.code);
     if (cmd.kind === "stop") return stop(phone);
-    if (!(await isLinked(phone))) return unlinkedReply(phone, f.notLinked(deps.config().appName));
+    const acct = await account(phone);
+    if (!acct) return unlinkedReply(phone, f.notLinked(deps.config().appName));
+    // The exact commands answer instantly from our own code. Everything else is a conversation.
+    const exact = cmd.kind !== "unknown" && !(cmd.kind === "buy" && cmd.amount === null);
+    const pick = !exact && picks.has(phone) && /^\s*\$?[\w ]{1,40}\s*$/.test(text) ? resolvePick(phone, text) : null;
+    if (pick) return remember(phone, text, await run(phone, pick, text));
+    if (!exact) {
+      const talked = await converse(phone, text, acct);
+      if (talked) return talked;
+    }
+    return remember(phone, text, await keywords(phone, cmd, text));
+  }
 
-    const picked = resolvePick(phone, text);
-    if (picked) return run(phone, picked, text);
-    // "25" after "How much?" isn't tracked: the hint tells them to send the whole command.
-    // "buy a hundred of ai kings" parses as a buy with no amount: let the model read the amount.
-    const needsModel = cmd.kind === "unknown" || (cmd.kind === "buy" && cmd.amount === null && !!nlu);
-    if (!needsModel) return run(phone, cmd, text);
-    if (parseAmount(text) !== null) return say(f.clarify());
-
-    const understood = await understand(text);
-    if (understood === "clarify") return say(f.clarify());
-    return run(phone, understood, text);
+  /** Keeps keyword replies in the conversation, so "tell me more about the first one" still works. */
+  function remember(phone: string, text: string, outs: Out[]): Out[] {
+    const said = outs.filter((o): o is { text: string } => "text" in o).map((o) => o.text).join("\n");
+    if (!assistant || !said) return outs;
+    const saved = chats.get(phone);
+    const chat: Chat = saved && now() - saved.at < HISTORY_TTL_MS ? saved : { turns: [], grounding: [], at: now() };
+    chats.set(phone, {
+      turns: [...chat.turns, { role: "user" as const, text }, { role: "model" as const, text: said }].slice(-HISTORY_TURNS),
+      grounding: [...chat.grounding, said].slice(-4),
+      at: now(),
+    });
+    return outs;
   }
 
   /** One inbound text in, the replies out. Never throws: every failure becomes a short message. */
@@ -187,7 +220,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
       if (e instanceof ApiError) {
         log("warn", "api error", { status: e.status, code: e.code });
         if (e.code === "not_linked") {
-          linkedUntil.delete(phone);
+          accounts.delete(phone);
           return unlinkedReply(phone, f.notLinked(deps.config().appName));
         }
         if (e.code === "rate_limited") return say(f.tooFast());
@@ -197,20 +230,4 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; nlu?: N
       return say(f.unreachable(deps.config().appName));
     }
   };
-}
-
-/** What the model may see for a performance question: names and percentages only, no money. */
-export function weekFacts(p: Portfolio): { facts: unknown; numbers: string[] } {
-  const numbers: string[] = [];
-  const show = (n: number | null | undefined) => {
-    if (n === null || n === undefined) return null;
-    const s = f.pct(n);
-    numbers.push(s);
-    return s;
-  };
-  const facts = {
-    note: "sinceBuying is the user's own gain or loss on the position. basket7d is the basket's index move over 7 days, not the user's gain for the week.",
-    positions: p.positions.map((x) => ({ basket: x.name ?? x.ticker ?? `#${x.id}`, basket7d: show(x.basketChange7d), sinceBuying: show(x.pnlPct) })),
-  };
-  return { facts, numbers };
 }

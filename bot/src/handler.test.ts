@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError, type Api } from "./api.js";
 import { createHandler, type Out } from "./handler.js";
-import type { Nlu } from "./nlu.js";
+import type { Assistant } from "./assistant.js";
 
 const PHONE = "+2348012344321";
 const basket = { name: "AI Kings", ticker: "AIK" };
 
 function fakeApi(over: Partial<Api> = {}): Api {
   const base: Api = {
-    config: async () => ({ appName: "App", maxBuyUsd: 10_000 }),
-    me: async () => ({ linked: true, username: "ada" }),
-    link: async () => ({ ok: true, username: "ada" }),
+    config: async () => ({ appName: "App", maxBuyUsd: 10_000, facts: [] }),
+    me: async () => ({ linked: true, username: "ada", number: "+14155550199" }),
+    link: async () => ({ ok: true, username: "ada", number: "+14155550199" }),
     unlink: async () => ({ wasLinked: true, photonUserId: "6a4d2e8c-7b1f-4d3a-9a8e-2c5d6f7e8a9b" }),
     release: async () => ({ ok: true }),
     baskets: async () => ({ total: 1, items: [{ ...basket, stocks: 3, index: 1000, change24h: 1, investedUsd: 10 }] }),
@@ -18,11 +18,12 @@ function fakeApi(over: Partial<Api> = {}): Api {
     portfolio: async () => ({ totalUsd: 10, change24hUsd: 0, usdt: 10, positions: [], stocks: [], url: "https://example.test/app/u/ada" }),
     buy: async (_p, _q, amount) => ({ match: "one", basket, amountUsd: amount, url: `https://example.test/app/basket/1?buy=${amount}`, closed: [] }),
     club: async () => ({ match: "one", basket, isMember: false, hasLink: true, url: null, basketUrl: "https://example.test/app/basket/1" }),
+    stock: async () => ({ match: "none" }),
   };
   return { ...base, ...over };
 }
 
-const make = (api: Api, nlu?: Nlu) => createHandler({ api, nlu, config: () => ({ appName: "App", maxBuyUsd: 10_000 }) });
+const make = (api: Api, assistant?: Assistant) => createHandler({ api, assistant, config: () => ({ appName: "App", maxBuyUsd: 10_000, facts: [] }) });
 const texts = (outs: Out[]) => outs.filter((o): o is { text: string } => "text" in o).map((o) => o.text);
 
 describe("linking", () => {
@@ -31,7 +32,7 @@ describe("linking", () => {
     expect(outs).toHaveLength(2);
     expect(texts(outs)[0]).toBe(`You're connected to App as @ada. Text "help" to see what I can do.`);
     expect(texts(outs)[0]).not.toMatch(/https?:/);
-    expect(outs[1]).toEqual({ contactCard: true });
+    expect(outs[1]).toEqual({ contactCard: { number: "+14155550199" } });
   });
 
   it("explains a bad code and a rate limit", async () => {
@@ -103,50 +104,77 @@ describe("commands", () => {
   });
 });
 
-describe("plain English", () => {
-  const nlu = (parse: Nlu["parse"], answer: Nlu["answer"] = async () => null): Nlu => ({ parse, answer });
+describe("conversation", () => {
+  it("sends every message from a linked phone to the assistant, with recent history", async () => {
+    const reply = vi.fn<Assistant["reply"]>(async ({ text }) => ({ text: `re: ${text}`, contactCard: false, grounding: "" }));
+    const h = make(fakeApi(), { reply });
+    expect(texts(await h(PHONE, "what's hot right now"))).toEqual(["re: what's hot right now"]);
+    expect(texts(await h(PHONE, "and the first one?"))).toEqual(["re: and the first one?"]);
+    expect(reply.mock.calls[1]![0].history).toEqual([
+      { role: "user", text: "what's hot right now" },
+      { role: "model", text: "re: what's hot right now" },
+    ]);
+    expect(reply.mock.calls[1]![0].username).toBe("ada");
+  });
 
-  it("uses the model's label but validates it in code", async () => {
+  it("answers exact commands instantly and keeps them in the conversation", async () => {
+    const reply = vi.fn<Assistant["reply"]>(async () => ({ text: "sure", contactCard: false, grounding: "" }));
+    const h = make(fakeApi(), { reply });
+    expect(texts(await h(PHONE, "baskets"))[0]).toContain("Top baskets");
+    expect(reply).not.toHaveBeenCalled();
+    await h(PHONE, "tell me more about the first one");
+    expect(reply.mock.calls[0]![0].history[1]!.text).toContain("1. AI Kings ($AIK)");
+    expect(reply.mock.calls[0]![0].grounding.join("")).toContain("1,000.00");
+  });
+
+  it("lets the assistant's tools build a buy link but never trade", async () => {
     const buy = vi.fn(fakeApi().buy);
-    const h = make(fakeApi({ buy }), nlu(async () => ({ intent: "buy", basket: "ai kings", amount: 40, confidence: 0.9 })));
-    expect(texts(await h(PHONE, "put forty bucks into ai kings"))[0]).toContain("Buy $40 of AI Kings?");
-    const over = make(fakeApi({ buy }), nlu(async () => ({ intent: "buy", basket: "ai kings", amount: 99_999, confidence: 0.9 })));
-    expect(texts(await over(PHONE, "put everything into ai kings"))[0]).toContain("up to $10,000");
-    const negative = make(fakeApi({ buy }), nlu(async () => ({ intent: "buy", basket: "ai kings", amount: -5, confidence: 0.9 })));
-    expect(texts(await negative(PHONE, "put some into ai kings"))[0]).toBe("How much? For example: buy 25 ai kings");
+    const assistant: Assistant = {
+      reply: async ({ tools }) => {
+        const r = await tools.run("make_buy_link", { basket: "ai kings", amount_usd: 40 });
+        return { text: r.fallback, contactCard: false, grounding: JSON.stringify(r.data) };
+      },
+    };
+    const out = texts(await make(fakeApi({ buy }), assistant)(PHONE, "put forty bucks into ai kings"))[0]!;
+    expect(out).toBe("Buy $40 of AI Kings? Tap to open it and confirm:\nhttps://example.test/app/basket/1?buy=40");
+    expect(buy).toHaveBeenCalledWith(PHONE, "ai kings", 40);
   });
 
-  it("falls back to keywords when the model fails", async () => {
-    const h = make(fakeApi(), nlu(async () => null));
+  it("checks tool arguments in code whatever the model asks for", async () => {
+    const buy = vi.fn(fakeApi().buy);
+    const tools = (await import("./tools.js")).createTools(fakeApi({ buy }), PHONE, { appName: "App", maxBuyUsd: 10_000, facts: [] });
+    expect((await tools.run("make_buy_link", { basket: "ai kings", amount_usd: 99_999 })).data).toMatchObject({ status: "over_limit" });
+    expect((await tools.run("make_buy_link", { basket: "ai kings", amount_usd: -5 })).data).toMatchObject({ status: "need_amount" });
+    expect((await tools.run("make_buy_link", { basket: "ai kings", amount_usd: "lots" })).data).toMatchObject({ status: "need_amount" });
+    expect(buy).not.toHaveBeenCalled();
+    const club = await tools.run("get_club_link", { basket: "ai kings" });
+    expect(JSON.stringify(club.data)).not.toContain("t.me");
+    expect(club.mustInclude).toEqual(["Admins will never DM you first."]);
+  });
+
+  it("falls back to keyword commands when the assistant can't answer", async () => {
+    const h = make(fakeApi(), { reply: async () => null });
     expect(texts(await h(PHONE, "can you show my portfolio please"))[0]).toContain("Total $10.00");
+    expect(texts(await h(PHONE, "tell me a joke"))[0]).toContain("I'm having trouble thinking");
   });
 
-  it("asks again when confidence is low", async () => {
-    const h = make(fakeApi(), nlu(async () => ({ intent: "club", basket: null, amount: null, confidence: 0.3 })));
-    expect(texts(await h(PHONE, "hmm what about that thing"))[0]).toContain("I didn't catch that");
+  it("keeps link and stop out of the model's hands", async () => {
+    const reply = vi.fn<Assistant["reply"]>(async () => ({ text: "x", contactCard: false, grounding: "" }));
+    const h = make(fakeApi(), { reply });
+    await h(PHONE, "link 123456");
+    await h(PHONE, "stop");
+    expect(reply).not.toHaveBeenCalled();
   });
 
-  it("skips the model for exact commands", async () => {
-    const parse = vi.fn<Nlu["parse"]>(async () => null);
-    await make(fakeApi(), nlu(parse))(PHONE, "baskets");
-    expect(parse).not.toHaveBeenCalled();
+  it("does not talk to an unlinked phone through the model", async () => {
+    const reply = vi.fn<Assistant["reply"]>(async () => ({ text: "x", contactCard: false, grounding: "" }));
+    const h = make(fakeApi({ me: async () => ({ linked: false }) }), { reply });
+    expect(texts(await h(PHONE, "what can you do"))[0]).toContain("isn't connected to App yet");
+    expect(reply).not.toHaveBeenCalled();
   });
 
-  it("answers a performance question with our figures and the model's sentence", async () => {
-    const portfolio: Api["portfolio"] = async () => ({
-      totalUsd: 500,
-      change24hUsd: 1,
-      usdt: 0,
-      positions: [{ id: 12, name: "AI Kings", ticker: "AIK", valueUsd: 500, costBasisUsd: 480, pnlUsd: 20, pnlPct: 4.17, basketChange7d: 2.1 }],
-      stocks: [],
-      url: "https://example.test/app/u/ada",
-    });
-    const answer = vi.fn<Nlu["answer"]>(async () => "AI Kings is up over the week.");
-    const h = make(fakeApi({ portfolio }), nlu(async () => ({ intent: "question", basket: null, amount: null, confidence: 0.9 }), answer));
-    const out = texts(await h(PHONE, "how did my baskets do this week"))[0]!;
-    expect(out.split("\n")).toEqual(["AI Kings is up over the week.", "AI Kings: basket +2.10% 7d, you +$20.00 (+4.17%) since buying", "https://example.test/app/u/ada"]);
-    // The model saw percentages only: no dollar figures, no link, no wallet.
-    const facts = JSON.stringify(answer.mock.calls[0]![1]);
-    expect(facts).not.toMatch(/500|480|example\.test|\$/);
+  it("sends the named contact card when the assistant asks for it", async () => {
+    const h = make(fakeApi(), { reply: async () => ({ text: "Here you go.", contactCard: true, grounding: "" }) });
+    expect(await h(PHONE, "send me your contact")).toEqual([{ text: "Here you go." }, { contactCard: { number: "+14155550199" } }]);
   });
 });

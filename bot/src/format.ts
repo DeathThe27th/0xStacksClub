@@ -1,4 +1,4 @@
-import type { BasketRef, Baskets, Buy, Club, Portfolio, Price } from "./api.js";
+import type { BasketRef, Baskets, Buy, Club, Portfolio, Price, Stock } from "./api.js";
 
 // Every reply is built here, by code: links come from the site's API as-is and money is formatted
 // from its numbers. A missing number is said out loud ("price unavailable"), never filled in.
@@ -26,7 +26,7 @@ export function indexNumber(n: number): string {
   return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function price(n: number): string {
+export function price(n: number): string {
   return n < 1 ? `$${Number(n.toPrecision(4))}` : usd(n);
 }
 
@@ -156,3 +156,11 @@ export function weekReply(p: Portfolio, sentence: string | null): string {
   lines.push(p.url);
   return lines.join("\n");
 }
+
+export function stockReply(r: Extract<Stock, { match: "one" }>): string {
+  const s = r.stock;
+  const px = s.priceUsd === null ? "price unavailable" : `${price(s.priceUsd)}${s.change24h === null ? "" : ` ${pct(s.change24h)} 24h`}`;
+  return [`${s.ticker} (${s.name})`, `${px}${s.marketOpen === false ? " (market closed)" : ""}`, s.url].join("\n");
+}
+
+export const thinkingTrouble = () => `I'm having trouble thinking right now. Try "baskets", "portfolio" or "price <basket>".`;

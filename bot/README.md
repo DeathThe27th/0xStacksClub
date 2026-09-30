@@ -9,24 +9,38 @@ with the same server code the site uses and hand back data and ready-made links.
 comes from `/api/bot/config` (`APP_NAME` in `src/lib/constants.ts`), and the site's address comes
 from `SITE_URL`; neither is hardcoded here.
 
-## What it understands
+## What it does
 
-| Text | Reply |
+With `GEMINI_API_KEY` set, the bot holds a normal conversation. Gemini reads each message, calls the
+bot's tools for anything factual, and writes the reply in its own words:
+
+| Tool | What it does |
 | --- | --- |
-| `link 123456` | Connects this phone to the account that made the code. Welcome text (no link), then the contact card. |
-| `help` | The list of commands |
-| `baskets` | Top baskets with their index and 24h change |
-| `price <basket>` | One basket's index, change and each stock in it |
-| `portfolio` | Positions, total value and PnL |
-| `buy <amount> <basket>` | A link that opens the basket's buy form on the site with the amount filled in |
-| `club <basket>` | The basket's Telegram link, for holders only |
-| `stop` | Disconnects this phone |
+| `list_baskets` | Top baskets with index and 24h change |
+| `get_basket` | One basket: index, changes, each stock with weight, price and market state |
+| `get_stock` | One stock token: price, 24h change, market state |
+| `get_portfolio` | The user's total, USDT, positions with PnL, single stocks |
+| `make_buy_link` | A link that opens the basket's buy form with the amount filled in |
+| `get_club_link` | The basket's Telegram link, for holders only |
+| `send_contact_card` | A contact card for this number under the app's name |
 
-Basket names are matched loosely; if several fit, the bot lists them and takes a number back.
-Anything that isn't one of these goes to Gemini, which only labels the message as JSON
-(`intent`, `basket`, `amount`, `confidence`). The bot's own code checks that label and writes every
-reply that contains a link or money. If Gemini is slow (8 seconds), errors or is rate limited, the
-bot falls back to a keyword parser; if `GEMINI_API_KEY` is empty it only uses the keyword parser.
+It can also answer questions about how the app works (fees, minimums, what a basket is) from facts
+served by `/api/bot/config`, and everyday questions briefly from general knowledge.
+
+What the model can't do: a reply is only sent if every link, dollar amount and percentage in it
+appears in a tool result, the product facts or the user's own message, and if it contains any link a
+tool said it must (the buy confirm link, the club warning). Otherwise the bot sends the reply its
+own code builds for the same data. The model never sees wallet addresses or keys, and no tool can
+buy, sell or sign.
+
+These exact commands skip the model and answer instantly: `help`, `baskets`, `portfolio`,
+`price <basket>`, `buy <amount> <basket>`, `club <basket>`. `link <code>` and `stop` are always
+handled by code. If Gemini is slow, overloaded or rate limited, the bot tries
+`GEMINI_FALLBACK_MODEL`, then falls back to keyword matching. Without a key it only uses the
+commands.
+
+The free Gemini tier often takes 5 to 10 seconds per call, and a reply that needs data takes two
+calls, so conversational replies can take 10 to 20 seconds. A paid key is much faster.
 
 ## How a phone gets connected (shared pool)
 
@@ -60,6 +74,7 @@ cp .env.example .env     # then fill it in
 | `SITE_URL` | The site, no trailing slash |
 | `BOT_API_SECRET` | `openssl rand -hex 32`. Must equal `BOT_API_SECRET` in Vercel. |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | Optional. Default model `gemini-3.5-flash-lite`. |
+| `GEMINI_FALLBACK_MODEL` | Optional. Default `gemini-3.1-flash-lite`. |
 | `BOT_PROVIDER` | `imessage` (default) or `terminal` |
 | `TERMINAL_PHONE` | Terminal provider only: the phone the terminal stands in for (E.164) |
 | `DAILY_SEND_LIMIT` | Default 4500. Photon's hard limit is 5,000 messages per server per day. |
@@ -122,7 +137,8 @@ pm2 restart imessage-bot
 ## Limits and behaviour
 
 - **Inbound-first.** The bot only ever replies. The first reply to a new number is plain text with
-  no link, and the contact card follows the welcome.
+  no link, and the contact card follows the welcome. On the shared pool the line's own card says
+  "Spectrum", so the bot sends a card it builds: the app's name with the number that user texts.
 - **Quotas.** Outbound messages are counted per UTC day in `.state/quota.json` and the bot stops
   replying at `DAILY_SEND_LIMIT`. Replies to one phone are sent in order with a short gap.
 - **Throttles.** 12 inbound messages per phone per minute; an unlinked number gets at most 3

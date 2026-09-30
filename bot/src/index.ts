@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { Spectrum, type Message, type Space } from "spectrum-ts";
+import { Spectrum, contact, type Message, type Space } from "spectrum-ts";
 import { imessage } from "spectrum-ts/providers/imessage";
 import { terminal } from "spectrum-ts/providers/terminal";
 import { createApi, type BotConfig } from "./api.js";
@@ -8,7 +8,7 @@ import { needPhone, textOnly } from "./format.js";
 import { createHandler, type Out } from "./handler.js";
 import { log, setLogLevel } from "./log.js";
 import { isPhone, maskPhone } from "./mask.js";
-import { createNlu } from "./nlu.js";
+import { createAssistant } from "./assistant.js";
 import { createQuota } from "./quota.js";
 
 const cfg = loadConfig();
@@ -38,7 +38,7 @@ const quota = createQuota(cfg.DAILY_SEND_LIMIT, fileURLToPath(new URL("../.state
 const handle = createHandler({
   api,
   config: () => botConfig,
-  nlu: cfg.GEMINI_API_KEY ? createNlu({ apiKey: cfg.GEMINI_API_KEY, model: cfg.GEMINI_MODEL }) : undefined,
+  assistant: cfg.GEMINI_API_KEY ? createAssistant({ apiKey: cfg.GEMINI_API_KEY, model: cfg.GEMINI_MODEL, fallbackModel: cfg.GEMINI_FALLBACK_MODEL }) : undefined,
 });
 
 const app = isTerminal
@@ -83,9 +83,13 @@ async function deliver(space: Space, outs: Out[]) {
     if ("text" in out) {
       if (!(await send(space, out.text))) return;
     } else if (isTerminal) {
-      await space.send("[contact card is shared here on iMessage]");
+      await space.send(`[contact card: ${botConfig.appName}]`);
     } else if (quota.take()) {
-      await imessage(space).shareContactCard();
+      // On the shared pool the line's own card says "Spectrum". A card we build carries the app's
+      // name with the number this user texts, so saving it names the thread properly.
+      const number = out.contactCard.number;
+      if (number) await space.send(contact({ name: { formatted: botConfig.appName, first: botConfig.appName }, org: { name: botConfig.appName }, phones: [{ value: number, type: "mobile" }] }));
+      else await imessage(space).shareContactCard();
     }
   }
 }

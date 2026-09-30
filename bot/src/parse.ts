@@ -32,7 +32,7 @@ export function parseCommand(input: string): Command {
   if (link) return { kind: "link", code: link[1]! };
   if (/^link\b/.test(lower)) return { kind: "link", code: "" };
   if (/^(stop|unlink|disconnect|unsubscribe)$/.test(lower)) return { kind: "stop" };
-  if (/^(help|\?|menu|commands|hi|hello|hey|start)$/.test(lower)) return { kind: "help" };
+  if (/^(help|\?|menu|commands)$/.test(lower)) return { kind: "help" };
   if (/^(baskets?|top|top baskets|list)$/.test(lower)) return { kind: "baskets" };
   if (/^(portfolio|positions|holdings|balance|my portfolio)$/.test(lower)) return { kind: "portfolio" };
 
@@ -71,6 +71,6 @@ export function parseLoose(input: string): Command {
   if (/\b(portfolio|my positions|my holdings|my balance|how am i doing)\b/.test(lower)) return { kind: "portfolio" };
   if (/\b(baskets|trending|top)\b/.test(lower) && !price) return { kind: "baskets" };
   if (price && !/\b(my|i)\b/.test(price[1]!.toLowerCase())) return { kind: "price", basket: price[1]! };
-  if (/\bhelp\b|what can you do/.test(lower)) return { kind: "help" };
+  if (/\bhelp\b|what can you do|^(hi|hello|hey|yo|start)\b/.test(lower)) return { kind: "help" };
   return { kind: "unknown" };
 }

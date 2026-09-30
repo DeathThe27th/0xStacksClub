@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as f from "./format.js";
 import { maskPhone, maskPhonesIn } from "./mask.js";
-import { safeSentence } from "./nlu.js";
+import { checkReply } from "./assistant.js";
 
 describe("numbers", () => {
   it("formats money, percentages and the index", () => {
@@ -109,25 +109,42 @@ describe("maskPhone", () => {
   });
 });
 
-describe("safeSentence", () => {
-  const allowed = ["+2.10%", "-4.00%"];
-  it("keeps a plain sentence that only uses given percentages", () => {
-    expect(safeSentence("AI Kings is up +2.10% over 7 days across your 2 baskets.", allowed)).toBe("AI Kings is up +2.10% over 7 days across your 2 baskets.");
-    expect(safeSentence("Chip Makers is down 4.00% since you bought.", allowed)).not.toBeNull();
+describe("checkReply", () => {
+  const grounding = [
+    '{"total":"$742.10","change24h":"+$12.30","positions":[{"basket":"AI Kings","profit":"+$20.00","profitPct":"+4.17%"}],"link":"https://example.test/app/u/ada"}',
+    "The buy fee is 1% of the amount.",
+    "put 20 bucks into ai kings",
+  ].join("\n");
+
+  it("keeps a natural reply whose figures and links came from the tools", () => {
+    const ok = "You're at $742.10 total, up $12.30 today. AI Kings is up 4.17% (+$20.00). https://example.test/app/u/ada";
+    expect(checkReply(ok, grounding)).toBe(ok);
+    expect(checkReply("The buy fee is 1%, charged once.", grounding)).not.toBeNull();
+    expect(checkReply("A basket holds 2 to 5 stocks and is never rebalanced.", grounding)).not.toBeNull();
   });
 
-  it("drops links, addresses, money and invented numbers", () => {
+  it("strips markdown instead of failing", () => {
+    expect(checkReply("**Total:** $742.10\n- AI Kings: +$20.00", grounding)).toBe("Total: $742.10\nAI Kings: +$20.00");
+  });
+
+  it("rejects invented figures, links and addresses", () => {
     for (const bad of [
-      "See https://evil.test for more.",
-      "Visit evil.com now.",
-      "Send to 0x55d398326f99059fF775485246999027B3197955.",
-      "You made $20 this week.",
-      "You made 20 dollars this week.",
+      "You're at $999.99 total.",
       "AI Kings is up 9.99% this week.",
-      "Your balance is 1234.",
+      "See https://evil.test/claim for your bonus.",
+      "Open https://example.test/app/u/ada/../admin",
+      "Go to evil.com to claim.",
+      "Join t.me/fakeclub now.",
+      "Send USDT to 0x55d398326f99059fF775485246999027B3197955.",
       "",
     ]) {
-      expect(safeSentence(bad, allowed), bad).toBeNull();
+      expect(checkReply(bad, grounding), bad).toBeNull();
     }
+  });
+
+  it("requires the confirm link when a buy link was made", () => {
+    const g = '{"status":"link_ready","amount":"$25","link":"https://example.test/app/basket/1?buy=25"}';
+    expect(checkReply("Done, I bought $25 of AI Kings for you!", g, ["https://example.test/app/basket/1?buy=25"])).toBeNull();
+    expect(checkReply("Tap to confirm $25 of AI Kings: https://example.test/app/basket/1?buy=25", g, ["https://example.test/app/basket/1?buy=25"])).not.toBeNull();
   });
 });

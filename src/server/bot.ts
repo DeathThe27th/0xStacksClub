@@ -1,9 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { matchBasket, type BasketMatch } from "@/lib/basketMatch";
-import { APP_NAME, BOT_MAX_BUY_USD, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
+import { APP_NAME, BOT_MAX_BUY_USD, BPS, CREATOR_SHARE_BPS, FEE_BPS, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL } from "@/lib/constants";
 import { serverEnv } from "@/lib/env";
-import type { StackRow } from "@/lib/supabase/types";
+import type { AssetPriceRow, AssetRow, StackRow } from "@/lib/supabase/types";
 import { clubAccess, getClubLink } from "@/server/clubs";
 import { db, must } from "@/server/db";
 import { handler, HttpError, json, readJson } from "@/server/http";
@@ -45,8 +45,28 @@ function appUrl(path: string): string {
 
 const basketUrl = (id: number) => appUrl(`/app/basket/${id}`);
 
+/** Product facts the assistant may state. Built from the constants the app itself enforces. */
+function botFacts(): string[] {
+  const feePct = Number(FEE_BPS) / 100;
+  const creatorPct = (Number(FEE_BPS) * Number(CREATOR_SHARE_BPS)) / Number(BPS) / 100;
+  return [
+    `${APP_NAME} is a social market for tokenized stocks and baskets of them on BNB Smart Chain.`,
+    "A basket is a fixed recipe of 2 to 5 tokenized stocks with set weights. The recipe never changes and nothing is rebalanced.",
+    "Buying a basket creates the user's own position holding the exact tokens bought. A basket has no token or price of its own; its index starts at 1,000 at launch.",
+    "Stock tokens are issued by providers (bStocks and Ondo). They are not direct shares in the company.",
+    "Everything is bought and sold with USDT on BNB Smart Chain. Users also need a little BNB for network fees.",
+    `The buy fee is ${feePct}% of the amount, charged once. On a basket buy the basket's creator gets ${creatorPct}% of the amount (a quarter of the fee). The sell fee is ${feePct}% of the proceeds. Creating a basket has no app fee.`,
+    `Minimum buy is $${MIN_BUY_USD_SMALL} for a single stock or a basket of up to 3 stocks, and $${MIN_BUY_USD_LARGE} for a basket of 4 or 5.`,
+    "A basket buy is not atomic: each stock is bought in turn, and the position is only created once every stock has been bought.",
+    "Sell turns a share of every stock in a position into USDT. Redeem returns that share of the stock tokens themselves.",
+    "Users sign every transaction with their own wallet. The app and this assistant never hold funds and cannot buy, sell or move anything.",
+    "Each basket can have a club: a Telegram group run by its creator, open only to wallets holding the basket. Admins will never DM you first.",
+    "Prices are indicative marks. Stock tokens may not trade while their market is closed.",
+  ];
+}
+
 export function botConfig() {
-  return { appName: APP_NAME, maxBuyUsd: BOT_MAX_BUY_USD };
+  return { appName: APP_NAME, maxBuyUsd: BOT_MAX_BUY_USD, facts: botFacts() };
 }
 
 /** "baskets": the Baskets tab's Trending order, with the index and 24h move the site shows. */
@@ -179,5 +199,41 @@ export async function botClub(user: BotUser, query: string) {
     hasLink: url !== null,
     url: role.isMember ? url : null,
     basketUrl: basketUrl(Number(stack.id)),
+  };
+}
+
+/** A single stock token by ticker or company name: price, 24h move and market state. */
+export async function botStock(query: string) {
+  const q = query.replace(/[%_,()*$]/g, "").trim();
+  if (!q) return { match: "none" as const };
+  const like = `%${q}%`;
+  const rows = must(
+    await db().from("assets").select("*").eq("can_browse", true).or(`ticker.ilike.${like},symbol.ilike.${like},name.ilike.${like}`).limit(40),
+  ) as AssetRow[];
+  if (!rows.length) return { match: "none" as const };
+  // One entry per stock, like the site's search: the tradable bStocks token stands for the ticker.
+  const rank = (a: AssetRow) => (a.can_trade ? 2 : 0) + (a.provider === "bstock" ? 1 : 0);
+  const byTicker = new Map<string, AssetRow>();
+  for (const a of rows) {
+    const cur = byTicker.get(a.ticker);
+    if (!cur || rank(a) > rank(cur)) byTicker.set(a.ticker, a);
+  }
+  const exact = byTicker.get(q.toUpperCase());
+  const picks = exact ? [exact] : [...byTicker.values()];
+  if (picks.length > 1) return { match: "many" as const, options: picks.slice(0, 5).map((a) => ({ ticker: a.ticker, name: a.name })) };
+  const a = picks[0]!;
+  const price = must(await db().from("asset_prices").select("*").eq("address", a.address).maybeSingle()) as AssetPriceRow | null;
+  return {
+    match: "one" as const,
+    stock: {
+      ticker: a.ticker,
+      name: a.name,
+      provider: a.provider,
+      priceUsd: price?.price_usd == null ? null : Number(price.price_usd),
+      change24h: price?.change_24h == null ? null : Number(price.change_24h),
+      marketOpen: price?.market_open ?? null,
+      canTrade: a.can_trade,
+      url: appUrl(`/app/stock/${a.provider}/${a.address}`),
+    },
   };
 }

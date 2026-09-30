@@ -25,6 +25,8 @@ describe("parseCommand", () => {
 
   it("reads the simple commands in any case", () => {
     expect(parseCommand("Help")).toEqual({ kind: "help" });
+    expect(parseCommand("hey")).toEqual({ kind: "unknown" });
+    expect(parseLoose("hey")).toEqual({ kind: "help" });
     expect(parseCommand("baskets")).toEqual({ kind: "baskets" });
     expect(parseCommand("Portfolio")).toEqual({ kind: "portfolio" });
     expect(parseCommand("price AI Kings")).toEqual({ kind: "price", basket: "AI Kings" });

@@ -13,6 +13,7 @@ const schema = z
     SPECTRUM_PROJECT_SECRET: opt(z.string().min(1)),
     GEMINI_API_KEY: opt(z.string().min(1)),
     GEMINI_MODEL: z.preprocess(blank, z.string().default("gemini-3.5-flash-lite")),
+    GEMINI_FALLBACK_MODEL: z.preprocess(blank, z.string().default("gemini-3.1-flash-lite")),
     TERMINAL_PHONE: opt(z.string().refine(isPhone, "must be E.164, like +14155550132")),
     DAILY_SEND_LIMIT: z.preprocess(blank, z.coerce.number().int().min(1).max(5000).default(4500)),
     LOG_LEVEL: z.preprocess(blank, z.enum(["debug", "info", "warn", "error"]).default("info")),
