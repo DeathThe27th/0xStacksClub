@@ -11,6 +11,7 @@ import { useApi } from "@/lib/client/api";
 import type { ProfileLite } from "@/lib/client/types";
 import { APP_NAME } from "@/lib/constants";
 
+export type AppVolume = { allUsd: number; dayUsd: number; trades: number };
 export type PublicTrade = { id: number; side: "buy" | "sell"; usd: number; price: number | null; at: string; trader: ProfileLite | null; isMe: boolean; isFriend: boolean };
 
 /** App users' trades in one stock or basket. */
@@ -18,10 +19,11 @@ export function useTrades(targetType: "asset" | "stack", targetId: string) {
   const api = useApi();
   const q = useQuery({
     queryKey: ["public-trades", targetType, targetId],
-    queryFn: () => api<{ items: PublicTrade[] }>(`/api/trades/public?targetType=${targetType}&targetId=${targetId}`),
+    queryFn: () => api<{ items: PublicTrade[]; volume?: AppVolume }>(`/api/trades/public?targetType=${targetType}&targetId=${targetId}`),
     refetchInterval: 15_000,
+    enabled: !!targetId,
   });
-  return { trades: q.data?.items ?? [], loading: q.isLoading };
+  return { trades: q.data?.items ?? [], volume: q.data?.volume ?? null, loading: q.isLoading };
 }
 
 /** Live trades by app users (fomo-style), newest first. */

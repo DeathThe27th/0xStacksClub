@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Compass, Users } from "lucide-react";
+import { TokenLogo } from "@/components/ui/TokenLogo";
 import Link from "next/link";
 import { useState } from "react";
 import { ActivityItem } from "@/components/social/ActivityItem";
@@ -17,6 +18,10 @@ import { useApi } from "@/lib/client/api";
 import type { Activity, ProfileLite } from "@/lib/client/types";
 
 type Creator = { profile: ProfileLite; earnedRaw: string; buyers: number; stacks: number; following: boolean };
+type StockLeader = { asset: { address: string; ticker: string; name: string; provider: string; logo_url: string | null }; volumeUsd: number; traders: number; trades: number };
+type Trader = { profile: ProfileLite; volumeUsd: number; trades: number; following: boolean };
+type Discover = { stocks: StockLeader[]; traders: Trader[]; latest: Activity[]; byEarnings: Creator[]; byBuyers: Creator[] };
+type Person = { profile: ProfileLite; following: boolean };
 
 export default function Social() {
   const api = useApi();
@@ -26,11 +31,11 @@ export default function Social() {
   const feed = useQuery({ queryKey: ["activity", "following"], queryFn: () => api<{ items: Activity[] }>("/api/activity?tab=following"), enabled: tab === "following", refetchInterval: 20_000 });
   const discover = useQuery({
     queryKey: ["activity", "discover"],
-    queryFn: () => api<{ byEarnings: Creator[]; byBuyers: Creator[] }>("/api/activity?tab=discover"),
+    queryFn: () => api<Discover>("/api/activity?tab=discover"),
     enabled: tab === "discover",
   });
   const follow = useMutation({
-    mutationFn: (c: Creator) => api("/api/follow", { method: c.following ? "DELETE" : "POST", json: { profileId: c.profile.id } }),
+    mutationFn: (c: Person) => api("/api/follow", { method: c.following ? "DELETE" : "POST", json: { profileId: c.profile.id } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activity"] });
     },
@@ -64,7 +69,7 @@ export default function Social() {
               ))}
             </div>
           ) : (
-            <EmptyState icon={<Users size={24} />} title="Your feed is quiet" body="Follow creators and traders to see their buys, sells and new baskets here." action={<Button size="md" onClick={() => setTab("discover")}>Discover people</Button>} />
+            <EmptyState icon={<Users size={24} />} title="Your feed is quiet" body="Follow traders to see what stocks they buy and sell." action={<Button size="md" onClick={() => setTab("discover")}>Discover people</Button>} />
           )
         ) : discover.isLoading ? (
           <div className="pt-3">
@@ -72,12 +77,50 @@ export default function Social() {
           </div>
         ) : discover.isError ? (
           <ErrorState message={(discover.error as Error).message} onRetry={() => discover.refetch()} />
-        ) : !discover.data?.byEarnings.length ? (
-          <EmptyState icon={<Compass size={24} />} title="No creators yet" body="Creators show up here once their baskets get bought." />
+        ) : !discover.data || (!discover.data.stocks.length && !discover.data.traders.length && !discover.data.latest.length && !discover.data.byEarnings.length) ? (
+          <EmptyState icon={<Compass size={24} />} title="Nothing to discover yet" body="Stocks and traders show up here once people start trading." />
         ) : (
           <>
-            <CreatorList title="Top creators by fees earned" items={discover.data.byEarnings} metric={(c) => `${usd(Number(BigInt(c.earnedRaw)) / 1e18)} earned`} onFollow={(c) => follow.mutate(c)} />
-            <CreatorList title="Most basket buyers" items={discover.data.byBuyers} metric={(c) => `${c.buyers} buyer${c.buyers === 1 ? "" : "s"}`} onFollow={(c) => follow.mutate(c)} />
+            {discover.data.stocks.length > 0 && (
+              <section className="mt-5">
+                <h2 className="text-section">Most traded stocks this week</h2>
+                <ul className="mt-2">
+                  {discover.data.stocks.map((s) => (
+                    <li key={s.asset.address}>
+                      <Link href={`/app/stock/${s.asset.provider}/${s.asset.address}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
+                        <TokenLogo src={s.asset.logo_url} label={s.asset.ticker} size={44} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[16px] font-semibold uppercase">{s.asset.ticker}</p>
+                          <p className="truncate text-secondary text-text-muted">{s.asset.name}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[16px] font-medium tnum">{usd(s.volumeUsd, { compact: s.volumeUsd >= 10_000 })}</p>
+                          <p className="text-[12px] text-text-muted">
+                            {s.traders} trader{s.traders === 1 ? "" : "s"}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+            {discover.data.traders.length > 0 && (
+              <PeopleList title="Top traders this week" items={discover.data.traders} metric={(t) => `${usd(t.volumeUsd, { compact: t.volumeUsd >= 10_000 })} traded`} onFollow={(t) => follow.mutate(t)} />
+            )}
+            {discover.data.latest.length > 0 && (
+              <section className="mt-5">
+                <h2 className="text-section">Latest trades</h2>
+                <div className="divide-y divide-border">
+                  {discover.data.latest.map((a) => (
+                    <ActivityItem key={a.id} a={a} />
+                  ))}
+                </div>
+              </section>
+            )}
+            {discover.data.byEarnings.length > 0 && (
+              <PeopleList title="Basket creators" items={discover.data.byEarnings} metric={(c) => `${usd(Number(BigInt(c.earnedRaw)) / 1e18)} earned · ${c.buyers} buyer${c.buyers === 1 ? "" : "s"}`} onFollow={(c) => follow.mutate(c)} />
+            )}
           </>
         )}
       </div>
@@ -85,7 +128,7 @@ export default function Social() {
   );
 }
 
-function CreatorList({ title, items, metric, onFollow }: { title: string; items: Creator[]; metric: (c: Creator) => string; onFollow: (c: Creator) => void }) {
+function PeopleList<T extends Person>({ title, items, metric, onFollow }: { title: string; items: T[]; metric: (c: T) => string; onFollow: (c: T) => void }) {
   return (
     <section className="mt-5">
       <h2 className="text-section">{title}</h2>

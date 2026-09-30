@@ -69,6 +69,30 @@
 }
 
 /*
+ * Binance: the exchange's dark palette. Near-black panels, yellow actions with dark text (14:1),
+ * its green and red for moves.
+ */
+:root[data-theme="binance"] {
+  --bg: 11 14 17; /* #0B0E11 */
+  --surface: 24 26 32; /* #181A20 */
+  --surface-2: 30 35 41; /* #1E2329 */
+  --border: 43 49 57; /* #2B3139 */
+  --text: 234 236 239; /* #EAECEF */
+  --text-muted: 132 142 156; /* #848E9C, 5.6:1 on bg */
+  --text-dim: 94 102 115;
+  --primary: 252 213 53; /* #FCD535 */
+  --primary-press: 240 185 11; /* #F0B90B */
+  --on-primary: 24 26 32;
+  --chip: 24 26 32;
+  --chip-active: 43 49 57;
+  --link: 240 185 11;
+  --up: 14 203 129; /* #0ECB81 */
+  --down: 246 70 93; /* #F6465D */
+  --warn: 240 185 11;
+  color-scheme: dark;
+}
+
+/*
  * Desktop renders at 80%, which is the density the layout was tuned for. `zoom` scales viewport
  * units too, so anything sized from dvh divides by --app-zoom, and the chart counter-zooms (its
  * pointer maths reads unzoomed coordinates).

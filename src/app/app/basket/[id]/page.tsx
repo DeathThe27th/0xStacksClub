@@ -136,7 +136,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
               { label: "Since launch", value: <Change value={s?.change} /> },
               { label: "Holders", value: s?.holders ?? "—" },
               { label: "Invested", value: usd(s?.valueHeldUsd, { compact: (s?.valueHeldUsd ?? 0) >= 10_000 }) },
-              { label: "Creator earned", value: creatorEarned },
+              { label: `Traded on ${APP_NAME}`, value: trades.volume ? usd(trades.volume.allUsd, { compact: trades.volume.allUsd >= 10_000 }) : "—" },
             ]}
           />
 
@@ -154,6 +154,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
               {category.label}
               {components.length ? ` · ${components.length} stocks` : ""}
               {s?.holders ? ` · ${s.holders} ${s.holders === 1 ? "holder" : "holders"}` : ""}
+              {trades.volume?.allUsd ? ` · ${usd(trades.volume.allUsd, { compact: trades.volume.allUsd >= 10_000 })} traded` : ""}
             </p>
             {s?.description && <Thesis text={s.description} />}
           </section>

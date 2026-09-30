@@ -23,9 +23,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       config={{
         loginMethods: ["email", "google", "twitter", "wallet"],
         appearance: {
-          // Rainbow has no Privy preset: cream background, plum accent (white-on-pink fails contrast).
-          theme: resolved === "rainbow" ? "#F9F7F3" : resolved,
-          accentColor: resolved === "rainbow" ? "#4A1239" : "#6C47FF",
+          // Rainbow and Binance have no Privy preset. Rainbow: cream background, plum accent
+          // (white-on-pink fails contrast). Binance: its panel colour and the darker yellow.
+          theme: resolved === "rainbow" ? "#F9F7F3" : resolved === "binance" ? "#181A20" : resolved,
+          accentColor: resolved === "rainbow" ? "#4A1239" : resolved === "binance" ? "#F0B90B" : "#6C47FF",
           logo: <Wordmark size={28} />, walletChainType: "ethereum-only" },
         defaultChain: bsc,
         supportedChains: [bsc],

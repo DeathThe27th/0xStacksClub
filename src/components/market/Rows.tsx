@@ -63,7 +63,7 @@ export function BasketRow({ s }: { s: StackSummary }) {
   const logos = s.componentLogos ?? [];
   return (
     <Link href={`/app/basket/${s.id}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
-      <TokenLogo src={s.image_url} label={s.ticker} basket={s.ticker} size={48} />
+      <TokenLogo src={s.image_url} label={s.ticker} basket={s.ticker} logos={logos} size={48} />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-row font-semibold">
           <span className="truncate">{s.name}</span>

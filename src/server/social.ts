@@ -1,6 +1,6 @@
 import "server-only";
 import { getAddress } from "viem";
-import type { ActivityRow, AssetRow, CommentRow, HolderRow, PublicProfile, StackRow } from "@/lib/supabase/types";
+import type { ActivityRow, AssetRow, CommentRow, HolderRow, PublicProfile, StackRow, TradeRow } from "@/lib/supabase/types";
 import { db, must } from "@/server/db";
 
 export type ProfileLite = Pick<PublicProfile, "id" | "username" | "display_name" | "avatar_url">;
@@ -268,6 +268,88 @@ export async function topCreators(viewerId: string | null) {
   return {
     byEarnings: [...rows].sort((a, b) => (BigInt(b.earnedRaw) > BigInt(a.earnedRaw) ? 1 : -1)).slice(0, 20),
     byBuyers: [...rows].sort((a, b) => b.buyers - a.buyers).slice(0, 20),
+  };
+}
+
+/** What users of the app have traded in one stock or basket: all time, last 24h, and how many trades. */
+export async function appVolume(target: { type: "asset" | "stack"; id: string }): Promise<{ allUsd: number; dayUsd: number; trades: number }> {
+  let q = db().from("trades").select("usd_amount, created_at").limit(10_000);
+  q = target.type === "asset" ? q.eq("asset_address", getAddress(target.id)).is("stack_id", null) : q.eq("stack_id", Number(target.id));
+  const rows = must(await q) as { usd_amount: string; created_at: string }[];
+  const dayAgo = Date.now() - 86400_000;
+  let allUsd = 0;
+  let dayUsd = 0;
+  for (const r of rows) {
+    const usd = Number(r.usd_amount);
+    allUsd += usd;
+    if (new Date(r.created_at).getTime() >= dayAgo) dayUsd += usd;
+  }
+  return { allUsd, dayUsd, trades: rows.length };
+}
+
+export type StockLeader = { asset: Pick<AssetRow, "address" | "ticker" | "name" | "provider" | "logo_url">; volumeUsd: number; traders: number; trades: number };
+export type TraderLeader = { profile: ProfileLite; volumeUsd: number; trades: number; following: boolean };
+
+/**
+ * Discover, stocks first: the stocks traded most on the app this week, the people trading most, and
+ * the latest trades by anyone. Everything comes from confirmed trades.
+ */
+export async function discoverStocks(viewerId: string | null): Promise<{ stocks: StockLeader[]; traders: TraderLeader[]; latest: ActivityOut[] }> {
+  const since = new Date(Date.now() - 7 * 86400_000).toISOString();
+  const rows = must(
+    await db().from("trades").select("id, profile_id, side, asset_address, stack_id, usd_amount, tx_hash, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
+  ) as Pick<TradeRow, "id" | "profile_id" | "side" | "asset_address" | "stack_id" | "usd_amount" | "tx_hash" | "created_at">[];
+
+  const byAsset = new Map<string, { volumeUsd: number; traders: Set<string>; trades: number }>();
+  const byTrader = new Map<string, { volumeUsd: number; trades: number }>();
+  for (const r of rows) {
+    const usd = Number(r.usd_amount);
+    if (r.asset_address && r.stack_id === null) {
+      const a = byAsset.get(r.asset_address) ?? { volumeUsd: 0, traders: new Set<string>(), trades: 0 };
+      a.volumeUsd += usd;
+      a.trades++;
+      if (r.profile_id) a.traders.add(r.profile_id);
+      byAsset.set(r.asset_address, a);
+    }
+    if (r.profile_id) {
+      const t = byTrader.get(r.profile_id) ?? { volumeUsd: 0, trades: 0 };
+      t.volumeUsd += usd;
+      t.trades++;
+      byTrader.set(r.profile_id, t);
+    }
+  }
+  const topAssets = [...byAsset.entries()].sort((a, b) => b[1].volumeUsd - a[1].volumeUsd).slice(0, 10);
+  const topTraders = [...byTrader.entries()].filter(([id]) => id !== viewerId).sort((a, b) => b[1].volumeUsd - a[1].volumeUsd).slice(0, 10);
+
+  const [assets, profiles, following, latest] = await Promise.all([
+    topAssets.length
+      ? (db().from("assets").select("address, ticker, name, provider, logo_url").in("address", topAssets.map(([a]) => a)).then(must) as Promise<StockLeader["asset"][]>)
+      : Promise.resolve([] as StockLeader["asset"][]),
+    profilesByIds(topTraders.map(([id]) => id)),
+    viewerId ? followingIds(viewerId) : Promise.resolve([] as string[]),
+    decorateActivity(
+      rows.slice(0, 30).map((r) => ({
+        id: r.id,
+        profile_id: r.profile_id,
+        type: r.side,
+        target_type: r.stack_id !== null ? "stack" : "asset",
+        target_id: r.stack_id !== null ? String(r.stack_id) : r.asset_address,
+        usd_amount: r.usd_amount,
+        tx_hash: r.tx_hash,
+        created_at: r.created_at,
+      })),
+    ),
+  ]);
+  return {
+    stocks: topAssets.flatMap(([address, v]) => {
+      const asset = assets.find((a) => a.address === address);
+      return asset ? [{ asset, volumeUsd: v.volumeUsd, traders: v.traders.size, trades: v.trades }] : [];
+    }),
+    traders: topTraders.flatMap(([id, v]) => {
+      const profile = profiles.get(id);
+      return profile ? [{ profile, volumeUsd: v.volumeUsd, trades: v.trades, following: following.includes(id) }] : [];
+    }),
+    latest,
   };
 }
 

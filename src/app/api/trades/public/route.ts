@@ -4,7 +4,7 @@ import type { TradeRow } from "@/lib/supabase/types";
 import { maybeAuthenticate } from "@/server/auth";
 import { db, must } from "@/server/db";
 import { handler, HttpError, json } from "@/server/http";
-import { followingIds, profilesByIds } from "@/server/social";
+import { appVolume, followingIds, profilesByIds } from "@/server/social";
 
 const query = z.object({ targetType: z.enum(["asset", "stack"]), targetId: z.string(), limit: z.coerce.number().int().min(1).max(200).default(60) });
 
@@ -23,11 +23,13 @@ export const GET = handler(async (req: Request) => {
   }
   const rows = must(await sel) as Pick<TradeRow, "id" | "profile_id" | "side" | "usd_amount" | "price_usd" | "created_at">[];
   const ctx = await maybeAuthenticate(req);
-  const [people, friends] = await Promise.all([
+  const [people, friends, volume] = await Promise.all([
     profilesByIds(rows.map((r) => r.profile_id ?? "")),
     ctx?.profile ? followingIds(ctx.profile.id) : Promise.resolve([] as string[]),
+    appVolume({ type: q.targetType, id: q.targetId }),
   ]);
   return json({
+    volume,
     items: rows.map((r) => ({
       id: r.id,
       side: r.side,

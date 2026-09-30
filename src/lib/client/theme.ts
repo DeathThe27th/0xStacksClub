@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 
-export type ThemeChoice = "system" | "light" | "dark" | "rainbow";
-export type ResolvedTheme = "light" | "dark" | "rainbow";
+export type ThemeChoice = "system" | "light" | "dark" | "rainbow" | "binance";
+export type ResolvedTheme = "light" | "dark" | "rainbow" | "binance";
 import { THEME_KEY as KEY } from "@/lib/theme-script";
 const EVENT = "stacksclub:theme";
 
 function readChoice(): ThemeChoice {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" || v === "rainbow" ? v : "system";
+    return v === "light" || v === "dark" || v === "rainbow" || v === "binance" ? v : "system";
   } catch {
     return "system";
   }
@@ -53,7 +53,7 @@ export function useTheme() {
     },
     () => {
       const t = document.documentElement.dataset.theme;
-      return t === "light" || t === "rainbow" ? t : "dark";
+      return t === "light" || t === "rainbow" || t === "binance" ? t : "dark";
     },
     () => "dark" as const,
   );

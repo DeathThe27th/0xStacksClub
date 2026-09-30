@@ -8,7 +8,7 @@ import { ChartControls, PriceChart, type Point, type Timeframe } from "@/compone
 import { StickyCta } from "@/components/detail/Cta";
 import { TradePanel } from "@/components/trade/TradePanel";
 import { NewsSection } from "@/components/detail/News";
-import { StatsStrip } from "@/components/detail/Trades";
+import { StatsStrip, useTrades } from "@/components/detail/Trades";
 import { PositionCard } from "@/components/trade/PositionCard";
 import { DetailTopBar } from "@/components/detail/TopBar";
 import { TradesSheet } from "@/components/detail/TradesSheet";
@@ -57,12 +57,13 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
   const [tf, setTf] = useState<Timeframe>("1D");
   const [mode, setMode] = useState<"area" | "candles">("area");
   const [scrub, setScrub] = useState<Point | null>(null);
-  const [right, setRight] = useState<0 | 1 | 2>(0);
+  const [right, setRight] = useState(0);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "compare" | "history" | null>(null);
   // Snapshot at open: selling 100% drops the holding on refetch, which must not close the checklist.
   const [sellHolding, setSellHolding] = useState<Holding | null>(null);
   const watch = useWatch("asset", address);
   const portfolio = usePortfolio();
+  const appVolume = useTrades("asset", address).volume;
 
   const detail = useQuery({ queryKey: ["asset", address], queryFn: () => api<Detail>(`/api/assets/${provider}/${address}`), refetchInterval: 10_000 });
   const candles = useQuery({
@@ -98,7 +99,8 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
     { label: "Market cap", value: detail.data?.marketCap ? `$${compact(detail.data.marketCap)}` : "—" },
     { label: "Reference price", value: fmtPrice(detail.data?.referencePrice) },
     { label: "Premium", value: detail.data?.premiumPct != null ? `${detail.data.premiumPct >= 0 ? "+" : "-"}${pct(detail.data.premiumPct)}` : "—" },
-  ][right]!;
+    { label: `Traded on ${APP_NAME}`, value: appVolume ? usd(appVolume.allUsd, { compact: appVolume.allUsd >= 10_000 }) : "—" },
+  ][right % 4]!;
 
   return (
     <div>
@@ -121,7 +123,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
           { label: "24h change", value: <Change value={detail.data?.change24h} /> },
           { label: "24h volume", value: detail.data?.volume24h ? `$${compact(detail.data.volume24h)}` : "—" },
           { label: "Reference price", value: fmtPrice(detail.data?.referencePrice) },
-          { label: "Provider", value: a ? PROVIDER_LABEL[a.provider as Provider] : "—" },
+          { label: `Traded on ${APP_NAME}`, value: appVolume ? usd(appVolume.allUsd, { compact: appVolume.allUsd >= 10_000 }) : "—" },
           {
             label: detail.data?.marketOpen === false ? "Market closed" : "Premium",
             value: detail.data?.premiumPct != null ? `${detail.data.premiumPct >= 0 ? "+" : "-"}${pct(detail.data.premiumPct)}` : "—",
@@ -137,7 +139,7 @@ export default function StockPage({ params }: { params: Promise<{ provider: stri
             <span className="text-change text-text-muted">{scrub ? new Date(scrub.t).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : tfBar[tf].label}</span>
           </p>
         </div>
-        <button onClick={() => setRight(((right + 1) % 3) as 0 | 1 | 2)} className="press shrink-0 text-right lg:hidden" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
+        <button onClick={() => setRight((right + 1) % 4)} className="press shrink-0 text-right lg:hidden" aria-label={`Showing ${rightBlock.label}. Tap to switch.`}>
           <p className="flex items-center justify-end gap-1 text-[20px] font-semibold tnum">
             <ChevronsUpDown size={16} className="text-text-muted" />
             {rightBlock.value}

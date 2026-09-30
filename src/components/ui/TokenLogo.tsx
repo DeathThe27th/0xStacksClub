@@ -2,7 +2,9 @@
 "use client";
 
 import { Blocks, Cloud, Cpu, Crown, Earth, MemoryStick, Rocket, Zap, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { curatedBasket, type CuratedBasket } from "@/lib/baskets";
 import { cn } from "@/lib/cn";
 
@@ -18,13 +20,31 @@ const BASKET_ICONS: Record<CuratedBasket["icon"], LucideIcon> = {
 };
 
 /**
- * Round provider token logo (or basket image), with a ticker fallback. Pass `basket` (the basket's
- * ticker) for basket logos: curated baskets render their badge instead of the stored cover.
+ * Round provider token logo, with a ticker fallback. Pass `basket` (the basket's ticker) for a
+ * basket: it shows the logos of the stocks inside it, sliding up one after another.
  */
-export function TokenLogo({ src, label, size = 48, className, basket }: { src?: string | null; label: string; size?: number; className?: string; basket?: string | null }) {
+export function TokenLogo({
+  src,
+  label,
+  size = 48,
+  className,
+  basket,
+  logos,
+}: {
+  src?: string | null;
+  label: string;
+  size?: number;
+  className?: string;
+  basket?: string | null;
+  /** The basket's stock logos, when the caller already has them. Otherwise they're looked up by ticker. */
+  logos?: (string | null)[];
+}) {
+  if (basket) return <BasketLogo ticker={basket} logos={logos} src={src} label={label} size={size} className={className} />;
+  return <PlainLogo src={src} label={label} size={size} className={className} />;
+}
+
+function PlainLogo({ src, label, size, className }: { src?: string | null; label: string; size: number; className?: string }) {
   const [broken, setBroken] = useState(false);
-  const curated = basket ? curatedBasket(basket) : undefined;
-  if (curated) return <BasketBadge b={curated} size={size} className={className} />;
   if (src && !broken) {
     return (
       <img
@@ -45,6 +65,76 @@ export function TokenLogo({ src, label, size = 48, className, basket }: { src?: 
       style={{ width: size, height: size, fontSize: Math.max(10, size * 0.26) }}
     >
       {label.slice(0, 4)}
+    </span>
+  );
+}
+
+/** Logos of every launched basket's stocks, by basket ticker. One shared request for the whole app. */
+function useBasketLogos(enabled: boolean) {
+  return useQuery({
+    queryKey: ["basket-logos"],
+    enabled,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const res = await fetch("/api/stacks?filter=newest");
+      if (!res.ok) throw new Error("Couldn't load baskets");
+      const data = (await res.json()) as { items: { ticker: string; componentLogos?: (string | null)[] }[] };
+      return new Map(data.items.map((s) => [s.ticker, (s.componentLogos ?? []).filter((l): l is string => !!l)]));
+    },
+  });
+}
+
+const CYCLE_MS = 2600;
+
+/**
+ * A basket's picture is what's in it: each stock's logo slides up and gives way to the next.
+ * Until the logos are known (or for a recipe that isn't launched yet) it falls back to the curated
+ * badge or the uploaded cover.
+ */
+function BasketLogo({ ticker, logos, src, label, size, className }: { ticker: string; logos?: (string | null)[]; src?: string | null; label: string; size: number; className?: string }) {
+  const given = logos?.filter((l): l is string => !!l);
+  const looked = useBasketLogos(!given?.length);
+  const list = given?.length ? given : (looked.data?.get(ticker) ?? []);
+  const reduce = useReducedMotion();
+  const [i, setI] = useState(0);
+  const n = list.length;
+  useEffect(() => {
+    if (n < 2 || reduce) return;
+    // Start each basket at its own point in the cycle so a list doesn't tick in unison.
+    const offset = ([...ticker].reduce((h, c) => h + c.charCodeAt(0), 0) % 8) * 300;
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const start = setTimeout(() => {
+      setI((x) => x + 1);
+      interval = setInterval(() => setI((x) => x + 1), CYCLE_MS);
+    }, CYCLE_MS - offset);
+    return () => {
+      clearTimeout(start);
+      clearInterval(interval);
+    };
+  }, [n, reduce, ticker]);
+
+  if (!n) {
+    const curated = curatedBasket(ticker);
+    if (curated) return <BasketBadge b={curated} size={size} className={className} />;
+    return <PlainLogo src={src} label={label} size={size} className={className} />;
+  }
+  const current = list[i % n]!;
+  return (
+    <span aria-hidden className={cn("relative block shrink-0 overflow-hidden rounded-full bg-surface", className)} style={{ width: size, height: size }}>
+      <AnimatePresence initial={false}>
+        <motion.img
+          key={`${i % n}-${current}`}
+          src={current}
+          alt=""
+          width={size}
+          height={size}
+          initial={{ y: "100%" }}
+          animate={{ y: 0 }}
+          exit={{ y: "-100%" }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 h-full w-full rounded-full object-cover"
+        />
+      </AnimatePresence>
     </span>
   );
 }
