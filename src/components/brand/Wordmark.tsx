@@ -2,7 +2,8 @@ import { cn } from "@/lib/cn";
 import { APP_NAME } from "@/lib/constants";
 
 /** App wordmark: type only, set in the display face, tinted with currentColor. */
-export function Wordmark({ size = 22, className }: { size?: number; className?: string }) {
+/** `size` is px, or any CSS length (the landing page passes a clamp()). */
+export function Wordmark({ size = 22, className }: { size?: number | string; className?: string }) {
   return (
     <span
       role="img"

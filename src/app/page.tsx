@@ -3,11 +3,9 @@
 import { useLogin, usePrivy } from "@privy-io/react-auth";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { Wordmark } from "@/components/brand/Wordmark";
-import { Button } from "@/components/ui/Button";
-import { APP_NAME } from "@/lib/constants";
+import { Landing } from "@/components/landing/Landing";
 
-function Landing() {
+function Entry() {
   const { ready, authenticated } = usePrivy();
   const router = useRouter();
   const next = useSearchParams().get("next");
@@ -27,44 +25,26 @@ function Landing() {
     if (ready && authenticated) router.replace(dest);
   }, [ready, authenticated, router, dest]);
 
-  return (
-    <main className="relative mx-auto flex min-h-dvh max-w-app flex-col px-gutter pb-safe pt-safe">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[55dvh] bg-[radial-gradient(60%_60%_at_50%_30%,rgb(var(--primary)/0.22),transparent_70%)]" />
-      <div className="relative flex flex-1 flex-col items-center justify-center text-center">
-        <h1>
-          <Wordmark size={48} />
-        </h1>
-        <p className="mt-3 max-w-[26ch] text-[17px] text-text-muted">Stocks, onchain. Trade them in the app or by text.</p>
-      </div>
-      <div className="relative pb-8">
-        <Button className="w-full" onClick={() => login()} disabled={!ready} loading={!ready}>
-          {ready && authenticated ? `Opening ${APP_NAME}` : "Get started"}
-        </Button>
-        {loginError && (
-          <p className="mt-3 text-center text-secondary text-down" role="alert">
-            {loginError}
-          </p>
-        )}
-        {!ready && slow && (
-          <p className="mt-3 text-center text-secondary text-text-muted">
-            Still starting up.{" "}
-            <button className="underline" onClick={() => window.location.reload()}>
-              Reload
-            </button>
-          </p>
-        )}
-        <p className="mt-4 text-center text-[12px] leading-5 text-text-muted">
-          Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
-        </p>
-      </div>
-    </main>
-  );
+  const notice = loginError ? (
+    <p role="alert" className="pointer-events-auto max-w-[360px] rounded-card border border-border bg-surface px-4 py-3 text-center text-secondary text-down">
+      {loginError}
+    </p>
+  ) : !ready && slow ? (
+    <p className="pointer-events-auto rounded-card border border-border bg-surface px-4 py-3 text-center text-secondary text-text-muted">
+      Still starting up.{" "}
+      <button className="underline" onClick={() => window.location.reload()}>
+        Reload
+      </button>
+    </p>
+  ) : null;
+
+  return <Landing onStart={() => login()} ready={ready} opening={ready && authenticated} notice={notice} />;
 }
 
 export default function Page() {
   return (
     <Suspense>
-      <Landing />
+      <Entry />
     </Suspense>
   );
 }

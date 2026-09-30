@@ -241,7 +241,15 @@ Social is about the people on the app and what they trade.
 - CTA row: `Sell` and `Redeem stocks`.
 
 ### 8.6 Onboarding
-- `/` is a simple landing page with the wordmark, one line ("Stocks, onchain. Trade them in the app or by text."), and a `Get started` button that opens Privy login (email, Google, X, and external wallet).
+- `/` is the landing page (`src/components/landing/`), one scroll-driven page in the app's own tokens, following the theme:
+  1. Hero: "Stocks, made easy." in the display face, with real stock cards (from `/api/assets`) and an iMessage exchange drifting in from the edges; on scroll they converge and fade and the headline shrinks away.
+  2. Verbs: `Buy`, `Sell`, `Text`, `Follow` stack up one by one, each with a coloured icon tile and a short line.
+  3. Text panel: a full-bleed `primary` field, "Or just text it.", where a phone grows in and a texting-assistant chat (price, buy, YES, done) plays out as you scroll, with the Trade by text limits beside it.
+  4. Stocks: "The big names, from $1." with the real stock list scrolling inside a phone.
+  5. A centred three-line statement that lights up line by line.
+  6. Baskets and Social, with a basket card that turns as you scroll.
+  7. Close: the wordmark at poster size, `Get started`, and the provider and region notice.
+  A floating pill nav at the bottom carries the wordmark, section links (desktop) and `Get started`, which opens Privy login (email, Google, X, and external wallet). Prices are never invented: without data the cards show tickers and names. With reduced motion every section renders finished at natural height. Signed-in visitors go straight to `/app`.
 - After first login, a single onboarding screen: avatar upload, username (3 to 20, lowercase letters, numbers, underscore), bio, optional X URL. Then land on `/app`.
 
 ## 9. States, motion and polish
