@@ -15,9 +15,9 @@ const fields = z.object({
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 /**
- * Uploads the Stack image to Supabase Storage and stores the metadata JSON next to it. Returns the
- * metadataURI the creator passes to createStack. multipart/form-data: name, ticker, description, image,
- * and an optional telegram (club link, kept private: it is not written into the public metadata JSON).
+ * Stores the basket's metadata JSON (and its image, if one was chosen) in Supabase Storage. Returns
+ * the metadataURI the creator passes to createStack. multipart/form-data: name, ticker, description,
+ * an optional image, and an optional telegram (club link, kept private: it is not written into the public metadata JSON).
  */
 export const POST = handler(async (req: Request) => {
   const ctx = await requireProfile(req);
@@ -29,23 +29,27 @@ export const POST = handler(async (req: Request) => {
   const telegramRaw = String(form.get("telegram") ?? "").trim();
   const telegram = telegramRaw ? normalizeTelegramUrl(telegramRaw) : null;
   if (telegramRaw && !telegram) throw new HttpError(400, TELEGRAM_URL_ERROR);
+  // The picture is optional: a basket without one shows the logos of its stocks.
   const image = form.get("image");
-  if (!(image instanceof File)) throw new HttpError(400, "Image is required");
-  if (!IMAGE_TYPES.includes(image.type)) throw new HttpError(400, "Image must be PNG, JPEG, WebP or GIF");
-  if (image.size > 2 * 1024 * 1024) throw new HttpError(400, "Image must be 2MB or smaller");
+  const hasImage = image instanceof File && image.size > 0;
+  if (hasImage && !IMAGE_TYPES.includes(image.type)) throw new HttpError(400, "Image must be PNG, JPEG, WebP or GIF");
+  if (hasImage && image.size > 2 * 1024 * 1024) throw new HttpError(400, "Image must be 2MB or smaller");
 
   const id = randomUUID();
-  const ext = image.type.split("/")[1];
-  const storage = db().storage.from("stacks");
-  const up = await storage.upload(`${ctx.profile.id}/${id}.${ext}`, image, { contentType: image.type, upsert: false });
-  if (up.error) throw new HttpError(500, `Upload failed: ${up.error.message}`);
-  const imageUrl = storage.getPublicUrl(up.data.path).data.publicUrl;
+  let imageUrl: string | null = null;
+  if (hasImage) {
+    const ext = image.type.split("/")[1];
+    const storage = db().storage.from("stacks");
+    const up = await storage.upload(`${ctx.profile.id}/${id}.${ext}`, image, { contentType: image.type, upsert: false });
+    if (up.error) throw new HttpError(500, `Upload failed: ${up.error.message}`);
+    imageUrl = storage.getPublicUrl(up.data.path).data.publicUrl;
+  }
 
   const metadata = {
     name: f.name,
     ticker: f.ticker,
     description: f.description,
-    image: imageUrl,
+    ...(imageUrl ? { image: imageUrl } : {}),
     creator: ctx.wallet,
     external_url: `${publicEnv().NEXT_PUBLIC_APP_URL}/app`,
   };

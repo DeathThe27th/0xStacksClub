@@ -24,6 +24,8 @@ function fakeApi(over: Partial<Api> = {}): Api {
     portfolio: async () => ({ totalUsd: 10, change24hUsd: 0, usdt: 10, positions: [], stocks: [], url: "https://example.test/app/u/ada" }),
     club: async () => ({ match: "one", basket, isMember: false, hasLink: true, url: null, basketUrl: "https://example.test/app/basket/1" }),
     tradePrepare: async () => ({ status: "not_enabled", url: "https://example.test/app/u/ada" }),
+    tradeSell: async (_s, _q, _size, execute) =>
+      execute ? { status: "done", ticker: "NVDA", proceedsUsd: 12.31, url: "https://example.test/app/u/ada" } : { status: "ready", ticker: "NVDA", name: "NVIDIA", bps: 10_000, percent: 100, estUsd: 12.4 },
     tradeConfirm: async () => ({ status: "done", label: "NVDA", amountUsd: 20, url: "https://example.test/app/u/ada", positionId: null }),
     news: async (_s, query) =>
       query
@@ -183,8 +185,8 @@ describe("conversation", () => {
     const club = await tools.run("get_club_link", { basket: "ai kings" });
     expect(JSON.stringify(club.data)).not.toContain("t.me");
     expect(club.mustInclude).toEqual(["Admins will never DM you first."]);
-    // No tool sells or moves money, and "buy" only ever asks a question or returns a link.
-    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["buy", "get_club_link", "get_news", "get_portfolio", "get_price", "list_baskets", "list_stocks", "send_contact_card"]);
+    // No tool moves money by itself: "buy" and "sell" only ever ask a question (or return a link).
+    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["buy", "get_club_link", "get_news", "get_portfolio", "get_price", "list_baskets", "list_stocks", "sell", "send_contact_card"]);
   });
 
   it("falls back to keyword commands when the assistant can't answer", async () => {
@@ -240,7 +242,7 @@ describe("text buys", () => {
     const tradeConfirm = vi.fn(fakeApi().tradeConfirm);
     const h = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm }));
     await h(PHONE, "buy 20 nvda");
-    expect(texts(await h(PHONE, "no"))[0]).toBe("Cancelled. Nothing was bought.");
+    expect(texts(await h(PHONE, "no"))[0]).toBe("Cancelled. Nothing was traded.");
     expect(texts(await h(PHONE, "yes"))[0]).not.toContain("Buying");
     expect(tradeConfirm).not.toHaveBeenCalled();
   });
@@ -268,5 +270,46 @@ describe("text buys", () => {
     const lost = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm: async () => Promise.reject(new ApiError(0, "network", "x")) }));
     await lost(PHONE, "buy 20 nvda");
     expect((await runThen(await lost(PHONE, "yes")))[0]).toBe("I lost track of that buy. Check your portfolio in the app before trying again.");
+  });
+});
+
+describe("text sells", () => {
+  const runThen = async (outs: Out[]) => {
+    const t = outs.find((o): o is { then: () => Promise<Out[]> } => "then" in o);
+    return t ? texts(await t.then()) : [];
+  };
+
+  it("previews, sells only on a plain yes, and reports the proceeds", async () => {
+    const tradeSell = vi.fn(fakeApi().tradeSell);
+    const h = make(fakeApi({ tradeSell }));
+    expect(texts(await h(PHONE, "sell all nvda"))[0]).toBe("Sell all your NVDA (about $12.40)? You get USDT, less the 1% fee. Reply YES to sell, or NO to cancel.");
+    expect(tradeSell).toHaveBeenCalledTimes(1);
+    expect(tradeSell).toHaveBeenLastCalledWith(PHONE, "nvda", { percent: 100 }, false);
+    const outs = await h(PHONE, "yes");
+    expect(texts(outs)[0]).toBe("Selling NVDA now. This takes about half a minute.");
+    expect(tradeSell).toHaveBeenCalledTimes(1);
+    expect(await runThen(outs)).toEqual(["Done. Sold NVDA for $12.31 USDT before the 1% fee.\nhttps://example.test/app/u/ada"]);
+    expect(tradeSell).toHaveBeenLastCalledWith(PHONE, "NVDA", { percent: 100 }, true);
+  });
+
+  it("asks how much when no size is given, and never sells on no", async () => {
+    const tradeSell = vi.fn(fakeApi().tradeSell);
+    const h = make(fakeApi({ tradeSell }));
+    expect(texts(await h(PHONE, "sell nvda"))[0]).toContain("How much nvda?");
+    expect(tradeSell).not.toHaveBeenCalled();
+    await h(PHONE, "sell half nvda");
+    expect(tradeSell).toHaveBeenLastCalledWith(PHONE, "nvda", { percent: 50 }, false);
+    expect(texts(await h(PHONE, "no"))[0]).toBe("Cancelled. Nothing was traded.");
+    expect(tradeSell).toHaveBeenCalledTimes(1);
+  });
+
+  it("points at the app when selling by text is off, and is honest when a sell is lost", async () => {
+    const off = make(fakeApi({ tradeSell: async () => ({ status: "not_enabled", url: "https://example.test/app/u/ada" }) }));
+    expect(texts(await off(PHONE, "sell all nvda"))[0]).toBe("Selling by text is off for you. Turn on Trade by text in the app, or sell there:\nhttps://example.test/app/u/ada");
+    const none = make(fakeApi({ tradeSell: async () => ({ status: "nothing", ticker: "NVDA" }) }));
+    expect(texts(await none(PHONE, "sell all nvda"))[0]).toBe("You don't hold any NVDA.");
+    const lost = make(fakeApi({ tradeSell: async (_s, _q, _z, execute) => (execute ? Promise.reject(new ApiError(0, "network", "x")) : { status: "ready", ticker: "NVDA", name: "NVIDIA", bps: 5000, percent: 50, estUsd: null }) }));
+    expect(texts(await lost(PHONE, "sell 50% of nvda"))[0]).toBe("Sell 50% of your NVDA? You get USDT, less the 1% fee. Reply YES to sell, or NO to cancel.");
+    expect((await runThen(await lost(PHONE, "yes")))[0]).toBe("I lost track of that sell. Check your portfolio in the app before trying again.");
   });
 });

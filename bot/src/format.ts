@@ -1,4 +1,4 @@
-import type { BasketDetail, Baskets, BuyLink, Club, Confirmed, News, NewsItem, Option, Portfolio, Prepared, StockItem, Stocks } from "./api.js";
+import type { BasketDetail, Baskets, BuyLink, Club, Confirmed, News, NewsItem, Option, Portfolio, Prepared, Sold, StockItem, Stocks } from "./api.js";
 
 // Every reply is built here, by code: links come from the site's API as-is and money is formatted
 // from its numbers. A missing number is said out loud ("price unavailable"), never filled in.
@@ -36,7 +36,8 @@ export function helpText(appName: string): string {
     "stocks: the most traded stocks",
     "movers: today's biggest gainers",
     "price NVDA: a stock's price",
-    "buy 20 NVDA: get a link to confirm",
+    "buy 20 NVDA: buy (asks you to confirm)",
+    "sell all NVDA: sell (asks you to confirm)",
     "news NVDA: the latest on a stock (or just \"news\")",
     "portfolio: what you hold",
     "baskets: top baskets",
@@ -256,9 +257,40 @@ export function boughtReply(c: Confirmed): string {
   }
 }
 
-export const cancelled = () => "Cancelled. Nothing was bought.";
+export const cancelled = () => "Cancelled. Nothing was traded.";
 export const turnOnHint = () => "To buy right from here next time, turn on Buy by text in the app.";
 
-export const sellReply = (url: string) => `I can't sell by text. Open your portfolio, pick the stock and tap Sell:\n${url}`;
+/** Selling by text is off (or can't be used with this wallet): point at the app instead. */
+export const sellReply = (url: string) => `Selling by text is off for you. Turn on Trade by text in the app, or sell there:\n${url}`;
+export const needSellSize = (name: string) => `How much ${name}? For example: sell all ${name}, sell half ${name}, or sell 5 ${name} for $5 worth.`;
+
+/** The question before a text sell. Nothing has been sold when this is sent. */
+export function sellQuestion(p: Extract<Sold, { status: "ready" }>): string {
+  const how = p.percent >= 100 ? `all your ${p.ticker}` : `${Number(p.percent.toFixed(2))}% of your ${p.ticker}`;
+  const worth = p.estUsd === null ? "" : ` (about ${usd(p.estUsd)})`;
+  return `Sell ${how}${worth}? You get USDT, less the 1% fee. Reply YES to sell, or NO to cancel.`;
+}
+
+export const selling = (ticker: string) => `Selling ${ticker} now. This takes about half a minute.`;
+
+/** Everything a sell request can come back with, other than the question itself and a choice of names. */
+export function soldReply(s: Exclude<Sold, { status: "ready" | "many" | "none" }>): string {
+  switch (s.status) {
+    case "done":
+      return `Done. Sold ${s.ticker} for ${usd(s.proceedsUsd)} USDT before the 1% fee.\n${s.url}`;
+    case "failed":
+      return `The sell of ${s.ticker} didn't go through: ${s.error.slice(0, 200)}\nCheck your portfolio before trying again:\n${s.url}`;
+    case "nothing":
+      return `You don't hold any ${s.ticker}.`;
+    case "no_gas":
+      return `Your wallet needs a little BNB for network fees before I can sell. Deposit in the app:\n${s.url}`;
+    case "bad_amount":
+      return "That amount doesn't look right. For example: sell all NVDA, or sell 5 NVDA.";
+    case "not_enabled":
+    case "unavailable":
+    case "wallet":
+      return sellReply(s.url);
+  }
+}
 
 export const thinkingTrouble = () => `I'm having trouble thinking right now. Try "stocks", "portfolio" or "price NVDA".`;

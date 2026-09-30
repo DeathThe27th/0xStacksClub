@@ -1,29 +1,38 @@
-# StacksClub UI Spec (`/app`)
+# 3AM UI Spec (`/app`)
 
-The app is a mobile-first, dark, dense trading UI. The reference is a screen recording of a social memecoin trading app, and this spec describes that layout adapted to tokenized stocks and Stacks. Match the layout, spacing, hierarchy and motion described here closely. Do not copy any other app's logo, wordmark, mascot or icon set. StacksClub uses its own mark and Lucide icons.
+The app is a mobile-first, dense trading UI. Stocks lead every screen; baskets are one feature among others. The reference is a screen recording of a social memecoin trading app, and this spec describes that layout adapted to tokenized stocks. Do not copy any other app's logo, wordmark, mascot or icon set. The brand is the wordmark (the name from `APP_NAME`, set in the display face) and Lucide icons; there is no logo mark.
 
-Target viewport is 390 to 430px wide. On desktop, center the app in a 430px column on the same background with no extra chrome.
+Where this file says "Stack", users see "basket". Routes use `/app/basket/[id]`.
+
+Target viewport is 390 to 430px wide. From 1024px up the app uses a desktop layout: a top bar, a market pane on the left, the page in the middle and, on stock and basket pages, an always-open trade panel on the right. Desktop renders at 80% zoom.
 
 ## 1. Design tokens
 
-Put these in `tailwind.config.ts` and as CSS variables in `globals.css`.
+Tokens are CSS variables (RGB channels) in `src/app/globals.css`, mapped in `tailwind.config.ts`. There are four themes, chosen in Settings > Appearance and stored in `localStorage`: **dark** (default, follows the device when set to System), **light**, **Rainbow** and **Binance**. Every colour in the UI comes from a token, so each theme only redefines the variables.
+
+Dark theme values:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `bg` | `#0A0A12` | Page background, near-black with a slight blue-violet tint |
-| `surface` | `#15151F` | Cards, chips, sheets |
-| `surface-2` | `#1E1E2A` | Pressed states, inputs, sheet option rows |
-| `border` | `#23232F` | Hairlines, tab underline track |
+| `bg` | `#000000` | Page background |
+| `surface` | `#0E0E10` | Cards, chips, sheets |
+| `surface-2` | `#1A1A1D` | Pressed states, inputs, sheet option rows |
+| `border` | `#26262A` | Hairlines, tab underline track |
 | `text` | `#FFFFFF` | Primary text |
-| `text-muted` | `#8B8B9A` | Secondary text, market cap line, inactive tabs |
-| `text-dim` | `#55556A` | Cents in the big balance, disabled |
-| `primary` | `#3D5AFE` | Deposit button, CTA, active tab underline, "New" badge |
-| `primary-press` | `#2F48D9` | Pressed CTA |
+| `text-muted` | `#96969E` | Secondary text, inactive tabs |
+| `text-dim` | `#5C5C64` | Cents in the big balance, disabled |
+| `primary` | `#6C47FF` | Deposit button, CTA, active tab underline |
+| `primary-press` | `#5834E6` | Pressed CTA |
+| `on-primary` | `#FFFFFF` | Text on `primary` |
+| `chip` / `chip-active` | `#0E0E10` / `#1A1A1D` | Filter and preset chips |
+| `link` | `#A08CFF` | Text links on the background |
 | `up` | `#22C55E` | Positive change, gains |
-| `down` | `#FF4430` | Negative change, down chart |
+| `down` | `#FF4430` | Negative change |
 | `warn` | `#F5A524` | Market closed / stale price notes |
 
-Font: Inter via `next/font`, with `font-feature-settings: "tnum"` on every number so digits don't jitter. Weights 400, 500, 600, 700.
+Light is white with the same violet. Rainbow is a warm cream base with plum ink and pink actions. Binance is the exchange's dark palette: near-black panels, yellow actions with dark text, its green and red. See `globals.css` for their values.
+
+Fonts via `next/font`: Geist for the UI, Bricolage Grotesque 800 for the wordmark and display. `font-feature-settings: "tnum"` on every number so digits don't jitter.
 
 Type scale:
 
@@ -47,7 +56,7 @@ Spacing: 16px page gutter. Row height 64px with a 48px logo. 8px gap between chi
 - Bottom nav: a floating pill, 16px from the sides and 12px above the bottom safe area, height 64px, `surface` at 85% opacity with `backdrop-blur-xl`, 1px `border`, full radius. Five items evenly spaced:
   1. Home (`/app`) house icon
   2. Search (`/app/search`) magnifier
-  3. Create Stack (`/app/create`) the StacksClub mark, centered, slightly larger
+  3. Create basket (`/app/create`), centered, slightly larger
   4. Social (`/app/social`) users icon
   5. Profile (`/app/u/[username]` for self) the user's avatar, 28px round
 - Active item sits on a darker rounded capsule (`surface-2`) with a soft inner glow. Inactive icons are `text-muted`.
@@ -58,13 +67,18 @@ Spacing: 16px page gutter. Row height 64px with a 48px logo. 8px gap between chi
 Top to bottom, exactly this order.
 
 ### 3.1 Header
-- Left: StacksClub mark, 32px tall, white.
+- Left: the wordmark.
 - No other header items.
 
 ### 3.2 Balance block
 - Left: total portfolio value (USDT balance + single stock holdings + all positions, valued at current marks) in the balance style.
 - Under it: 24h change like `+$0.02 24h`, with the amount in `up` or `down` and "24h" in `text-muted`.
 - Right: a `Deposit` button, `primary`, 140 x 56px, radius 14px, 17px / 600 white. It opens the Deposit sheet (section 7).
+
+### 3.2a Texting card
+- Directly under the balance: a card for the texting assistant. Not connected: "Trade by text" with a `Connect iMessage` button that opens the connect sheet. Connected: "Text 3AM" with `Open Messages` (an `sms:` link to the user's assigned number) and `Manage`. A small row under it offers Telegram when that is set up.
+- On desktop the same card sits under the trade panel on stock and basket pages.
+- Hidden when texting isn't configured on the server.
 
 ### 3.3 Weekly Top Trades
 - Title row: small trophy icon plus "Weekly Top Trades".
@@ -130,7 +144,7 @@ Each row, full width, 64px:
   - A `Friends` toggle (iOS style switch) that filters to people the user follows.
   - Each holder row: 40px avatar, username 17px / 600, `Avg. entry: $182.40` in `text-muted`, and on the right the position value and PnL % in `up` or `down`.
   - If that holder has a recent comment on this asset, show it under the row as an indented reply with a thin connector line from the avatar, plus heart count and reply count in `text-dim`.
-  - Holder data comes from our own trades table (users of StacksClub), not from all chain holders.
+  - Holder data comes from our own trades table (users of the app), not from all chain holders.
 - Feed: comments on this asset, newest first, with a composer at the top (text only, 280 chars, like/reply).
 - About: provider, contract address, decimals, share multiplier if known, provider description, link to BscScan, and a line explaining that this is a provider-issued token, not a direct share.
 
@@ -141,9 +155,12 @@ Each row, full width, 64px:
   - Else if the user holds none: `Buy`.
   - Else two buttons side by side: `Sell` (`surface-2`) and `Buy` (`primary`).
 
-## 5. Stack detail (`/app/stack/[id]`)
+## 5. Basket detail (`/app/basket/[id]`)
 
 Same structure as the stock detail, with these differences.
+
+- A basket's picture is the logos of its stocks, sliding up one after another every few seconds. If the creator uploaded a picture, that is shown instead.
+- Stats include "Traded on 3AM": the total USD traded in this basket by app users. Stock pages show the same stat for the stock.
 
 - Top bar: Stack image, `$AIK` ticker, Stack name, creator line `by @ada` which links to the profile. Right icons the same.
 - Price header: index value and change. The right block toggles between `Holders`, `Creator earned` and `Since launch %`.
@@ -195,16 +212,18 @@ Title `Deposit with`. Option rows are `surface-2` cards, radius 16px, 72px tall,
 ### 8.1 Search (`/app/search`)
 - Autofocus search input at the top (`surface`, radius 12px, 48px). Results in two sections: Stocks and Stacks, then People. Same row style as home. Recent searches when empty.
 
-### 8.2 Create Stack (`/app/create`)
+### 8.2 Create basket (`/app/create`)
 A 3-step flow with a progress bar at the top.
 1. Pick stocks: search the allowlist, add 2 to 5. Each added item shows a provider switcher if more than one provider has that ticker, defaulting to bStocks.
-2. Weights: a slider and a number input per component, showing a live total that must equal 100.00%. An `Equal weights` button. A donut preview of the split.
-3. Details: image upload (square crop), name (3 to 32 chars), ticker (2 to 6 uppercase letters, checked for uniqueness), description (up to 280 chars). A summary card, estimated gas, and a `Launch Stack` CTA. Show clearly that the recipe cannot be changed after launch.
+2. Weights: one horizontal bar is the whole split, one coloured segment per stock. Dragging a boundary moves weight between the two neighbours. Under it, preset chips (`Equal`, `By market cap`) and one row per stock with its logo, what a $100 buy puts into it after the fee, a minus / number / plus control, and (with 3 or more stocks) a lock that holds its weight. Setting one stock's number takes the difference from the unlocked others in proportion. The total is always exactly 100.00% and no stock goes under 1%, so there is no invalid state. The maths is in `src/lib/weights.ts`.
+3. Details: an optional picture (square crop, up to 2MB; without one the basket shows its stocks' logos), name (3 to 32 chars), ticker (2 to 6 uppercase letters, checked for uniqueness), description (up to 280 chars), an optional Telegram club link. A summary card, estimated gas, and a launch CTA. Show clearly that the recipe cannot be changed after launch.
 
 ### 8.3 Social (`/app/social`)
-- Tabs `Following` and `Discover`.
-- Following: activity feed from followed users (buys, sells, new Stacks) with avatar, text like `@ada bought $120 of AI Kings`, time and the asset row inline.
-- Discover: top creators by creator fees earned and by Stack buyers, each with a Follow button.
+Social is about the people on the app and what they trade.
+- Tabs `Trades`, `People`, `Following`. `Trades` is the default.
+- Trades: a horizontal strip of the stocks most traded on the app this week (volume, trader count), then everyone's latest trades, newest first, with avatar, text like `@ada bought $120 of NVDA`, time and the asset row inline.
+- People: the week's most active traders by volume, then everyone else on the app with their latest trade, each with a Follow button.
+- Following: the same feed, only from people the user follows.
 
 ### 8.4 Profile (`/app/u/[username]`)
 - Header: 72px avatar, display name, `@username`, bio, X link icon if set, `Followers` and `Following` counts, `Follow` or `Edit profile` button.
@@ -213,7 +232,8 @@ A 3-step flow with a progress bar at the top.
   - Holdings: single stocks and positions (own profile shows everything; other profiles show holdings without dollar amounts unless the user opts in via a profile setting `show_values`).
   - Stacks: Stacks this user created.
   - Own profile shows a `Claim $X.XX` card when the creator balance is above zero.
-- Settings gear on own profile: edit profile, show values toggle, export wallet (Privy), log out.
+- Settings gear on own profile: appearance (Light, Dark, Rainbow, Binance, System), edit profile, show values toggle, iMessage, Telegram (when set up), export wallet (Privy), log out.
+- iMessage sheet: enter a phone number, get a 6-digit code valid for 10 minutes, tap `Text us to connect`. Once connected it shows the masked number, the `Trade by text` switch with the per-buy and per-day limits, and `Disconnect iMessage`.
 
 ### 8.5 Position detail (`/app/position/[id]`)
 - Header with the Stack logo and `Position #123`, bought date, current value, PnL vs cost basis.
@@ -221,7 +241,7 @@ A 3-step flow with a progress bar at the top.
 - CTA row: `Sell` and `Redeem stocks`.
 
 ### 8.6 Onboarding
-- `/` is a simple landing page with the mark, one line ("Stocks, onchain. Build and share your own Stacks."), and a `Get started` button that opens Privy login (email, Google, X, and external wallet).
+- `/` is a simple landing page with the wordmark, one line ("Stocks, onchain. Trade them in the app or by text."), and a `Get started` button that opens Privy login (email, Google, X, and external wallet).
 - After first login, a single onboarding screen: avatar upload, username (3 to 20, lowercase letters, numbers, underscore), bio, optional X URL. Then land on `/app`.
 
 ## 9. States, motion and polish

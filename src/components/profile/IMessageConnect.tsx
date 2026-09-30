@@ -92,7 +92,7 @@ export function IMessageConnect() {
           </div>
         </div>
         <TextBuys />
-        <p className="text-secondary text-text-muted">Texts can show prices, news and your portfolio. With Buy by text off, a buy is only ever a link for you to confirm here.</p>
+        <p className="text-secondary text-text-muted">Texts can show prices, news and your portfolio. With Trade by text off, a buy is only ever a link for you to confirm here.</p>
         <Button variant="secondary" className="w-full text-down" loading={stop.isPending} onClick={() => stop.mutate()}>
           Disconnect iMessage
         </Button>

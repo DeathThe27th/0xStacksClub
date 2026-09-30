@@ -1,35 +1,51 @@
-# StacksClub — Product
+# 3AM — Product
 
 Source of truth: `CLAUDE.md` and `docs/`. This file summarises them for design work; it adds nothing.
+The display name is `APP_NAME` in `src/lib/constants.ts` (currently 3AM; formerly Stocks n Clubs and
+StacksClub).
 
 ## Product
 
-A social market for tokenized stocks and creator-made stock baskets ("Stacks") on BNB Smart Chain
-mainnet. Users buy provider-issued stock tokens (bStocks, Ondo), create immutable Stacks of 2–5 of
-them, buy positions in other people's Stacks, and follow, comment on and copy each other.
-Built for the BNB Chain tokenized-stocks hackathon.
+A social market for tokenized stocks on BNB Smart Chain mainnet. Stocks come first: people buy,
+hold and sell single provider-issued stock tokens (bStocks, Ondo) with USDT, see what other people
+on the app trade, and can do most of it by text through the assistant on iMessage (Telegram is
+built and switched off until a bot is set up).
+
+Baskets are one feature among others: an immutable recipe of 2 to 5 stocks that a user creates and
+others buy their own position in. Each basket can have a holders-only Telegram club link.
 
 ## Users and jobs
 
 - Crypto-native and crypto-curious people who want stock exposure onchain, on their phone.
-- Jobs: deposit USDT, buy a stock token, compare providers for the same ticker, build and share a
-  Stack, buy into someone's Stack, sell or redeem, see what friends hold and trade, claim creator fees.
+- Jobs: deposit USDT, buy and sell a stock, check a price or the news, see what people on the app
+  are trading, follow traders, text the assistant for prices, news, portfolio and trades, build or
+  buy a basket, claim creator fees.
 
 ## Truths the UI must respect
 
 - It is not a broker or issuer. Tokens are provider-issued, not direct shares. "Redeem" returns the
   exact stock tokens, never cash.
-- A Stack has no token and no market price. Its chart is an index ("Value of $1,000 put into this
-  Stack at launch, without rebalancing"), shown without `$`.
-- Stack buys are never atomic: legs run in sequence and every step is shown.
-- Prices are indicative marks, labelled as such. Market-closed states are shown.
-- Fees: 1% buy (Stack creator gets 25% of it), 1% sell. Minimum buy $5 (1–3 components), $10 (4–5).
+- Stocks lead everywhere: home, social, stats and the assistant. Baskets are secondary and mostly
+  live on the site.
+- A basket has no token and no market price. Its index starts at 1,000 at launch and is shown
+  without `$`. Its picture is the logos of its stocks in turn, unless the creator uploaded one.
+- Buys and sells are never atomic: steps run in sequence and every step is saved.
+- Prices are indicative marks. Market-closed states are shown.
+- Fees: 1% buy (on a basket buy the creator gets a quarter of it), 1% sell. Minimum buy $1 for a
+  stock or a basket of up to 3 stocks, $5 for a basket of 4 or 5.
+- Users sign their own trades in the browser. The one exception is Trade by text: a user can let
+  the app sign buys and sells of single stocks they confirm by replying YES to the assistant, with
+  limits on buys (default $50 a buy, $200 a day). Off by default.
 
 ## Platform
 
-`web`, mobile-first (390–430px), dark only; desktop centres the 430px column.
+web
+
+Mobile-first (390–430px column). Desktop uses a wider layout with a market pane and a trade panel.
+Four themes: dark (default, follows the device), light, Rainbow and Binance.
 
 ## Binding visual spec
 
-`docs/UI_SPEC.md` (tokens, type scale, layout, components, motion) and `docs/reference/*.png`
-for layout reference. StacksClub uses its own mark and Lucide icons; no other app's brand assets.
+`docs/UI_SPEC.md` (tokens, type scale, layout, components, motion) and `docs/reference/*.png` for
+layout reference. The brand is the wordmark (Bricolage Grotesque 800), not a logo mark; the UI font
+is Geist; icons are Lucide. No other app's brand assets.

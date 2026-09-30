@@ -61,12 +61,19 @@ describe("parseLoose", () => {
     expect(parseLoose("how is ai kings doing?")).toEqual({ kind: "price", basket: "ai kings" });
     expect(parseLoose("i want to buy 50 of chip makers")).toEqual({ kind: "buy", amount: 50, basket: "chip makers" });
     expect(parseLoose("telegram for ai kings")).toEqual({ kind: "club", basket: "ai kings" });
-    expect(parseLoose("i want to sell my nvda")).toEqual({ kind: "sell" });
+    expect(parseLoose("i want to sell my nvda")).toEqual({ kind: "sell", name: "nvda" });
+    expect(parseLoose("sell all my tesla please")).toEqual({ kind: "sell", name: "tesla", percent: 100 });
     expect(parseCommand("news")).toEqual({ kind: "news", name: "" });
     expect(parseCommand("news on nvda")).toEqual({ kind: "news", name: "nvda" });
     expect(parseLoose("any news about tesla?")).toEqual({ kind: "news", name: "tesla" });
     expect(parseLoose("what's happening today")).toEqual({ kind: "news", name: "" });
-    expect(parseCommand("sell nvda")).toEqual({ kind: "sell" });
+    expect(parseCommand("sell nvda")).toEqual({ kind: "sell", name: "nvda" });
+    expect(parseCommand("sell all nvda")).toEqual({ kind: "sell", name: "nvda", percent: 100 });
+    expect(parseCommand("sell half of my NVDA")).toEqual({ kind: "sell", name: "NVDA", percent: 50 });
+    expect(parseCommand("sell 25% of nvda")).toEqual({ kind: "sell", name: "nvda", percent: 25 });
+    expect(parseCommand("sell $5 of nvda")).toEqual({ kind: "sell", name: "nvda", usd: 5 });
+    expect(parseCommand("sell 5 nvda")).toEqual({ kind: "sell", name: "nvda", usd: 5 });
+    expect(parseCommand("sell")).toEqual({ kind: "sell", name: "" });
   });
 
   it("gives up on the rest", () => {

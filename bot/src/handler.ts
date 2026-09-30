@@ -3,7 +3,7 @@ import * as f from "./format.js";
 import { log } from "./log.js";
 import type { Assistant, Turn } from "./assistant.js";
 import { parseAmount, parseCommand, parseLoose, type Command } from "./parse.js";
-import { createTools, type PendingBuy } from "./tools.js";
+import { createTools, type PendingBuy, type PendingSell, type PendingTrade } from "./tools.js";
 
 /**
  * What to send back, in order. `contactCard.number` is the pool number this user texts; with it the
@@ -35,10 +35,30 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
   const chats = new Map<string, Chat>();
   const unlinkedReplies = new Map<string, number[]>();
   // A text buy the user has been asked to confirm. Only their own "yes" runs it.
-  const pendingBuys = new Map<string, PendingBuy & { at: number }>();
+  const pendingBuys = new Map<string, PendingTrade & { at: number }>();
   const BUY_TTL_MS = 5 * 60_000;
   const tools = (sender: string) =>
-    createTools(api, sender, deps.config(), { contactCard: !isTelegram(sender), onPendingBuy: (p) => pendingBuys.set(sender, { ...p, at: now() }) });
+    createTools(api, sender, deps.config(), { contactCard: !isTelegram(sender), onPending: (p) => pendingBuys.set(sender, { ...p, at: now() }) });
+
+  /** "yes" to a sell: say we're on it, then sell and report what actually happened. */
+  function confirmSell(sender: string, p: PendingSell): Out[] {
+    pendingBuys.delete(sender);
+    return [
+      { text: f.selling(p.ticker) },
+      {
+        then: async () => {
+          try {
+            const r = await api.tradeSell(sender, p.ticker, p.size, true);
+            return say(r.status === "ready" || r.status === "many" || r.status === "none" ? f.clarify() : f.soldReply(r));
+          } catch (e) {
+            log("error", "sell confirm failed", { status: (e as { status?: number }).status, code: (e as { code?: string }).code });
+            // We don't know how far it got, so never claim nothing was sold.
+            return say("I lost track of that sell. Check your portfolio in the app before trying again.");
+          }
+        },
+      },
+    ];
+  }
 
   /** "yes": say we're on it, then run the buy and report what actually happened. */
   function confirmBuy(sender: string, p: PendingBuy): Out[] {
@@ -143,8 +163,13 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
         return say(f.portfolioReply(await api.portfolio(phone)));
       case "question":
         return say(f.performanceReply(await api.portfolio(phone, true)));
-      case "sell":
-        return say(f.sellReply((await api.portfolio(phone)).url));
+      case "sell": {
+        if (!cmd.name) return say(f.needName("sell all"));
+        if (cmd.percent === undefined && cmd.usd === undefined) return say(f.needSellSize(cmd.name));
+        // Same path as the assistant's tool: a YES question if Trade by text is on.
+        const r = await tools(phone).run("sell", { name: cmd.name, percent: cmd.percent, amount_usd: cmd.usd });
+        return say(r.fallback);
+      }
       case "news": {
         const r = await api.news(phone, cmd.name || undefined);
         if (r.match === "none") return say(f.notFound(cmd.name));
@@ -229,7 +254,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     const waiting = pendingBuys.get(phone);
     if (waiting) {
       if (now() - waiting.at > BUY_TTL_MS) pendingBuys.delete(phone);
-      else if (/^\s*(yes|y|yep|yeah|yup|confirm|do it|go)[\s.!]*$/i.test(text)) return confirmBuy(phone, waiting);
+      else if (/^\s*(yes|y|yep|yeah|yup|confirm|do it|go)[\s.!]*$/i.test(text)) return waiting.kind === "sell" ? confirmSell(phone, waiting) : confirmBuy(phone, waiting);
       else if (/^\s*(no|n|nope|cancel|stop it|never ?mind)[\s.!]*$/i.test(text)) {
         pendingBuys.delete(phone);
         return remember(phone, text, say(f.cancelled()));

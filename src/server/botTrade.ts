@@ -6,7 +6,7 @@ import { BOT_ORDER_TTL_MS, FEE_BPS, MIN_BUY_USD_LARGE, MIN_BUY_USD_SMALL, USDT_A
 import { serverEnv } from "@/lib/env";
 import type { Intent } from "@/lib/client/types";
 import { createRunner, gasUnits, StopError, type Backend, type QuoteResponse, type Signer } from "@/lib/runner";
-import { signableWallet, tradeSettings, tradingConfigured, type BotUser } from "@/server/assistant";
+import { signableWallet, tradeSettings, tradingConfigured, type BotUser, type SignableWallet } from "@/server/assistant";
 import { privyClient, type AuthContext } from "@/server/auth";
 import { botLookup } from "@/server/bot";
 import { publicClient, readErc20Balances } from "@/server/chain";
@@ -15,11 +15,13 @@ import { HttpError } from "@/server/http";
 import { advanceIntent, createIntent, getUsdtDecimals, legApprovals, loadIntent, pollOrder, quoteLeg, submitOrder, type AdvanceInput } from "@/server/intents";
 import { requireVault } from "@/server/vault";
 
-// Buys made by text. The user turned this on in the app, added our signer to their embedded wallet
-// and set limits. A buy is two messages: the request creates a pending order and tells the user
-// exactly what would be bought; only their "yes" runs it. The run is the same state machine the
-// browser uses (src/lib/runner.ts) against the same server checks, with the wallet signing through
-// Privy instead of the browser. Nothing here can sell, withdraw or send funds anywhere else.
+// Trades made by text. The user turned this on in the app and added our signer to their own
+// embedded wallet. A buy is two messages: the request parks an order and says exactly what would
+// be bought; only the user's "yes" runs it, within their limits. A sell works the same way: a
+// preview, then the sale after their "yes". Both run the same state machine the browser uses
+// (src/lib/runner.ts) against the same server checks, with the wallet signing through Privy
+// instead of the browser. Nothing here withdraws or sends funds anywhere: a buy turns the wallet's
+// USDT into a stock in the same wallet, and a sell turns it back.
 
 type OrderRow = {
   id: string;
@@ -76,6 +78,99 @@ function privySigner(wallet: { id: string; address: Address }): Signer {
       return account.signTypedData(args as unknown as Parameters<typeof account.signTypedData>[0]);
     },
   };
+}
+
+/** The same checks the API routes run, called directly instead of over HTTP. */
+function directBackend(ctx: AuthContext, id: string): Backend {
+  return {
+    load: async () => (await loadIntent(id, ctx)) as unknown as Intent,
+    advance: async (input) => (await advanceIntent(ctx, id, input as AdvanceInput)) as unknown as Intent,
+    quote: async (legIndex) => (await quoteLeg(ctx, await loadIntent(id, ctx), legIndex)) as QuoteResponse,
+    submitOrder: async (legIndex, signature) => submitOrder(ctx, await loadIntent(id, ctx), legIndex, signature),
+    orderStatus: async (oid) => (await pollOrder(ctx, oid)).status,
+    approvals: async () => legApprovals(ctx, await loadIntent(id, ctx)),
+  };
+}
+
+/** Runs an intent to its end with the user's embedded wallet signing through Privy. */
+function runOnServer(ctx: AuthContext, wallet: SignableWallet, intentId: string): Promise<Intent> {
+  return serverRunner().runIntent({ backend: directBackend(ctx, intentId), signer: privySigner(wallet) });
+}
+
+const messageOf = (e: unknown) =>
+  e instanceof StopError || e instanceof HttpError ? e.message : ((e as { shortMessage?: string }).shortMessage ?? "Something went wrong while trading.");
+
+/** Gas budget multiple for a server-run trade: the estimate is rough, and running dry mid-trade strands it. */
+const GAS_MARGIN = 4n;
+
+export type SellResult =
+  | { status: "ready"; ticker: string; name: string; bps: number; percent: number; estUsd: number | null }
+  | { status: "done"; ticker: string; proceedsUsd: number; url: string }
+  | { status: "failed"; ticker: string; error: string; url: string }
+  | { status: "not_enabled"; url: string }
+  | { status: "unavailable"; url: string }
+  | { status: "wallet"; reason: "external" | "not_delegated"; url: string }
+  | { status: "nothing"; ticker: string }
+  | { status: "no_gas"; url: string }
+  | { status: "bad_amount" }
+  | { status: "many"; options: { kind: "stock" | "basket"; ticker: string; name: string }[] }
+  | { status: "none" };
+
+/**
+ * Sell a stock by text. `execute: false` only works out what would be sold; `execute: true` (sent
+ * by the bot after the user's "yes") sells it. Size is a percent of the holding or a dollar amount.
+ * Proceeds stay in the user's own wallet as USDT, less the usual 1% sell fee.
+ */
+export async function textSell(user: BotUser, input: { query: string; percent?: number; usd?: number; execute: boolean }): Promise<SellResult> {
+  const url = appUrl(`/app/u/${user.profile.username}`);
+  if (!tradingConfigured()) return { status: "unavailable", url };
+  if (!(await tradeSettings(user.profile.id)).enabled) return { status: "not_enabled", url };
+  const found = await botLookup(input.query);
+  if (found.match === "none") return { status: "none" };
+  if (found.match === "many") return { status: "many", options: found.options };
+  // Basket positions are sold in the app; by text it's single stocks.
+  if (found.match !== "stock") return { status: "none" };
+  const stock = found.stock;
+
+  const address = stock.address as Address;
+  const [balances, asset] = await Promise.all([
+    readErc20Balances(user.wallet, [address]),
+    db().from("assets").select("decimals").eq("address", address).maybeSingle().then(must) as Promise<{ decimals: number } | null>,
+  ]);
+  const units = balances.get(address) ?? 0n;
+  if (units === 0n || !asset) return { status: "nothing", ticker: stock.ticker };
+  const valueUsd = stock.priceUsd === null ? null : (Number(units) / 10 ** asset.decimals) * stock.priceUsd;
+
+  let bps: number;
+  if (input.usd !== undefined) {
+    if (!Number.isFinite(input.usd) || input.usd <= 0 || valueUsd === null || valueUsd <= 0) return { status: "bad_amount" };
+    // Asking for nearly everything sells everything, so no dust is left behind.
+    bps = input.usd >= valueUsd * 0.98 ? 10_000 : Math.round((input.usd / valueUsd) * 10_000);
+  } else {
+    const percent = input.percent ?? 100;
+    if (!Number.isFinite(percent) || percent <= 0 || percent > 100) return { status: "bad_amount" };
+    bps = Math.round(percent * 100);
+  }
+  if (bps < 1) return { status: "bad_amount" };
+  const estUsd = valueUsd === null ? null : Math.round((valueUsd * bps) / 100) / 100;
+  if (!input.execute) return { status: "ready", ticker: stock.ticker, name: stock.name, bps, percent: bps / 100, estUsd };
+
+  const wallet = await signableWallet(user.profile.privy_id, user.wallet);
+  if (typeof wallet === "string") return { status: "wallet", reason: wallet, url };
+  const [bnb, gasPrice] = await Promise.all([publicClient().getBalance({ address: user.wallet }), publicClient().getGasPrice()]);
+  if (bnb < gasPrice * gasUnits("sell_stock", 1) * GAS_MARGIN) return { status: "no_gas", url };
+
+  const ctx: AuthContext & { profile: NonNullable<AuthContext["profile"]> } = { privyId: user.profile.privy_id, wallet: user.wallet, wallets: [user.wallet], profile: user.profile };
+  try {
+    const created = await createIntent(ctx, { kind: "sell_stock", assetAddress: address, bps });
+    const final = await runOnServer(ctx, wallet, created.id);
+    if (final.status !== "done") return { status: "failed", ticker: stock.ticker, error: final.error ?? `The sell stopped at "${final.status}".`, url };
+    const proceeds = final.legs.reduce((sum, l) => sum + BigInt(l.actual_out ?? "0"), 0n);
+    return { status: "done", ticker: stock.ticker, proceedsUsd: Math.round((Number(proceeds) / 10 ** (await getUsdtDecimals())) * 100) / 100, url };
+  } catch (e) {
+    if (!(e instanceof StopError) && !(e instanceof HttpError)) console.error("[text-sell]", e instanceof Error ? e.message.split("\n")[0] : e);
+    return { status: "failed", ticker: stock.ticker, error: messageOf(e), url };
+  }
 }
 
 export type PrepareResult =
@@ -135,7 +230,7 @@ export async function prepareBuy(user: BotUser, query: string, amount: number, c
   const usdt = Number(balances.get(USDT_ADDRESS) ?? 0n) / 10 ** dec;
   if (usdt < usd) return { status: "no_usdt", usdtBalance: Math.floor(usdt * 100) / 100, amountUsd: usd };
   const kind = target.kind === "stock" ? "buy_stock" : "buy_stack";
-  if (bnb < (gasPrice * gasUnits(kind, target.legs) * 3n) / 2n) return { status: "no_gas", url: settingsUrl };
+  if (bnb < gasPrice * gasUnits(kind, target.legs) * GAS_MARGIN) return { status: "no_gas", url: settingsUrl };
 
   const running = must(
     await db().from("bot_orders").select("id").eq("profile_id", user.profile.id).eq("status", "running").gte("created_at", new Date(Date.now() - 10 * 60_000).toISOString()).limit(1),
@@ -218,22 +313,13 @@ export async function confirmBuy(user: BotUser, orderId?: string): Promise<Confi
     intentId = id;
     must(await db().from("bot_orders").update({ intent_id: id }).eq("id", order.id));
 
-    // The same checks the API routes run, called directly instead of over HTTP.
-    const backend: Backend = {
-      load: async () => (await loadIntent(id, ctx)) as unknown as Intent,
-      advance: async (input) => (await advanceIntent(ctx, id, input as AdvanceInput)) as unknown as Intent,
-      quote: async (legIndex) => (await quoteLeg(ctx, await loadIntent(id, ctx), legIndex)) as QuoteResponse,
-      submitOrder: async (legIndex, signature) => submitOrder(ctx, await loadIntent(id, ctx), legIndex, signature),
-      orderStatus: async (oid) => (await pollOrder(ctx, oid)).status,
-      approvals: async () => legApprovals(ctx, await loadIntent(id, ctx)),
-    };
-    const final = await serverRunner().runIntent({ backend, signer: privySigner(wallet) });
+    const final = await runOnServer(ctx, wallet, id);
     if (final.status !== "done") return await fail(final.error ?? `The buy stopped at "${final.status}".`, id, !!final.fee_receipt_id);
     must(await db().from("bot_orders").update({ status: "done" }).eq("id", order.id));
     return { status: "done", label: order.label, amountUsd: usd, url, positionId: final.position_id };
   } catch (e) {
     const feePaid = intentId ? !!(must(await db().from("intents").select("fee_receipt_id").eq("id", intentId).maybeSingle()) as { fee_receipt_id: number | null } | null)?.fee_receipt_id : false;
-    const message = e instanceof StopError || e instanceof HttpError ? e.message : ((e as { shortMessage?: string }).shortMessage ?? "Something went wrong while buying.");
+    const message = messageOf(e);
     if (!(e instanceof StopError) && !(e instanceof HttpError)) console.error("[bot-trade]", e instanceof Error ? e.message.split("\n")[0] : e);
     return fail(message, intentId, feePaid);
   }

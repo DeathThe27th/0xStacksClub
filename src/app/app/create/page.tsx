@@ -424,18 +424,18 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
   });
   const nameOk = name.trim().length >= 3 && name.trim().length <= 32;
   const telegramOk = !telegram.trim() || normalizeTelegramUrl(telegram) !== null;
-  const ready = !!image && nameOk && tickerFormat && avail.data?.available === true && description.length <= 280 && telegramOk;
+  const ready = nameOk && tickerFormat && avail.data?.available === true && description.length <= 280 && telegramOk;
 
   const launch = async () => {
     setError(null);
     try {
-      setStatus("Uploading image");
+      setStatus(image ? "Uploading image" : "Saving details");
       const form = new FormData();
       form.set("name", name.trim());
       form.set("ticker", ticker);
       form.set("description", description.trim());
       if (telegram.trim()) form.set("telegram", telegram.trim());
-      form.set("image", image!);
+      if (image) form.set("image", image);
       const { metadataURI } = await api<{ metadataURI: string }>("/api/stacks/metadata", { method: "POST", body: form });
 
       setStatus("Confirm in your wallet");
@@ -474,9 +474,17 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
     <div className="pb-28 lg:pb-0">
       <h2 className="mt-6 text-[22px] font-bold">Name your basket</h2>
       <div className="mt-5 flex items-center gap-4">
-        <button onClick={() => fileRef.current?.click()} className="press grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-full border border-dashed border-border bg-surface text-text-muted" aria-label="Upload image">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          {preview ? <img src={preview} alt="" className="h-full w-full object-cover" /> : <ImagePlus size={26} />}
+        <button onClick={() => fileRef.current?.click()} className="press relative h-20 w-20 shrink-0" aria-label={preview ? "Change picture" : "Add a picture (optional)"}>
+          {preview ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={preview} alt="" className="h-full w-full rounded-full object-cover" />
+          ) : (
+            // No picture chosen: this is what the basket will show, its stocks' logos in turn.
+            <TokenLogo label={ticker || "?"} basket={ticker || "new"} logos={picks.map((p) => p.options.find((o) => o.address === p.chosen)?.logo_url ?? null)} size={80} />
+          )}
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-7 w-7 place-items-center rounded-full border-2 border-bg bg-surface-2 text-text">
+            <ImagePlus size={14} />
+          </span>
         </button>
         <input
           ref={fileRef}
@@ -501,7 +509,26 @@ function DetailsStep({ picks, weights }: { picks: Pick[]; weights: number[] }) {
             }
           }}
         />
-        <p className="text-secondary text-text-muted">Square image, up to 2MB. This is your basket&apos;s logo.</p>
+        <div className="min-w-0 text-secondary text-text-muted">
+          <p>
+            <span className="text-text">Picture (optional).</span> Without one, your basket shows the logos of its stocks.
+          </p>
+          {preview && (
+            <button
+              type="button"
+              onClick={() => {
+                setImage(null);
+                setPreview((prev) => {
+                  if (prev) URL.revokeObjectURL(prev);
+                  return null;
+                });
+              }}
+              className="mt-1 text-link"
+            >
+              Remove picture
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="mt-5 space-y-4">

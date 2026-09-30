@@ -15,8 +15,8 @@ type Trading = { available: boolean; signerId: string | null; enabled: boolean; 
 const KEY = ["assistant-trading"];
 
 /**
- * Buys by text. Off until the user turns it on: that adds our signer to their embedded wallet
- * (their consent, through Privy) and saves their limits. Every buy still needs a "yes" reply.
+ * Buying and selling by text. Off until the user turns it on: that adds our signer to their embedded wallet
+ * (their consent, through Privy) and saves their buy limits. Every buy and sell still needs a "yes" reply.
  */
 export function TextBuys() {
   const api = useApi();
@@ -62,12 +62,12 @@ export function TextBuys() {
     <section className="rounded-card bg-surface-2 p-4">
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-[16px] font-semibold">Buy by text</p>
+          <p className="text-[16px] font-semibold">Trade by text</p>
           <p className="mt-0.5 text-secondary text-text-muted">
-            {data.enabled ? `On. Up to ${usd(data.capUsd)} a buy, ${usd(data.dailyUsd)} a day.` : `Let ${APP_NAME} buy a stock when you text it and reply YES.`}
+            {data.enabled ? `On. Buys up to ${usd(data.capUsd)} each, ${usd(data.dailyUsd)} a day.` : `Let ${APP_NAME} buy or sell a stock when you text it and reply YES.`}
           </p>
         </div>
-        <Switch checked={data.enabled} label="Buy by text" onChange={(v) => (v && !valid ? undefined : save.mutate(v))} />
+        <Switch checked={data.enabled} label="Trade by text" onChange={(v) => (v && !valid ? undefined : save.mutate(v))} />
       </div>
 
       {!embedded && !data.enabled && (
@@ -90,8 +90,8 @@ export function TextBuys() {
         </p>
       )}
       <p className="mt-3 text-[12px] leading-5 text-text-muted">
-        Turning this on gives {APP_NAME} permission to sign with your {APP_NAME} wallet. It only uses that to make the buys you confirm by replying YES, within these limits. You pay
-        the usual 1% fee and network fee. Turning it off removes the permission.
+        Turning this on gives {APP_NAME} permission to sign with your {APP_NAME} wallet. It only uses that for the buys and sells you confirm by replying YES. Buys stay within
+        these limits; a sell turns a stock you hold back into USDT in your wallet. You pay the usual 1% fee and network fee. Turning it off removes the permission.
       </p>
     </section>
   );

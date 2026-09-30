@@ -1,4 +1,6 @@
-# StacksClub Flows
+# 3AM Flows
+
+"Stack" in this file is what users see as a basket.
 
 Every money flow is a persisted state machine in `intents` and `intent_legs`. The client drives it, the server verifies each step before saving it. If the tab closes, reopening the app shows a banner "You have an unfinished buy" that resumes from the saved state.
 
@@ -21,9 +23,10 @@ No server state involved.
 
 ## 2. Buy a single stock
 
+0. A link with `?buy=<amount>` on a stock or basket page opens the buy form with the amount filled in (the texting assistant sends these).
 1. User enters gross amount G (at least $1 in USDT raw units).
 2. `POST /api/intents` with `kind = buy_stock`. Server computes `fee = G * 100 / 10000` and `net = G - fee`, creates one leg USDT → asset for `net`.
-3. Pay fee: approve `fee` USDT to the vault, call `payBuyFee(0, G)`. PATCH the intent with the tx hash. Server confirms the `BuyFeePaid` event and stores `fee_receipt_id`. Status `fee_paid`.
+3. Pay fee: approve `fee` USDT to the vault, call `payBuyFee(0, G)`. The exact router approvals the legs will need (`GET /api/intents/[id]/approvals`) are sent in the same burst, so a leg doesn't stop to approve. PATCH the intent with the tx hash. Server confirms the `BuyFeePaid` event and stores `fee_receipt_id`. Status `fee_paid`.
 4. Run the leg (section 4). On FILLED and a verified balance increase, status `done`.
 5. Insert a `trades` row and an `activity` row. Show the success state.
 
@@ -100,8 +103,8 @@ Unit-test the index math.
 
 ## 8. Create a Stack
 
-1. Client validates components, weights and ticker (see UI spec 8.2).
-2. `POST /api/stacks/metadata` uploads the image and returns `metadataURI`.
+1. Client validates components and ticker (see UI spec 8.2). Weights can't be invalid: the editor keeps them at exactly 10,000 bps with every stock at 100 bps or more (`src/lib/weights.ts`).
+2. `POST /api/stacks/metadata` stores the metadata (and the picture, if one was chosen; it is optional) and returns `metadataURI`.
 3. User calls `createStack(assets, weights, metadataURI, ticker)`.
 4. On the `StackCreated` event, the server upserts `stacks`, computes `launch_units`, writes the first index point and an `activity` row.
 5. Redirect to the Stack page with a share prompt ("Share AI Kings on X") that prefills a tweet with the link.
@@ -116,3 +119,23 @@ Unit-test the index math.
 - Weekly Top Trades: sum of realised plus unrealised PnL per user from `trades` in the last 7 days, top 10, each card showing the single best asset or Stack.
 - Hall of Fame: Stacks ranked by total creator fees earned from `BuyFeePaid` events.
 - Computed in SQL views, cached 60 seconds.
+
+## 11. Texting assistant
+
+The bot (`bot/`) is a separate process. It holds no wallet or database secrets and only calls `/api/bot/*` with a shared-secret header. A sender is a phone number (iMessage) or a Telegram user id.
+
+### Connect iMessage
+1. In the app the user enters their phone number. The server registers it with Photon (the shared pool gives each phone its own number) and creates a 6-digit code, valid for 10 minutes.
+2. The user taps `Text us to connect`, which opens Messages with `link <code>` addressed to their assigned number.
+3. The bot passes the sender and code to `/api/bot/link`. The code only works from the phone it was made for. The first reply is text only, then a contact card.
+4. `stop` by text or `Disconnect iMessage` in the app removes the link and frees the Photon user.
+
+### Trade by text
+Off by default. Turning it on in the app adds the app's Privy signer to the user's embedded wallet and saves their limits (default $50 a buy, $200 a day).
+
+1. Buy: "buy 20 NVDA" calls `/api/bot/trade/prepare`, which checks the limits, balance, gas and the wallet's permission and parks an order in `bot_orders`. Nothing is spent. The bot asks "Reply YES".
+2. Only a plain yes from the user, matched by code and never by the model, makes the bot call `/api/bot/trade/confirm`. That creates a `buy_stock` (or `buy_stack`) intent and runs it with the shared runner (`src/lib/runner.ts`), signing through Privy.
+3. Sell: "sell all NVDA" calls `/api/bot/trade/sell` for a preview; the user's yes calls it again with `execute`, which runs a `sell_stock` intent. Proceeds stay in the user's wallet as USDT.
+4. With Trade by text off, a buy request returns a `?buy=` link and a sell request points at the portfolio.
+
+The bot reports what the server says happened. If it loses the connection mid-trade it says so and never claims nothing was spent.

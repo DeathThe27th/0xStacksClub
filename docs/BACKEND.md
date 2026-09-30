@@ -1,4 +1,4 @@
-# StacksClub Backend
+# 3AM Backend
 
 Everything server-side lives in Next.js route handlers under `src/app/api` and helpers under `src/server` (every file there imports `server-only`).
 
@@ -83,10 +83,22 @@ All inputs validated with zod. All user-scoped routes verify the Privy access to
 | `/api/activity` | GET | Following feed |
 | `/api/cron/prices` | GET | Vercel Cron every minute. Refreshes the price cache for all allowlisted assets. Protected by `CRON_SECRET`. |
 | `/api/cron/index` | GET | Every 5 minutes. Appends a point to each Stack's index series. |
+| `/api/intents/[id]/approvals` | GET | Exact router approvals the intent's unfilled legs will need, so the client sends them with the fee |
+| `/api/trades/public` | GET | Recent trades by app users in one stock or Stack, plus `volume` traded on the app |
+| `/api/news` | GET | Finnhub news for a stock, a Stack's stocks or a sector |
+| `/api/clubs/[id]/link` | GET/PUT | A Stack's Telegram club link: readable by holders, set by the creator |
+| `/api/imessage` | GET/POST/DELETE | The user's iMessage connection: status, start (phone → code), disconnect |
+| `/api/telegram` | GET/POST/DELETE | The user's Telegram connection (one-time `t.me` link) |
+| `/api/assistant/trading` | GET/PUT | Trade by text: on/off and the buy limits |
+| `/api/bot/*` | GET/POST | For the texting bot only, behind the `x-bot-secret` header: `config`, `me`, `link`, `unlink`, `release`, `stocks`, `lookup`, `buylink`, `baskets`, `price`, `portfolio`, `club`, `news`, `trade/prepare`, `trade/confirm`, `trade/sell` |
+
+The trade routes (`/api/intents/*`, `/api/quote`, `/api/orders/*`) use a cached profile and an in-memory rate limit, and load an intent with its legs in one query: the database is about 0.2s per query from the function region.
 
 Rate limit write routes per user (simple Supabase or in-memory token bucket is fine).
 
 ## 4. Supabase schema (`supabase/migrations/0001_init.sql`)
+
+Later migrations, all additive: `0002_clubs.sql` (`club_posts`, retired UI), `0003_club_links.sql` (`club_links`, `club_link_reports`), `0004_imessage.sql` (`phone_links`, `phone_link_codes`), `0005_assistant.sql` (`telegram_links`, `telegram_link_codes`, `assistant_settings`, `bot_orders`). The tables from 0003 on have RLS on and no policies: only the server reads them. The SQL below is the original design; the migration files are what is deployed.
 
 ```sql
 create extension if not exists citext;
@@ -306,6 +318,13 @@ NEXT_PUBLIC_VAULT_ADDRESS=
 NEXT_PUBLIC_USDT_ADDRESS=0x55d398326f99059fF775485246999027B3197955
 NEXT_PUBLIC_APP_URL=https://0x-stacks-club.vercel.app
 CRON_SECRET=
+FINNHUB_API_KEY=                 # news
+BOT_API_SECRET=                  # shared with the texting bot
+SPECTRUM_PROJECT_ID=             # Photon project, used to register phones
+SPECTRUM_PROJECT_SECRET=
+NEXT_PUBLIC_PRIVY_SIGNER_ID=     # Privy authorization key for Trade by text
+PRIVY_SIGNER_PRIVATE_KEY=        # its private half, server only
+NEXT_PUBLIC_TELEGRAM_BOT=        # optional, Telegram bot username
 
 # Foundry only, set in your shell or Codespaces secrets, never in Vercel
 # DEPLOYER_PRIVATE_KEY=

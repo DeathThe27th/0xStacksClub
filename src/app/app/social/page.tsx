@@ -1,8 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Compass, Users } from "lucide-react";
-import { TokenLogo } from "@/components/ui/TokenLogo";
+import { Receipt, Users } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { ActivityItem } from "@/components/social/ActivityItem";
@@ -13,34 +12,43 @@ import { RowSkeleton } from "@/components/ui/Skeleton";
 import { EmptyState, ErrorState } from "@/components/ui/States";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
-import { usd } from "@/lib/format";
+import { TokenLogo } from "@/components/ui/TokenLogo";
+import { APP_NAME } from "@/lib/constants";
+import { timeAgo, usd } from "@/lib/format";
 import { useApi } from "@/lib/client/api";
 import type { Activity, ProfileLite } from "@/lib/client/types";
 
-type Creator = { profile: ProfileLite; earnedRaw: string; buyers: number; stacks: number; following: boolean };
 type StockLeader = { asset: { address: string; ticker: string; name: string; provider: string; logo_url: string | null }; volumeUsd: number; traders: number; trades: number };
 type Trader = { profile: ProfileLite; volumeUsd: number; trades: number; following: boolean };
-type Discover = { stocks: StockLeader[]; traders: Trader[]; latest: Activity[]; byEarnings: Creator[]; byBuyers: Creator[] };
-type Person = { profile: ProfileLite; following: boolean };
+type Person = { profile: ProfileLite; following: boolean; lastTrade: { side: "buy" | "sell"; label: string; at: string } | null };
+type Discover = { stocks: StockLeader[]; traders: Trader[]; latest: Activity[]; people: Person[] };
+type Followable = { profile: ProfileLite; following: boolean };
 
+/**
+ * Social is about the people on the app and what they trade. Trades: everyone's latest buys and
+ * sells. People: the week's most active traders, then everyone else. Following: only the people
+ * you follow.
+ */
 export default function Social() {
   const api = useApi();
   const toast = useToast();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"following" | "discover">("following");
+  const [tab, setTab] = useState<"trades" | "people" | "following">("trades");
   const feed = useQuery({ queryKey: ["activity", "following"], queryFn: () => api<{ items: Activity[] }>("/api/activity?tab=following"), enabled: tab === "following", refetchInterval: 20_000 });
   const discover = useQuery({
     queryKey: ["activity", "discover"],
     queryFn: () => api<Discover>("/api/activity?tab=discover"),
-    enabled: tab === "discover",
+    enabled: tab !== "following",
+    refetchInterval: tab === "trades" ? 20_000 : false,
   });
   const follow = useMutation({
-    mutationFn: (c: Person) => api("/api/follow", { method: c.following ? "DELETE" : "POST", json: { profileId: c.profile.id } }),
+    mutationFn: (c: Followable) => api("/api/follow", { method: c.following ? "DELETE" : "POST", json: { profileId: c.profile.id } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["activity"] });
     },
     onError: (e) => toast({ title: "Couldn't update follow", body: (e as Error).message, tone: "down" }),
   });
+  const d = discover.data;
 
   return (
     <PullToRefresh onRefresh={() => qc.invalidateQueries({ queryKey: ["activity"] })}>
@@ -49,17 +57,17 @@ export default function Social() {
         <Tabs
           className="mt-3"
           tabs={[
+            { id: "trades", label: "Trades" },
+            { id: "people", label: "People" },
             { id: "following", label: "Following" },
-            { id: "discover", label: "Discover" },
           ]}
           value={tab}
           onChange={setTab}
         />
+
         {tab === "following" ? (
           feed.isLoading ? (
-            <div className="pt-3">
-              <RowSkeleton count={5} />
-            </div>
+            <Loading />
           ) : feed.isError ? (
             <ErrorState message={(feed.error as Error).message} onRetry={() => feed.refetch()} />
           ) : feed.data?.items.length ? (
@@ -69,57 +77,75 @@ export default function Social() {
               ))}
             </div>
           ) : (
-            <EmptyState icon={<Users size={24} />} title="Your feed is quiet" body="Follow traders to see what stocks they buy and sell." action={<Button size="md" onClick={() => setTab("discover")}>Discover people</Button>} />
+            <EmptyState
+              icon={<Users size={24} />}
+              title="Your feed is quiet"
+              body="Follow traders to see what stocks they buy and sell."
+              action={
+                <Button size="md" onClick={() => setTab("people")}>
+                  Find people
+                </Button>
+              }
+            />
           )
         ) : discover.isLoading ? (
-          <div className="pt-3">
-            <RowSkeleton count={5} />
-          </div>
+          <Loading />
         ) : discover.isError ? (
           <ErrorState message={(discover.error as Error).message} onRetry={() => discover.refetch()} />
-        ) : !discover.data || (!discover.data.stocks.length && !discover.data.traders.length && !discover.data.latest.length && !discover.data.byEarnings.length) ? (
-          <EmptyState icon={<Compass size={24} />} title="Nothing to discover yet" body="Stocks and traders show up here once people start trading." />
-        ) : (
+        ) : !d ? null : tab === "trades" ? (
           <>
-            {discover.data.stocks.length > 0 && (
-              <section className="mt-5">
-                <h2 className="text-section">Most traded stocks this week</h2>
-                <ul className="mt-2">
-                  {discover.data.stocks.map((s) => (
-                    <li key={s.asset.address}>
-                      <Link href={`/app/stock/${s.asset.provider}/${s.asset.address}`} className="press -mx-2 flex h-row items-center gap-3 rounded-card px-2 hover:bg-surface/60">
-                        <TokenLogo src={s.asset.logo_url} label={s.asset.ticker} size={44} />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[16px] font-semibold uppercase">{s.asset.ticker}</p>
-                          <p className="truncate text-secondary text-text-muted">{s.asset.name}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-[16px] font-medium tnum">{usd(s.volumeUsd, { compact: s.volumeUsd >= 10_000 })}</p>
-                          <p className="text-[12px] text-text-muted">
-                            {s.traders} trader{s.traders === 1 ? "" : "s"}
-                          </p>
-                        </div>
+            {d.stocks.length > 0 && (
+              <section className="mt-4">
+                <h2 className="text-section">Most traded this week</h2>
+                <ul className="no-scrollbar -mx-gutter mt-2 flex gap-2 overflow-x-auto px-gutter lg:mx-0 lg:px-0">
+                  {d.stocks.map((s) => (
+                    <li key={s.asset.address} className="shrink-0">
+                      <Link href={`/app/stock/${s.asset.provider}/${s.asset.address}`} className="press flex items-center gap-2.5 rounded-chip bg-surface py-2 pl-2 pr-3.5">
+                        <TokenLogo src={s.asset.logo_url} label={s.asset.ticker} size={32} />
+                        <span>
+                          <span className="block text-[15px] font-semibold uppercase leading-tight">{s.asset.ticker}</span>
+                          <span className="block text-[12px] leading-tight text-text-muted tnum">
+                            {usd(s.volumeUsd, { compact: s.volumeUsd >= 10_000 })} · {s.traders} trader{s.traders === 1 ? "" : "s"}
+                          </span>
+                        </span>
                       </Link>
                     </li>
                   ))}
                 </ul>
               </section>
             )}
-            {discover.data.traders.length > 0 && (
-              <PeopleList title="Top traders this week" items={discover.data.traders} metric={(t) => `${usd(t.volumeUsd, { compact: t.volumeUsd >= 10_000 })} traded`} onFollow={(t) => follow.mutate(t)} />
-            )}
-            {discover.data.latest.length > 0 && (
-              <section className="mt-5">
-                <h2 className="text-section">Latest trades</h2>
+            <section className="mt-5">
+              <h2 className="text-section">Latest trades</h2>
+              {d.latest.length ? (
                 <div className="divide-y divide-border">
-                  {discover.data.latest.map((a) => (
+                  {d.latest.map((a) => (
                     <ActivityItem key={a.id} a={a} />
                   ))}
                 </div>
-              </section>
+              ) : (
+                <EmptyState icon={<Receipt size={24} />} title="No trades this week" body={`Buys and sells by people on ${APP_NAME} show up here.`} />
+              )}
+            </section>
+          </>
+        ) : !d.traders.length && !d.people.length ? (
+          <EmptyState icon={<Users size={24} />} title="No one here yet" body={`People show up here as they join ${APP_NAME}.`} />
+        ) : (
+          <>
+            {d.traders.length > 0 && (
+              <PeopleList
+                title="Most active this week"
+                items={d.traders}
+                detail={(t) => `${usd(t.volumeUsd, { compact: t.volumeUsd >= 10_000 })} traded · ${t.trades} trade${t.trades === 1 ? "" : "s"}`}
+                onFollow={(t) => follow.mutate(t)}
+              />
             )}
-            {discover.data.byEarnings.length > 0 && (
-              <PeopleList title="Basket creators" items={discover.data.byEarnings} metric={(c) => `${usd(Number(BigInt(c.earnedRaw)) / 1e18)} earned · ${c.buyers} buyer${c.buyers === 1 ? "" : "s"}`} onFollow={(c) => follow.mutate(c)} />
+            {d.people.length > 0 && (
+              <PeopleList
+                title={`On ${APP_NAME}`}
+                items={d.people}
+                detail={(p) => (p.lastTrade ? `${p.lastTrade.side === "buy" ? "Bought" : "Sold"} ${p.lastTrade.label} · ${timeAgo(p.lastTrade.at)}` : "No trades this week")}
+                onFollow={(p) => follow.mutate(p)}
+              />
             )}
           </>
         )}
@@ -128,7 +154,15 @@ export default function Social() {
   );
 }
 
-function PeopleList<T extends Person>({ title, items, metric, onFollow }: { title: string; items: T[]; metric: (c: T) => string; onFollow: (c: T) => void }) {
+function Loading() {
+  return (
+    <div className="pt-3">
+      <RowSkeleton count={5} />
+    </div>
+  );
+}
+
+function PeopleList<T extends Followable>({ title, items, detail, onFollow }: { title: string; items: T[]; detail: (c: T) => string; onFollow: (c: T) => void }) {
   return (
     <section className="mt-5">
       <h2 className="text-section">{title}</h2>
@@ -140,7 +174,7 @@ function PeopleList<T extends Person>({ title, items, metric, onFollow }: { titl
               <div className="min-w-0">
                 <p className="truncate text-[16px] font-semibold">{c.profile.display_name ?? c.profile.username}</p>
                 <p className="truncate text-secondary text-text-muted">
-                  @{c.profile.username} · {metric(c)}
+                  @{c.profile.username} · {detail(c)}
                 </p>
               </div>
             </Link>

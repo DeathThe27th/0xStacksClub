@@ -141,6 +141,22 @@ const confirmed = z.discriminatedUnion("status", [
   z.object({ status: z.literal("nothing") }),
 ]);
 
+const sold = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("ready"), ticker: z.string(), name: z.string(), bps: z.number(), percent: z.number(), estUsd: z.number().nullable() }),
+  z.object({ status: z.literal("done"), ticker: z.string(), proceedsUsd: z.number(), url: z.string().url() }),
+  z.object({ status: z.literal("failed"), ticker: z.string(), error: z.string(), url: z.string().url() }),
+  z.object({ status: z.literal("not_enabled"), url: z.string().url() }),
+  z.object({ status: z.literal("unavailable"), url: z.string().url() }),
+  z.object({ status: z.literal("wallet"), reason: z.string(), url: z.string().url() }),
+  z.object({ status: z.literal("nothing"), ticker: z.string() }),
+  z.object({ status: z.literal("no_gas"), url: z.string().url() }),
+  z.object({ status: z.literal("bad_amount") }),
+  z.object({ status: z.literal("many"), options: z.array(option).min(1) }),
+  z.object({ status: z.literal("none") }),
+]);
+
+export type Sold = z.infer<typeof sold>;
+export type SellSize = { percent?: number; usd?: number };
 export type Prepared = z.infer<typeof prepared>;
 export type Confirmed = z.infer<typeof confirmed>;
 export type News = z.infer<typeof news>;
@@ -197,6 +213,9 @@ export function createApi(opts: { siteUrl: string; secret: string; fetchImpl?: t
     tradePrepare: (sender: string, query: string, amount: number) => call("POST", "trade/prepare", prepared, { sender, query, amount }),
     // The whole buy runs inside this one request (fee, swap, and a deposit for a basket).
     tradeConfirm: (sender: string, orderId?: string) => call("POST", "trade/confirm", confirmed, { sender, ...(orderId ? { orderId } : {}) }, 280_000),
+    /** `execute: false` previews the sale; `execute: true` (after the user's yes) sells. */
+    tradeSell: (sender: string, query: string, size: SellSize, execute: boolean) =>
+      call("POST", "trade/sell", sold, { sender, query, ...size, execute }, execute ? 280_000 : undefined),
     news: (sender: string, query?: string) => call("POST", "news", news, { sender, ...(query ? { query } : {}) }),
   };
 }

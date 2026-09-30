@@ -11,7 +11,7 @@ export type Command =
   | { kind: "price"; basket: string }
   | { kind: "club"; basket: string }
   | { kind: "buy"; amount: number | null; basket: string }
-  | { kind: "sell" }
+  | { kind: "sell"; name: string; percent?: number; usd?: number }
   | { kind: "news"; name: string }
   | { kind: "question"; text: string }
   | { kind: "unknown" };
@@ -46,7 +46,8 @@ export function parseCommand(input: string): Command {
   if (/^(baskets?|top baskets)$/.test(lower)) return { kind: "baskets" };
   if (/^(portfolio|positions|holdings|balance|my portfolio)$/.test(lower)) return { kind: "portfolio" };
 
-  if (/^sell\b/.test(lower)) return { kind: "sell" };
+  const sell = /^sell\b ?(.*)$/i.exec(text);
+  if (sell) return parseSell(sell[1]!);
   const news = /^(?:news|briefing|brief|headlines)(?: (?:on|for|about))?(?: (.+))?$/i.exec(text);
   if (news) return { kind: "news", name: news[1] ?? "" };
 
@@ -68,6 +69,36 @@ export function parseCommand(input: string): Command {
   return { kind: "unknown" };
 }
 
+/** What follows "sell": "all nvda", "half my tesla", "25% of nvda", "$5 of nvda", "nvda". */
+function parseSell(rest: string): Command {
+  let s = clean(rest).replace(/\b(my|the|shares?|stock|position|please|pls|now|for me)\b/gi, " ").replace(/\s+/g, " ").trim();
+  let percent: number | undefined;
+  let usd: number | undefined;
+  const all = /\b(all|everything|100%)\b(?: of)?/i;
+  const half = /\b(half|50%)\b(?: of)?/i;
+  const pct = /(\d{1,3}(?:\.\d+)?) ?%(?: of)?/;
+  const money = /\$ ?(\d+(?:\.\d{1,2})?)|\b(\d+(?:\.\d{1,2})?) ?(?:usd|usdt|dollars?|bucks)?\b(?: (?:of|worth of))?/i;
+  if (all.test(s)) {
+    percent = 100;
+    s = s.replace(all, " ");
+  } else if (half.test(s)) {
+    percent = 50;
+    s = s.replace(half, " ");
+  } else if (pct.test(s)) {
+    percent = Number(pct.exec(s)![1]);
+    s = s.replace(pct, " ");
+  } else {
+    const m = money.exec(s);
+    const n = m ? Number(m[1] ?? m[2]) : NaN;
+    if (m && n > 0) {
+      usd = n;
+      s = s.replace(m[0], " ");
+    }
+  }
+  const name = s.replace(/\b(of|worth)\b/gi, " ").replace(/\s+/g, " ").trim();
+  return { kind: "sell", name, ...(percent !== undefined ? { percent } : {}), ...(usd !== undefined ? { usd } : {}) };
+}
+
 /** Best-effort reading of a sentence. Used only when the model can't be. */
 export function parseLoose(input: string): Command {
   const text = clean(input);
@@ -78,7 +109,8 @@ export function parseLoose(input: string): Command {
     const cmd = parseCommand(`buy ${buy[1]!}`);
     if (cmd.kind === "buy") return cmd;
   }
-  if (/\b(sell|cash out|take profit)\b/.test(lower)) return { kind: "sell" };
+  const selling = /\b(?:sell|cash out(?: of)?|dump)\b ?(.*?)[?.!]*$/i.exec(text);
+  if (selling) return parseSell(selling[1]!);
   const newsOn = /\b(?:news|headlines|happening|going on)\b(?: (?:on|for|about|with))? ?(.*?)[?.!]*$/i.exec(text);
   if (newsOn) return { kind: "news", name: /^(today|now|me|in the market|the market)?$/i.test(newsOn[1] ?? "") ? "" : newsOn[1]! };
   if (/\b(briefing|brief me|catch me up)\b/.test(lower)) return { kind: "news", name: "" };

@@ -294,7 +294,9 @@ export type TraderLeader = { profile: ProfileLite; volumeUsd: number; trades: nu
  * Discover, stocks first: the stocks traded most on the app this week, the people trading most, and
  * the latest trades by anyone. Everything comes from confirmed trades.
  */
-export async function discoverStocks(viewerId: string | null): Promise<{ stocks: StockLeader[]; traders: TraderLeader[]; latest: ActivityOut[] }> {
+export type PersonOut = { profile: ProfileLite; following: boolean; lastTrade: { side: "buy" | "sell"; label: string; at: string } | null };
+
+export async function discoverStocks(viewerId: string | null): Promise<{ stocks: StockLeader[]; traders: TraderLeader[]; latest: ActivityOut[]; people: PersonOut[] }> {
   const since = new Date(Date.now() - 7 * 86400_000).toISOString();
   const rows = must(
     await db().from("trades").select("id, profile_id, side, asset_address, stack_id, usd_amount, tx_hash, created_at").gte("created_at", since).order("created_at", { ascending: false }).limit(5000),
@@ -321,7 +323,8 @@ export async function discoverStocks(viewerId: string | null): Promise<{ stocks:
   const topAssets = [...byAsset.entries()].sort((a, b) => b[1].volumeUsd - a[1].volumeUsd).slice(0, 10);
   const topTraders = [...byTrader.entries()].filter(([id]) => id !== viewerId).sort((a, b) => b[1].volumeUsd - a[1].volumeUsd).slice(0, 10);
 
-  const [assets, profiles, following, latest] = await Promise.all([
+  const [newest, assets, profiles, following, latest] = await Promise.all([
+    db().from("public_profiles").select("id, username, display_name, avatar_url").order("created_at", { ascending: false }).limit(40).then(must) as Promise<ProfileLite[]>,
     topAssets.length
       ? (db().from("assets").select("address, ticker, name, provider, logo_url").in("address", topAssets.map(([a]) => a)).then(must) as Promise<StockLeader["asset"][]>)
       : Promise.resolve([] as StockLeader["asset"][]),
@@ -340,7 +343,21 @@ export async function discoverStocks(viewerId: string | null): Promise<{ stocks:
       })),
     ),
   ]);
+  // Everyone else on the app, newest first, each with their latest trade if they have one.
+  const ranked = new Set(topTraders.map(([id]) => id));
+  const lastBy = new Map<string, ActivityOut>();
+  for (const a of latest) if (a.profile_id && !lastBy.has(a.profile_id)) lastBy.set(a.profile_id, a);
+  const people: PersonOut[] = newest
+    .filter((p) => p.id !== viewerId && !ranked.has(p.id))
+    .slice(0, 30)
+    .map((profile) => {
+      const a = lastBy.get(profile.id);
+      const label = a?.target?.kind === "asset" ? a.target.asset.ticker : a?.target?.kind === "stack" ? a.target.stack.name : null;
+      return { profile, following: following.includes(profile.id), lastTrade: a && label && (a.type === "buy" || a.type === "sell") ? { side: a.type, label, at: a.created_at } : null };
+    });
+
   return {
+    people,
     stocks: topAssets.flatMap(([address, v]) => {
       const asset = assets.find((a) => a.address === address);
       return asset ? [{ asset, volumeUsd: v.volumeUsd, traders: v.traders.size, trades: v.trades }] : [];

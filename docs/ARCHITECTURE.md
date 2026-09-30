@@ -2,6 +2,8 @@
 
 This document explains the product and its technical model so another assistant can continue exploring the idea without rebuilding context from scratch.
 
+> **Read `CLAUDE.md` first: it is current and wins over this file.** This is the original design context. Since it was written: the app is called 3AM; stocks are the centre of the product and baskets ("Stacks") are one feature; only USDT is used as input; a texting assistant (iMessage, Telegram) is the headline feature; and there is one exception to "the user wallet signs user transactions": Trade by text, where a user can let the app sign buys and sells they confirm by text, within limits (see `CLAUDE.md` hard rules and `docs/FLOWS.md` §11).
+
 ## 1. The idea
 
 **StacksClub** is a social market for tokenized stocks and creator-made stock baskets (“Stacks”) on BNB Smart Chain. The product combines:

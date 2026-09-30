@@ -1,4 +1,4 @@
-import type { Api, BotConfig, NewsItem, Option, StockItem } from "./api.js";
+import type { Api, BotConfig, NewsItem, Option, SellSize, StockItem } from "./api.js";
 import * as f from "./format.js";
 
 // The things the assistant can look up or set up. Each tool calls the site's /api/bot routes and
@@ -42,6 +42,12 @@ export const declarations: Tools["declarations"] = [
     parametersJsonSchema: obj({ ...nameArg, amount_usd: { type: "number", description: "US dollars to buy" } }, ["name", "amount_usd"]),
   },
   {
+    name: "sell",
+    description:
+      "Starts a sale of a stock the user holds, for USDT. Give percent (100 for all, 50 for half) or amount_usd, not both. It never sells by itself: it returns a question the user must answer YES to (then our system sells), or tells them to sell in the app. Tell the user exactly what it returns.",
+    parametersJsonSchema: obj({ ...nameArg, percent: { type: "number", description: "Percent of the holding to sell, 1 to 100" }, amount_usd: { type: "number", description: "US dollars' worth to sell" } }, ["name"]),
+  },
+  {
     name: "get_news",
     description: "Recent news. With a stock: the latest stories on it plus its price and 24h change, for a short take on what is moving it. Without: a briefing of stories on the stocks the user holds and the market's top headlines.",
     parametersJsonSchema: obj({ stock: { type: "string", description: "Ticker or company name. Leave out for a general briefing." } }),
@@ -67,9 +73,11 @@ function unresolved(query: string, r: { match: "many"; options: Option[] } | { m
 
 const stockData = (s: StockItem) => ({ ticker: s.ticker, name: s.name, price: orNA(s.priceUsd, f.price), change24h: orNA(s.change24h, f.pct), market: market(s.marketOpen) });
 
-export type PendingBuy = { orderId: string; label: string; amountUsd: number };
+export type PendingBuy = { kind: "buy"; orderId: string; label: string; amountUsd: number };
+export type PendingSell = { kind: "sell"; ticker: string; size: SellSize };
+export type PendingTrade = PendingBuy | PendingSell;
 
-export function createTools(api: Api, sender: string, config: BotConfig, opts: { contactCard?: boolean; onPendingBuy?: (p: PendingBuy) => void } = {}): Tools {
+export function createTools(api: Api, sender: string, config: BotConfig, opts: { contactCard?: boolean; onPending?: (p: PendingTrade) => void } = {}): Tools {
   async function run(name: string, args: Record<string, unknown>): Promise<ToolResult> {
     switch (name) {
       case "list_stocks": {
@@ -137,7 +145,7 @@ export function createTools(api: Api, sender: string, config: BotConfig, opts: {
         const p = await api.tradePrepare(sender, q, amount);
         if (p.status === "many" || p.status === "none") return unresolved(q, p.status === "many" ? { match: "many", options: p.options } : { match: "none" });
         if (p.status === "ready") {
-          opts.onPendingBuy?.({ orderId: p.orderId, label: p.kind === "stock" ? p.ticker : p.name, amountUsd: p.amountUsd });
+          opts.onPending?.({ kind: "buy", orderId: p.orderId, label: p.kind === "stock" ? p.ticker : p.name, amountUsd: p.amountUsd });
           return {
             data: {
               status: "awaiting_confirmation",
@@ -174,6 +182,33 @@ export function createTools(api: Api, sender: string, config: BotConfig, opts: {
           fallback: hint ? `${f.buyReply(r)}\n${hint}` : f.buyReply(r),
           mustInclude: [r.url],
         };
+      }
+      case "sell": {
+        const q = str(args.name);
+        if (!q) return { data: { status: "need_a_name" }, fallback: f.needName("sell all") };
+        const percent = typeof args.percent === "number" ? args.percent : undefined;
+        const usd = typeof args.amount_usd === "number" ? Math.round(args.amount_usd * 100) / 100 : undefined;
+        if (percent === undefined && usd === undefined) return { data: { status: "need_size", instruction: "Ask how much: all, a percent, or a dollar amount." }, fallback: f.needSellSize(q) };
+        const size: SellSize = usd !== undefined ? { usd } : { percent };
+        // A preview only. The sale itself is sent by our code after the user's own yes.
+        const p = await api.tradeSell(sender, q, size, false);
+        if (p.status === "many" || p.status === "none") return unresolved(q, p.status === "many" ? { match: "many", options: p.options } : { match: "none" });
+        if (p.status === "ready") {
+          opts.onPending?.({ kind: "sell", ticker: p.ticker, size: { percent: p.percent } });
+          return {
+            data: {
+              status: "awaiting_confirmation",
+              selling: p.percent >= 100 ? `all of their ${p.ticker}` : `${Number(p.percent.toFixed(2))}% of their ${p.ticker}`,
+              ...(p.estUsd !== null ? { worthAbout: f.usd(p.estUsd) } : {}),
+              instruction: "Nothing has been sold. Ask the user to reply YES to sell or NO to cancel. Never say it was sold.",
+            },
+            fallback: f.sellQuestion(p),
+            mustInclude: ["YES"],
+          };
+        }
+        if (p.status === "done" || p.status === "failed") return { data: { status: "unexpected" }, fallback: f.clarify() };
+        const text = f.soldReply(p);
+        return { data: { status: p.status, tellTheUser: text }, fallback: text, mustInclude: "url" in p ? [p.url] : [] };
       }
       case "get_news": {
         const q = str(args.stock);

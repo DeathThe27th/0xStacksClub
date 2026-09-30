@@ -87,9 +87,9 @@ function useBasketLogos(enabled: boolean) {
 const CYCLE_MS = 2600;
 
 /**
- * A basket's picture is what's in it: each stock's logo slides up and gives way to the next.
- * Until the logos are known (or for a recipe that isn't launched yet) it falls back to the curated
- * badge or the uploaded cover.
+ * A basket's picture is what's in it: each stock's logo slides up and gives way to the next. A
+ * picture is optional when creating a basket; if the creator uploaded one, that is shown instead.
+ * Until the logos are known it falls back to the curated badge or a ticker label.
  */
 function BasketLogo({ ticker, logos, src, label, size, className }: { ticker: string; logos?: (string | null)[]; src?: string | null; label: string; size: number; className?: string }) {
   const given = logos?.filter((l): l is string => !!l);
@@ -113,8 +113,10 @@ function BasketLogo({ ticker, logos, src, label, size, className }: { ticker: st
     };
   }, [n, reduce, ticker]);
 
+  const curated = curatedBasket(ticker);
+  // A creator's own picture wins. Curated baskets only have a generated cover, so they cycle.
+  if (src && !curated) return <PlainLogo src={src} label={label} size={size} className={className} />;
   if (!n) {
-    const curated = curatedBasket(ticker);
     if (curated) return <BasketBadge b={curated} size={size} className={className} />;
     return <PlainLogo src={src} label={label} size={size} className={className} />;
   }

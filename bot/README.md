@@ -21,7 +21,8 @@ message, calls the bot's tools for anything factual, and writes the reply in its
 | `get_price` | One stock by ticker or company name (or a basket, if the name is a basket) |
 | `get_news` | News on one stock with its price, or a briefing on the user's stocks and the market |
 | `get_portfolio` | The user's total, USDT, stocks held with PnL, basket positions |
-| `make_buy_link` | A link that opens the stock's buy form with the amount filled in |
+| `buy` | Asks the user to reply YES (Trade by text on), or returns a link to the buy form |
+| `sell` | Asks the user to reply YES to sell a stock they hold, or points at the app |
 | `list_baskets` | Top baskets, only when the user asks about baskets |
 | `get_club_link` | A basket's Telegram club link, for holders only |
 | `send_contact_card` | A contact card for this number under the app's name (iMessage) |
@@ -32,23 +33,29 @@ It can also answer questions about how the app works (fees, minimums) from facts
 What the model can't do: a reply is only sent if every link, dollar amount and percentage in it
 appears in a tool result, the product facts or the user's own message, and if it contains any link a
 tool said it must (the buy confirm link, the club warning). Otherwise the bot sends the reply its
-own code builds for the same data. The model never sees wallet addresses or keys, and no tool can
-buy, sell or sign.
+own code builds for the same data. The model never sees wallet addresses or keys, and no tool
+trades by itself: `buy` and `sell` only ever ask a question, and the yes that answers it is matched
+by code.
 
 These exact commands skip the model and answer instantly: `help`, `stocks`, `movers`, `losers`,
-`price <name>`, `buy <amount> <name>`, `news [name]`, `portfolio`, `baskets`, `club <basket>`, `sell`. `link <code>`
+`price <name>`, `buy <amount> <name>`, `sell <size> <name>`, `news [name]`, `portfolio`, `baskets`,
+`club <basket>`. `link <code>`
 (iMessage), `/start <code>` (Telegram) and `stop` are always handled by code. If Gemini is slow,
 overloaded or rate limited, the bot tries `GEMINI_FALLBACK_MODEL`, then falls back to keyword
 matching. Without a key it only uses the commands.
 
-### Buying by text
+### Buying and selling by text
 
 `buy 20 NVDA` (or "put 20 bucks into nvidia") calls the site's `/api/bot/trade/prepare`. If the
-user has turned on Buy by text in the app, the bot asks "Buy $20 of NVDA? Fee $0.20. Reply YES to
+user has turned on Trade by text in the app, the bot asks "Buy $20 of NVDA? Fee $0.20. Reply YES to
 buy, or NO to cancel." and remembers the order for 5 minutes. Only a plain yes from the user makes
 the bot call `/api/bot/trade/confirm`; that match is done in code and the model can't trigger it.
-The bot then reports what the site says happened. If Buy by text is off, the same request returns a
+The bot then reports what the site says happened. If Trade by text is off, the same request returns a
 link that opens the buy form instead. The bot itself still holds no wallet keys: the site signs.
+
+`sell all NVDA`, `sell half NVDA`, `sell 25% of NVDA` or `sell 5 NVDA` (five dollars' worth) work
+the same way through `/api/bot/trade/sell`: the bot asks "Sell all your NVDA (about $12.40)? ...
+Reply YES", and only the user's yes sells. With Trade by text off it points at the app instead.
 
 The free Gemini tier often takes 5 to 15 seconds per call, and a reply that needs data takes two
 calls, so conversational replies can take 10 to 30 seconds. A paid key is much faster.
