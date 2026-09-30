@@ -25,6 +25,7 @@ export function TradePanel({
   onDeposit,
   onCompare,
   note,
+  buyAmount,
 }: {
   buy: BuyTarget | null;
   sell: SellTarget | null;
@@ -33,6 +34,8 @@ export function TradePanel({
   onDeposit: () => void;
   onCompare?: () => void;
   note?: React.ReactNode;
+  /** Pre-filled buy amount from a `?buy=` link. */
+  buyAmount?: string;
 }) {
   const portfolio = usePortfolio();
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -71,7 +74,7 @@ export function TradePanel({
         <SellForm target={sellTarget} onBusy={setBusy} />
       ) : buy && (busy || (!disabledReason && portfolio.data && !needsDeposit)) ? (
         // One mount point, so a running buy stays put even if the balance now reads below the minimum.
-        <BuyForm target={buy} onDeposit={onDeposit} onBusy={setBusy} />
+        <BuyForm target={buy} onDeposit={onDeposit} onBusy={setBusy} initialAmount={buyAmount} />
       ) : disabledReason ? (
         <p className="py-8 text-center text-[15px] text-text-muted">{disabledReason}</p>
       ) : !portfolio.data ? (

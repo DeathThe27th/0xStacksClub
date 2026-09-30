@@ -1,0 +1,29 @@
+{
+  "name": "imessage-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.3.4",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx --env-file=.env src/index.ts",
+    "terminal": "BOT_PROVIDER=terminal tsx --env-file=.env src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file=.env dist/index.js",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@google/genai": "^2.24.0",
+    "spectrum-ts": "^12.10.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}

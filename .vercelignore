@@ -4,6 +4,7 @@
 /.impeccable
 /.claude
 /contracts
+/bot
 /docs/binance-src
 node_modules
 .next

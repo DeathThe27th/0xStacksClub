@@ -23,12 +23,24 @@ type Target = { kind: "stock"; component: BuyComponent } | { kind: "stack"; stac
 type Preview = { expectedOut: string; minOut: string; mode: string; expiresAt: number };
 
 /** Buy sheet (UI_SPEC §6.2): the buy form in a sheet. Closes when the buy is done. */
-export function BuySheet({ open, onClose, target, onDeposit }: { open: boolean; onClose: () => void; target: Target; onDeposit: () => void }) {
+export function BuySheet({
+  open,
+  onClose,
+  target,
+  onDeposit,
+  initialAmount,
+}: {
+  open: boolean;
+  onClose: () => void;
+  target: Target;
+  onDeposit: () => void;
+  initialAmount?: string;
+}) {
   const [running, setRunning] = useState(false);
   const title = target.kind === "stock" ? `Buy ${target.component.ticker}` : `Buy $${target.ticker}`;
   return (
     <Sheet open={open} onClose={onClose} title={title} dismissable={!running}>
-      <BuyForm target={target} onDeposit={onDeposit} onDone={onClose} onBusy={setRunning} active={open} autoFocus />
+      <BuyForm target={target} onDeposit={onDeposit} onDone={onClose} onBusy={setRunning} active={open} autoFocus initialAmount={initialAmount} />
     </Sheet>
   );
 }
@@ -48,6 +60,7 @@ export function BuyForm({
   onBusy,
   active = true,
   autoFocus = false,
+  initialAmount,
 }: {
   target: Target;
   onDeposit: () => void;
@@ -57,11 +70,13 @@ export function BuyForm({
   active?: boolean;
   /** Sheet only: the always-open desktop panel must not steal focus on page load. */
   autoFocus?: boolean;
+  /** Dollar amount to start with, e.g. from a `?buy=25` link. The user still reviews and confirms. */
+  initialAmount?: string;
 }) {
   const api = useApi();
   const portfolio = usePortfolio();
   const dec = useUsdtDecimals();
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialAmount ?? "");
   const [step, setStep] = useState<"amount" | "review">("amount");
   const [creating, setCreating] = useState(false);
   const [intentId, setIntentId] = useState<string | null>(null);
@@ -75,6 +90,9 @@ export function BuyForm({
   const decimals = dec.data;
 
   useEffect(() => onBusy?.(creating || running), [creating, running, onBusy]);
+  useEffect(() => {
+    if (initialAmount) setAmount(initialAmount);
+  }, [initialAmount]);
   useEffect(() => {
     if (!active && !intentId) {
       setStep("amount");

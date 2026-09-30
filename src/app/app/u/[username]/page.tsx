@@ -2,13 +2,14 @@
 
 import { usePrivy } from "@privy-io/react-auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity as ActivityIcon, Gift, Layers, LogOut, Pencil, Settings, Wallet } from "lucide-react";
+import { Activity as ActivityIcon, Gift, Layers, LogOut, MessageCircle, Pencil, Settings, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { use, useState } from "react";
 import { encodeFunctionData } from "viem";
 import { Overview } from "@/components/desktop/Overview";
 import { BasketRow } from "@/components/market/Rows";
+import { IMessageConnect, useIMessage } from "@/components/profile/IMessageConnect";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { DepositSheet } from "@/components/trade/DepositSheet";
 import { ActivityItem } from "@/components/social/ActivityItem";
@@ -46,6 +47,8 @@ type UserResponse = {
   activity: Activity[];
 };
 
+type SettingsMode = "menu" | "edit" | "imessage" | null;
+
 function XIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden fill="currentColor">
@@ -59,7 +62,7 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
   const api = useApi();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"holdings" | "stacks" | "activity">("holdings");
-  const [settings, setSettings] = useState<"menu" | "edit" | null>(null);
+  const [settings, setSettings] = useState<SettingsMode>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   const toast = useToast();
   const q = useQuery({ queryKey: ["user", username], queryFn: () => api<UserResponse>(`/api/users/${username}`) });
@@ -286,8 +289,8 @@ function SettingsSheet({
   profile,
   onSaved,
 }: {
-  mode: "menu" | "edit" | null;
-  setMode: (m: "menu" | "edit" | null) => void;
+  mode: SettingsMode;
+  setMode: (m: SettingsMode) => void;
   profile: UserResponse["profile"];
   onSaved: () => void;
 }) {
@@ -295,10 +298,13 @@ function SettingsSheet({
   const api = useApi();
   const router = useRouter();
   const [showValues, setShowValues] = useState(profile.show_values);
+  const imessage = useIMessage(mode !== null);
   const hasEmbedded = !!user?.linkedAccounts.some((a) => a.type === "wallet" && "walletClientType" in a && a.walletClientType === "privy");
   return (
-    <Sheet open={mode !== null} onClose={() => setMode(null)} title={mode === "edit" ? "Edit profile" : "Settings"}>
-      {mode === "edit" ? (
+    <Sheet open={mode !== null} onClose={() => setMode(null)} title={mode === "edit" ? "Edit profile" : mode === "imessage" ? "iMessage" : "Settings"}>
+      {mode === "imessage" ? (
+        <IMessageConnect />
+      ) : mode === "edit" ? (
         <ProfileForm
           initial={profile}
           submitLabel="Save"
@@ -328,6 +334,11 @@ function SettingsSheet({
               }}
             />
           </label>
+          <button onClick={() => setMode("imessage")} className="press flex h-14 w-full items-center gap-3 rounded-card bg-surface-2 px-4 text-left text-[16px]">
+            <MessageCircle size={18} />
+            <span className="flex-1">{imessage.data?.linked ? "iMessage" : "Connect iMessage"}</span>
+            {imessage.data?.linked && <span className="text-secondary text-text-muted tnum">{imessage.data.linked.phone}</span>}
+          </button>
           {hasEmbedded && (
             <button onClick={() => exportWallet()} className="press flex h-14 w-full items-center gap-3 rounded-card bg-surface-2 px-4 text-[16px]">
               <Wallet size={18} /> Export wallet

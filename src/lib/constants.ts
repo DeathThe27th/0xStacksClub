@@ -17,3 +17,8 @@ export const BPS = 10_000n;
 export const MIN_BUY_USD_SMALL = 1; // single stock, and baskets with 1 to 3 components
 export const MIN_BUY_USD_LARGE = 5; // baskets with 4 to 5 components
 export const DEFAULT_SLIPPAGE_PERCENT = "1";
+
+/** iMessage bot: largest buy a text can pre-fill. The buy sheet still applies every real check. */
+export const BOT_MAX_BUY_USD = 10_000;
+/** How long a Connect iMessage code stays valid. */
+export const PHONE_CODE_TTL_MS = 10 * 60_000;

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { use, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { PriceChart, type Point } from "@/components/chart/PriceChart";
 import { StickyCta } from "@/components/detail/Cta";
 import { FeedTab } from "@/components/detail/Feed";
@@ -46,6 +46,19 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
   const [tab, setTab] = useState<"trades" | "feed" | "about">("trades");
   const trades = useTrades("stack", id);
   const [sheet, setSheet] = useState<"buy" | "sell" | "deposit" | "history" | null>(null);
+  // `?buy=25` (links from the iMessage bot) opens the normal buy form with the amount filled in.
+  const [buyAmount, setBuyAmount] = useState<string>();
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const buy = url.searchParams.get("buy");
+    if (buy === null) return;
+    url.searchParams.delete("buy");
+    window.history.replaceState(null, "", url.toString());
+    if (!/^\d{1,5}(\.\d{1,2})?$/.test(buy)) return;
+    setBuyAmount(buy);
+    // Desktop shows the form in the side panel; only the mobile layout needs the sheet opened.
+    if (!window.matchMedia("(min-width: 1024px)").matches) setSheet("buy");
+  }, []);
   const watch = useWatch("stack", id);
   const portfolio = usePortfolio();
 
@@ -224,6 +237,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
             minBuyUsd={min}
             disabledReason={notTradable ? `${notTradable.ticker} isn't tradable right now` : null}
             onDeposit={() => setSheet("deposit")}
+            buyAmount={buyAmount}
             note={s && <>Created by {byLine} · 0.25% creator fee</>}
           />
           <PositionCard positions={positions} />
@@ -240,7 +254,7 @@ export default function BasketPage({ params }: { params: Promise<{ id: string }>
         onSell={() => setSheet("sell")}
       />
 
-      {buyTarget && sheet === "buy" && <BuySheet open onClose={() => setSheet(null)} onDeposit={() => setSheet("deposit")} target={buyTarget} />}
+      {buyTarget && sheet === "buy" && <BuySheet open onClose={() => setSheet(null)} onDeposit={() => setSheet("deposit")} target={buyTarget} initialAmount={buyAmount} />}
       {s && sheet === "sell" && <SellSheet open onClose={() => setSheet(null)} target={{ kind: "stack", ticker: s.ticker, positions }} />}
       <DepositSheet open={sheet === "deposit"} onClose={() => setSheet(null)} />
       <TradesSheet open={sheet === "history"} onClose={() => setSheet(null)} targetType="stack" targetId={id} />

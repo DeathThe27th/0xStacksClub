@@ -81,6 +81,8 @@ cp .env.example .env.local        # fill in the values below
 | `NEXT_PUBLIC_USDT_ADDRESS` | Vercel + local | `0x55d398326f99059fF775485246999027B3197955` |
 | `NEXT_PUBLIC_APP_URL` | Vercel + local | `https://0x-stacks-club.vercel.app` |
 | `CRON_SECRET` | Vercel + local | `openssl rand -hex 32` |
+| `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
+| `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
 | `BSCSCAN_API_KEY` | local shell | contract verification |
 | `DEPLOYER_PRIVATE_KEY`, `PLATFORM_FEE_RECIPIENT`, `USDT_ADDRESS` | your shell only | never in Vercel or any file |
 
@@ -90,7 +92,7 @@ cp .env.example .env.local        # fill in the values below
 
 1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
    buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
-   link reports) in order.
+   link reports) and `0004_imessage.sql` (phone links for the iMessage bot) in order.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
    the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
    you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,
@@ -166,6 +168,23 @@ pnpm seed:demo    # LOCAL ONLY: labelled demo profiles and comments; --clean rem
 Set the environment variables above for **Production and Preview** in the Vercel project
 (`vercel env add NAME production` and `vercel env add NAME preview`), then push the branch.
 `vercel.json` sets the framework to Next.js and the function region to `sin1`.
+
+## iMessage bot
+
+Users can text the app: prices, their portfolio, a link to confirm a buy, and a basket's club link.
+The bot lives in [`bot/`](bot) as its own package and runs as a long-lived process on a VPS; see
+[`bot/README.md`](bot/README.md) for setup, terminal testing and pm2.
+
+- The bot never calls Binance, Supabase or the vault and never signs anything. It calls
+  `/api/bot/*` with the `x-bot-secret` header (`BOT_API_SECRET`), and those routes reuse
+  `src/server`. They sit outside the region block in `src/middleware.ts` because they only read
+  data and build links; anyone opening a link still hits the block on the trading routes.
+- A user connects a phone from Settings on their profile (**Connect iMessage**): they enter their
+  number, get a 10-minute code and text `link <code>` to us. Links live in `phone_links`
+  (`0004_imessage.sql`), readable by the server only.
+- On Photon's shared pool each phone is registered as a Photon user and gets its own number, so the
+  app needs `SPECTRUM_PROJECT_ID` and `SPECTRUM_PROJECT_SECRET` too.
+- `/app/basket/[id]?buy=25` opens the normal buy form with the amount filled in.
 
 ## Tests
 

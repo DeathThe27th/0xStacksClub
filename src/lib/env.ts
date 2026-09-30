@@ -28,6 +28,11 @@ const serverSchema = z.object({
   CRON_SECRET: z.string().min(16),
   // Stock news (company-news endpoint). Optional: without it the News section says so.
   FINNHUB_API_KEY: z.string().min(1).optional(),
+  // iMessage bot. Optional so a deploy without them still boots: /api/bot and the Connect iMessage
+  // setting answer "not set up" until all three are present.
+  BOT_API_SECRET: z.string().min(32).optional(), // shared with the bot, `openssl rand -hex 32`
+  SPECTRUM_PROJECT_ID: z.string().uuid().optional(), // Photon project, used to register phones
+  SPECTRUM_PROJECT_SECRET: z.string().min(1).optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;

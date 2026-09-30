@@ -1,0 +1,9 @@
+# The bot is its own package, installed and deployed separately from the Next.js app one level up.
+packages:
+  - "."
+# Install scripts: esbuild (used by tsx and vitest) needs its binary check. The other two only
+# print notices and aren't needed at run time.
+allowBuilds:
+  esbuild: true
+  protobufjs: false
+  "@google/genai": false
