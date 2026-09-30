@@ -121,6 +121,7 @@ export async function botPrice(query: string) {
   return {
     match: "one" as const,
     basket: {
+      id: Number(stack.id),
       name: stack.name,
       ticker: stack.ticker,
       index: stack.index,

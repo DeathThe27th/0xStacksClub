@@ -92,6 +92,11 @@ async function deliver(space: Space, outs: Out[]) {
       await out.run().catch((e: unknown) => log("warn", "follow-up failed", { name: e instanceof Error ? e.name : "error" }));
       continue;
     }
+    if ("then" in out) {
+      // Slow work (a text buy) whose result is sent when it's known. Typing shows meanwhile.
+      await deliver(space, await space.responding(() => out.then()));
+      continue;
+    }
     // A short, human gap between messages: bursts are what get a line flagged.
     if (i > 0) await sleep(1200);
     if ("text" in out) {

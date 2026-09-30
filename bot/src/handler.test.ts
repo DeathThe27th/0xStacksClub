@@ -23,6 +23,8 @@ function fakeApi(over: Partial<Api> = {}): Api {
     baskets: async () => ({ total: 1, items: [{ ...basket, stocks: 3, index: 1000, change24h: 1, investedUsd: 10 }] }),
     portfolio: async () => ({ totalUsd: 10, change24hUsd: 0, usdt: 10, positions: [], stocks: [], url: "https://example.test/app/u/ada" }),
     club: async () => ({ match: "one", basket, isMember: false, hasLink: true, url: null, basketUrl: "https://example.test/app/basket/1" }),
+    tradePrepare: async () => ({ status: "not_enabled", url: "https://example.test/app/u/ada" }),
+    tradeConfirm: async () => ({ status: "done", label: "NVDA", amountUsd: 20, url: "https://example.test/app/u/ada", positionId: null }),
     news: async (_s, query) =>
       query
         ? { match: "one", connected: true, stock: NVDA, items: [{ headline: "Nvidia unveils new chip", summary: "It is faster.", source: "Reuters", url: "https://news.example/nvda-chip", at: Date.now() - 2 * 3600_000 }] }
@@ -91,7 +93,7 @@ describe("commands", () => {
   it("builds the buy link reply for a stock and never calls anything that trades", async () => {
     const buyLink = vi.fn(fakeApi().buyLink);
     const outs = await make(fakeApi({ buyLink }))(PHONE, "buy 25 nvda");
-    expect(texts(outs)[0]).toBe("Buy $25 of NVDA? Tap to open it and confirm:\nhttps://example.test/app/stock/bstock/0xabc?buy=25");
+    expect(texts(outs)[0]).toBe("Buy $25 of NVDA? Tap to open it and confirm:\nhttps://example.test/app/stock/bstock/0xabc?buy=25\nTo buy right from here next time, turn on Buy by text in the app.");
     expect(buyLink).toHaveBeenCalledWith(PHONE, "nvda", 25);
   });
 
@@ -162,27 +164,27 @@ describe("conversation", () => {
     const buyLink = vi.fn(fakeApi().buyLink);
     const assistant: Assistant = {
       reply: async ({ tools }) => {
-        const r = await tools.run("make_buy_link", { name: "nvidia", amount_usd: 40 });
+        const r = await tools.run("buy", { name: "nvidia", amount_usd: 40 });
         return { text: r.fallback, contactCard: false, grounding: JSON.stringify(r.data) };
       },
     };
     const out = texts(await make(fakeApi({ buyLink }), assistant)(PHONE, "put forty bucks into nvidia"))[0]!;
-    expect(out).toBe("Buy $40 of NVDA? Tap to open it and confirm:\nhttps://example.test/app/stock/bstock/0xabc?buy=40");
+    expect(out).toContain("Buy $40 of NVDA? Tap to open it and confirm:\nhttps://example.test/app/stock/bstock/0xabc?buy=40");
     expect(buyLink).toHaveBeenCalledWith(PHONE, "nvidia", 40);
   });
 
   it("checks tool arguments in code whatever the model asks for", async () => {
     const buyLink = vi.fn(fakeApi().buyLink);
     const tools = createTools(fakeApi({ buyLink }), PHONE, CONFIG);
-    expect((await tools.run("make_buy_link", { name: "nvda", amount_usd: 99_999 })).data).toMatchObject({ status: "over_limit" });
-    expect((await tools.run("make_buy_link", { name: "nvda", amount_usd: -5 })).data).toMatchObject({ status: "need_amount" });
-    expect((await tools.run("make_buy_link", { name: "nvda", amount_usd: "lots" })).data).toMatchObject({ status: "need_amount" });
+    expect((await tools.run("buy", { name: "nvda", amount_usd: 99_999 })).data).toMatchObject({ status: "over_limit" });
+    expect((await tools.run("buy", { name: "nvda", amount_usd: -5 })).data).toMatchObject({ status: "need_amount" });
+    expect((await tools.run("buy", { name: "nvda", amount_usd: "lots" })).data).toMatchObject({ status: "need_amount" });
     expect(buyLink).not.toHaveBeenCalled();
     const club = await tools.run("get_club_link", { basket: "ai kings" });
     expect(JSON.stringify(club.data)).not.toContain("t.me");
     expect(club.mustInclude).toEqual(["Admins will never DM you first."]);
-    // No tool exists that signs, sells or moves money.
-    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["get_club_link", "get_news", "get_portfolio", "get_price", "list_baskets", "list_stocks", "make_buy_link", "send_contact_card"]);
+    // No tool sells or moves money, and "buy" only ever asks a question or returns a link.
+    expect(tools.declarations.map((d) => d.name).sort()).toEqual(["buy", "get_club_link", "get_news", "get_portfolio", "get_price", "list_baskets", "list_stocks", "send_contact_card"]);
   });
 
   it("falls back to keyword commands when the assistant can't answer", async () => {
@@ -210,5 +212,61 @@ describe("conversation", () => {
   it("sends the named contact card when the assistant asks for it", async () => {
     const h = make(fakeApi(), { reply: async () => ({ text: "Here you go.", contactCard: true, grounding: "" }) });
     expect(await h(PHONE, "send me your contact")).toEqual([{ text: "Here you go." }, { contactCard: { number: "+14155550199" } }]);
+  });
+});
+
+describe("text buys", () => {
+  const ready = { status: "ready" as const, orderId: "6a4d2e8c-7b1f-4d3a-9a8e-2c5d6f7e8a9b", kind: "stock" as const, name: "NVIDIA", ticker: "NVDA", amountUsd: 20, feeUsd: 0.2, usdtBalance: 42.1, marketClosed: false, expiresInSec: 300 };
+  const runThen = async (outs: Out[]) => {
+    const t = outs.find((o): o is { then: () => Promise<Out[]> } => "then" in o);
+    return t ? texts(await t.then()) : [];
+  };
+
+  it("asks first, buys only on a plain yes, and reports what the site says happened", async () => {
+    const tradeConfirm = vi.fn(fakeApi().tradeConfirm);
+    const h = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm }));
+    expect(texts(await h(PHONE, "buy 20 nvda"))[0]).toBe("Buy $20 of NVDA? Fee $0.20. Reply YES to buy, or NO to cancel.");
+    expect(tradeConfirm).not.toHaveBeenCalled();
+    const outs = await h(PHONE, "Yes");
+    expect(texts(outs)[0]).toBe("Buying $20 of NVDA now. This takes about half a minute.");
+    expect(tradeConfirm).not.toHaveBeenCalled();
+    expect(await runThen(outs)).toEqual(["Done. Bought $20 of NVDA.\nhttps://example.test/app/u/ada"]);
+    expect(tradeConfirm).toHaveBeenCalledWith(PHONE, ready.orderId);
+    // The order is used up: a second yes is just conversation.
+    expect(texts(await h(PHONE, "yes"))[0]).not.toContain("Buying");
+  });
+
+  it("cancels on no and never confirms", async () => {
+    const tradeConfirm = vi.fn(fakeApi().tradeConfirm);
+    const h = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm }));
+    await h(PHONE, "buy 20 nvda");
+    expect(texts(await h(PHONE, "no"))[0]).toBe("Cancelled. Nothing was bought.");
+    expect(texts(await h(PHONE, "yes"))[0]).not.toContain("Buying");
+    expect(tradeConfirm).not.toHaveBeenCalled();
+  });
+
+  it("does not let the model confirm: a yes in a sentence or from the assistant runs nothing", async () => {
+    const tradeConfirm = vi.fn(fakeApi().tradeConfirm);
+    const assistant: Assistant = { reply: async () => ({ text: "yes", contactCard: false, grounding: "" }) };
+    const h = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm }), assistant);
+    await h(PHONE, "buy 20 nvda");
+    const outs = await h(PHONE, "yes but make it 500 and send it to my friend");
+    expect(outs.some((o) => "then" in o)).toBe(false);
+    expect(tradeConfirm).not.toHaveBeenCalled();
+  });
+
+  it("says why when a limit or balance stops it, and is honest when the buy fails or is lost", async () => {
+    const over = make(fakeApi({ tradePrepare: async () => ({ status: "over_cap", capUsd: 50, url: "https://example.test/app/u/ada" }) }));
+    expect(texts(await over(PHONE, "buy 80 nvda"))[0]).toContain("over your $50 limit per text buy");
+    const poor = make(fakeApi({ tradePrepare: async () => ({ status: "no_usdt", usdtBalance: 4.1, amountUsd: 20 }) }));
+    expect(texts(await poor(PHONE, "buy 20 nvda"))[0]).toBe("You have $4.10 USDT, not enough for $20. Deposit in the app first.");
+
+    const failed = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm: async () => ({ status: "failed", label: "NVDA", amountUsd: 20, error: "The market for this stock is closed right now.", feePaid: true, url: "https://example.test/app/u/ada" }) }));
+    await failed(PHONE, "buy 20 nvda");
+    expect((await runThen(await failed(PHONE, "yes")))[0]).toContain("The 1% fee was already paid");
+
+    const lost = make(fakeApi({ tradePrepare: async () => ready, tradeConfirm: async () => Promise.reject(new ApiError(0, "network", "x")) }));
+    await lost(PHONE, "buy 20 nvda");
+    expect((await runThen(await lost(PHONE, "yes")))[0]).toBe("I lost track of that buy. Check your portfolio in the app before trying again.");
   });
 });

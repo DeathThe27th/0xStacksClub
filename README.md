@@ -83,6 +83,7 @@ cp .env.example .env.local        # fill in the values below
 | `CRON_SECRET` | Vercel + local | `openssl rand -hex 32` |
 | `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
 | `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
+| `NEXT_PUBLIC_PRIVY_SIGNER_ID`, `PRIVY_SIGNER_PRIVATE_KEY` | Vercel + local, optional | Privy authorization key for Buy by text. The private key is server only. |
 | `NEXT_PUBLIC_TELEGRAM_BOT` | Vercel + local, optional | Telegram bot username without `@`; turns on Connect Telegram |
 | `BSCSCAN_API_KEY` | local shell | contract verification |
 | `DEPLOYER_PRIVATE_KEY`, `PLATFORM_FEE_RECIPIENT`, `USDT_ADDRESS` | your shell only | never in Vercel or any file |
@@ -94,7 +95,7 @@ cp .env.example .env.local        # fill in the values below
 1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
    buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
    link reports), `0004_imessage.sql` (phone links for the iMessage bot) and `0005_assistant.sql`
-   (Telegram links, assistant settings) in order.
+   (Telegram links, Buy by text settings and orders) in order.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
    the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
    you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,
@@ -192,6 +193,19 @@ VPS; see [`bot/README.md`](bot/README.md) for setup, Telegram, terminal testing 
 - Telegram users connect from **Connect Telegram** (a `t.me/<bot>?start=<code>` link). Links live
   in `telegram_links` (`0005_assistant.sql`), server only.
 
+### Buy by text
+
+Off by default. In the app's iMessage (or Telegram) settings a user can turn on **Buy by text** and
+set a limit per buy and per day (default $50 and $200). Turning it on adds the app's Privy signer to
+their embedded wallet; turning it off removes it. It doesn't work with a connected external wallet.
+
+A text buy is two messages. "buy 20 NVDA" makes `/api/bot/trade/prepare` check the limits, the
+balance and the wallet's permission and park an order; nothing is spent. Only the user's "yes"
+makes the bot call `/api/bot/trade/confirm`, which runs the same intent state machine as the site
+(`src/lib/runner.ts`, `src/server/botTrade.ts`) with the wallet signing through Privy. The
+assistant's model never confirms anything; that reply is matched by code. Orders are logged in
+`bot_orders`. There is no sell, withdraw or transfer by text.
+
 ## Trade speed
 
 A buy or sell is several transactions and several server checks. The runner
@@ -199,7 +213,12 @@ A buy or sell is several transactions and several server checks. The runner
 
 - Router approvals for every leg go out in the same burst as the fee, so a leg doesn't stop to
   approve and re-quote. Legs that share a spender get one approval for their exact total.
-- Transactions are sent back to back with consecutive nonces and awaited together.
+- Transactions are sent back to back with consecutive nonces and awaited together. With the
+  embedded wallet they are signed all at once and broadcast straight to the RPC, instead of one
+  wallet round trip each; any other wallet, or a failure to sign that way, uses the normal path.
+- The database is about 0.2s per query from the function region, so the trade routes load an intent
+  with its legs in one query, cache the profile and allowlist rows briefly, rate limit in memory
+  and write the trade rows after the response.
 - The swap's hash is saved while it is being mined; independent Binance calls run in parallel.
 - The Privy wallet lookup behind every API call is cached for a minute per server instance.
 

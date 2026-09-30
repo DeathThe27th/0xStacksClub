@@ -3,13 +3,13 @@ import * as f from "./format.js";
 import { log } from "./log.js";
 import type { Assistant, Turn } from "./assistant.js";
 import { parseAmount, parseCommand, parseLoose, type Command } from "./parse.js";
-import { createTools } from "./tools.js";
+import { createTools, type PendingBuy } from "./tools.js";
 
 /**
  * What to send back, in order. `contactCard.number` is the pool number this user texts; with it the
  * card is saved under the app's name. `run` is work to do after the messages before it have gone out.
  */
-export type Out = { text: string } | { contactCard: { number?: string } } | { run: () => Promise<void> };
+export type Out = { text: string } | { contactCard: { number?: string } } | { run: () => Promise<void> } | { then: () => Promise<Out[]> };
 
 type BasketCommand = Extract<Command, { basket: string }>;
 type Pending = { cmd: BasketCommand; options: Option[]; at: number };
@@ -34,6 +34,30 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
   const accounts = new Map<string, Account>();
   const chats = new Map<string, Chat>();
   const unlinkedReplies = new Map<string, number[]>();
+  // A text buy the user has been asked to confirm. Only their own "yes" runs it.
+  const pendingBuys = new Map<string, PendingBuy & { at: number }>();
+  const BUY_TTL_MS = 5 * 60_000;
+  const tools = (sender: string) =>
+    createTools(api, sender, deps.config(), { contactCard: !isTelegram(sender), onPendingBuy: (p) => pendingBuys.set(sender, { ...p, at: now() }) });
+
+  /** "yes": say we're on it, then run the buy and report what actually happened. */
+  function confirmBuy(sender: string, p: PendingBuy): Out[] {
+    pendingBuys.delete(sender);
+    return [
+      { text: f.buying(p.label, p.amountUsd) },
+      {
+        then: async () => {
+          try {
+            return say(f.boughtReply(await api.tradeConfirm(sender, p.orderId)));
+          } catch (e) {
+            log("error", "buy confirm failed", { status: (e as { status?: number }).status, code: (e as { code?: string }).code });
+            // We don't know how far it got, so never claim nothing was spent.
+            return say("I lost track of that buy. Check your portfolio in the app before trying again.");
+          }
+        },
+      },
+    ];
+  }
 
   async function account(phone: string): Promise<Account | null> {
     const cached = accounts.get(phone);
@@ -107,7 +131,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
   }
 
   async function run(phone: string, cmd: Command, text: string): Promise<Out[]> {
-    const { appName, maxBuyUsd } = deps.config();
+    const { appName } = deps.config();
     switch (cmd.kind) {
       case "help":
         return say(f.helpText(appName));
@@ -142,11 +166,13 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
       case "buy": {
         if (!cmd.basket.trim()) return say(f.needName("buy 20"));
         if (cmd.amount === null) return say(f.needAmount(cmd.basket));
-        // Checked here and again on the site; the link only pre-fills a form the user must confirm.
-        if (!Number.isFinite(cmd.amount) || cmd.amount <= 0) return say(f.buyReply({ match: "bad_amount" }));
-        if (cmd.amount > maxBuyUsd) return say(f.buyReply({ match: "above_max", basket: { name: cmd.basket, ticker: "" }, maxUsd: maxBuyUsd }));
-        const r = await api.buyLink(phone, cmd.basket, cmd.amount);
-        return r.match === "many" || r.match === "none" ? ambiguous(phone, cmd, r) : say(f.buyReply(r));
+        // Same path as the assistant's tool: a YES question if Buy by text is on, else a link.
+        const r = await tools(phone).run("buy", { name: cmd.basket, amount_usd: cmd.amount });
+        if (r.data.status === "ambiguous") {
+          const found = await api.lookup(phone, cmd.basket);
+          if (found.match === "many") return ambiguous(phone, cmd, found);
+        }
+        return say(r.fallback);
       }
       case "link":
       case "stop":
@@ -166,7 +192,7 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
       text,
       history: chat.turns,
       grounding: chat.grounding,
-      tools: createTools(api, phone, cfg, { contactCard: !isTelegram(phone) }),
+      tools: tools(phone),
       appName: cfg.appName,
       facts: cfg.facts,
       username: acct.username,
@@ -198,6 +224,17 @@ export function createHandler(deps: { api: Api; config: () => BotConfig; assista
     if (cmd.kind === "stop") return stop(phone);
     const acct = await account(phone);
     if (!acct) return unlinkedReply(phone, f.notLinked(deps.config().appName, isTelegram(phone)));
+
+    // A waiting buy is answered by code, never by the model: only a plain yes runs it.
+    const waiting = pendingBuys.get(phone);
+    if (waiting) {
+      if (now() - waiting.at > BUY_TTL_MS) pendingBuys.delete(phone);
+      else if (/^\s*(yes|y|yep|yeah|yup|confirm|do it|go)[\s.!]*$/i.test(text)) return confirmBuy(phone, waiting);
+      else if (/^\s*(no|n|nope|cancel|stop it|never ?mind)[\s.!]*$/i.test(text)) {
+        pendingBuys.delete(phone);
+        return remember(phone, text, say(f.cancelled()));
+      }
+    }
     // The exact commands answer instantly from our own code. Everything else is a conversation.
     const exact = cmd.kind !== "unknown" && !(cmd.kind === "buy" && cmd.amount === null);
     const pick = !exact && picks.has(phone) && /^\s*\$?[\w ]{1,40}\s*$/.test(text) ? resolvePick(phone, text) : null;

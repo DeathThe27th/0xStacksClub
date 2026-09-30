@@ -82,7 +82,7 @@ function world(intent: Intent, opts: { approvals?: Backend["approvals"]; quote?:
     approvals: opts.approvals,
   };
   const fn = (tx: Sent) => (tx.to === VAULT ? decodeFunctionData({ abi: vaultAbi, data: tx.data }).functionName : tx.data.startsWith("0x095ea7b3") ? `approve:${decodeFunctionData({ abi: erc20Abi, data: tx.data }).args![0]}` : "swap");
-  return { run: () => runner.runIntent({ backend, signer }), sent, log, calls: () => sent.map(fn), get: () => intent };
+  return { run: () => runner.runIntent({ backend, signer }), signer, sent, log, calls: () => sent.map(fn), get: () => intent };
 }
 
 describe("runIntent", () => {
@@ -147,6 +147,22 @@ describe("runIntent", () => {
     const err = await w.run().catch((e: unknown) => e);
     expect(err).toBeInstanceOf(StopError);
     expect((err as StopError).step).toBe("leg-0");
+  });
+
+  it("uses the wallet's batch path when it has one: one call per burst, nonces assigned up front", async () => {
+    const batches: number[][] = [];
+    const w = world(buyIntent("buy_stock", [leg(0, NVDA, "990")]), { approvals: async () => [{ token: USDT_ADDRESS, spender: ROUTER, amount: "990" }] });
+    const one = w.signer.sendTransaction;
+    w.signer.sendBatch = async (txs) => {
+      batches.push(txs.map((t) => t.nonce));
+      const hashes: Hash[] = [];
+      for (const tx of txs) hashes.push(await one(tx));
+      return hashes;
+    };
+    expect((await w.run()).status).toBe("done");
+    expect(batches).toEqual([[5, 6, 7], [8]]);
+    expect(w.calls()).toEqual([`approve:${ROUTER}`, `approve:${VAULT}`, "payBuyFee", "swap"]);
+    expect(w.sent[2]!.gas).toBe(350_000n);
   });
 
   it("does nothing to a finished intent", async () => {

@@ -139,7 +139,7 @@ export async function unlinkTelegramProfile(profileId: string) {
 
 // ---------------------------------------------------------------------------
 // Text buys: off by default, capped, and only for a wallet the user let the server sign for.
-// Settings and checks only. Nothing here signs, and no route uses these yet.
+// Settings and checks only. The signing itself is in botTrade.ts.
 // ---------------------------------------------------------------------------
 
 export type TradeSettings = { enabled: boolean; capUsd: number; dailyUsd: number };

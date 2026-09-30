@@ -1,4 +1,4 @@
-import type { BasketDetail, Baskets, BuyLink, Club, News, NewsItem, Option, Portfolio, StockItem, Stocks } from "./api.js";
+import type { BasketDetail, Baskets, BuyLink, Club, Confirmed, News, NewsItem, Option, Portfolio, Prepared, StockItem, Stocks } from "./api.js";
 
 // Every reply is built here, by code: links come from the site's API as-is and money is formatted
 // from its numbers. A missing number is said out loud ("price unavailable"), never filled in.
@@ -211,6 +211,53 @@ export function newsReply(r: Exclude<News, { match: "many" | "none" }>, now = Da
   if (market.length) lines.push("Market:", ...market.slice(0, 3).map((n) => headline(n, now)));
   return lines.length ? lines.join("\n") : "No news right now.";
 }
+
+/** The question before a text buy. Nothing has been bought when this is sent. */
+export function confirmQuestion(p: Extract<Prepared, { status: "ready" }>): string {
+  const what = p.kind === "stock" ? p.ticker : p.name;
+  const closed = p.marketClosed ? " Its market is closed, so it may not go through." : "";
+  return `Buy ${plainUsd(p.amountUsd)} of ${what}? Fee ${usd(p.feeUsd)}.${closed} Reply YES to buy, or NO to cancel.`;
+}
+
+/** Why a text buy can't be set up, for the cases that aren't "use a link instead". */
+export function cantBuy(p: Exclude<Prepared, { status: "ready" | "not_enabled" | "unavailable" | "wallet" | "many" | "none" }>): string {
+  switch (p.status) {
+    case "over_cap":
+      return `That's over your ${plainUsd(p.capUsd)} limit per text buy. You can change the limit in the app:\n${p.url}`;
+    case "over_daily":
+      return `You have ${usd(p.leftUsd)} left of your ${plainUsd(p.dailyUsd)} daily limit for text buys.`;
+    case "below_min":
+      return `The minimum buy for ${p.name} is ${plainUsd(p.minUsd)}.`;
+    case "no_usdt":
+      return `You have ${usd(p.usdtBalance)} USDT, not enough for ${plainUsd(p.amountUsd)}. Deposit in the app first.`;
+    case "no_gas":
+      return `Your wallet needs a little BNB for network fees before I can buy. Deposit in the app:\n${p.url}`;
+    case "not_tradable":
+      return `${p.name} can't be bought right now.`;
+    case "busy":
+      return "Another buy of yours is still running. Try again in a minute.";
+    case "bad_amount":
+      return "That amount doesn't look right. For example: buy 20 NVDA";
+  }
+}
+
+export const buying = (label: string, amountUsd: number) => `Buying ${plainUsd(amountUsd)} of ${label} now. This takes about half a minute.`;
+
+export function boughtReply(c: Confirmed): string {
+  switch (c.status) {
+    case "done":
+      return `Done. Bought ${plainUsd(c.amountUsd)} of ${c.label}.\n${c.url}`;
+    case "failed":
+      return `The buy of ${plainUsd(c.amountUsd)} of ${c.label} didn't go through: ${c.error.slice(0, 200)}\n${c.feePaid ? "The 1% fee was already paid. Open the app to retry or stop it:" : "Nothing was bought."}${c.feePaid ? `\n${c.url}` : ""}`;
+    case "expired":
+      return "That request expired. Ask again and reply YES within 5 minutes.";
+    case "nothing":
+      return "There's nothing waiting for a yes.";
+  }
+}
+
+export const cancelled = () => "Cancelled. Nothing was bought.";
+export const turnOnHint = () => "To buy right from here next time, turn on Buy by text in the app.";
 
 export const sellReply = (url: string) => `I can't sell by text. Open your portfolio, pick the stock and tap Sell:\n${url}`;
 

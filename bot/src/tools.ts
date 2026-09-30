@@ -36,8 +36,9 @@ export const declarations: Tools["declarations"] = [
   },
   { name: "get_portfolio", description: "The user's own total value, USDT balance, stocks held with profit and loss, and basket positions.", parametersJsonSchema: obj() },
   {
-    name: "make_buy_link",
-    description: "Creates a link that opens the buy form for a stock (or a basket) with the amount filled in. It does not buy anything: the user must tap the link and confirm in the app.",
+    name: "buy",
+    description:
+      "Starts a buy of a stock (or a basket) for a dollar amount. It never buys by itself: it either returns a question the user must answer YES to (then our system buys), or a link that opens the buy form in the app. Tell the user exactly what it returns.",
     parametersJsonSchema: obj({ ...nameArg, amount_usd: { type: "number", description: "US dollars to buy" } }, ["name", "amount_usd"]),
   },
   {
@@ -66,7 +67,9 @@ function unresolved(query: string, r: { match: "many"; options: Option[] } | { m
 
 const stockData = (s: StockItem) => ({ ticker: s.ticker, name: s.name, price: orNA(s.priceUsd, f.price), change24h: orNA(s.change24h, f.pct), market: market(s.marketOpen) });
 
-export function createTools(api: Api, sender: string, config: BotConfig, opts: { contactCard?: boolean } = {}): Tools {
+export type PendingBuy = { orderId: string; label: string; amountUsd: number };
+
+export function createTools(api: Api, sender: string, config: BotConfig, opts: { contactCard?: boolean; onPendingBuy?: (p: PendingBuy) => void } = {}): Tools {
   async function run(name: string, args: Record<string, unknown>): Promise<ToolResult> {
     switch (name) {
       case "list_stocks": {
@@ -122,7 +125,7 @@ export function createTools(api: Api, sender: string, config: BotConfig, opts: {
           fallback: f.portfolioReply(p),
         };
       }
-      case "make_buy_link": {
+      case "buy": {
         const q = str(args.name);
         const amount = typeof args.amount_usd === "number" ? Math.round(args.amount_usd * 100) / 100 : NaN;
         if (!q) return { data: { status: "need_a_name" }, fallback: f.needName("buy 20") };
@@ -130,11 +133,35 @@ export function createTools(api: Api, sender: string, config: BotConfig, opts: {
         if (amount > config.maxBuyUsd) {
           return { data: { status: "over_limit", limit: f.plainUsd(config.maxBuyUsd) }, fallback: f.buyReply({ match: "above_max", basket: { name: q, ticker: "" }, maxUsd: config.maxBuyUsd }) };
         }
+        // If the user has turned on Buy by text, park a real order and ask for their yes.
+        const p = await api.tradePrepare(sender, q, amount);
+        if (p.status === "many" || p.status === "none") return unresolved(q, p.status === "many" ? { match: "many", options: p.options } : { match: "none" });
+        if (p.status === "ready") {
+          opts.onPendingBuy?.({ orderId: p.orderId, label: p.kind === "stock" ? p.ticker : p.name, amountUsd: p.amountUsd });
+          return {
+            data: {
+              status: "awaiting_confirmation",
+              buying: p.kind === "stock" ? p.ticker : p.name,
+              amount: f.plainUsd(p.amountUsd),
+              fee: f.usd(p.feeUsd),
+              ...(p.marketClosed ? { warning: "Its market is closed, so the buy may not go through." } : {}),
+              instruction: "Nothing has been bought. Ask the user to reply YES to buy or NO to cancel, and say the amount and the fee. Never say it was bought.",
+            },
+            fallback: f.confirmQuestion(p),
+            mustInclude: ["YES"],
+          };
+        }
+        if (p.status !== "not_enabled" && p.status !== "unavailable" && p.status !== "wallet") {
+          const text = f.cantBuy(p);
+          return { data: { status: p.status, tellTheUser: text }, fallback: text, mustInclude: "url" in p ? [p.url] : [] };
+        }
+        // Buy by text is off for this user: hand them a link that opens the buy form instead.
         const r = await api.buyLink(sender, q, amount);
         if (r.match === "many" || r.match === "none") return unresolved(q, r);
         if (r.match === "below_min") return { data: { status: "below_minimum", name: r.basket.name, minimum: f.plainUsd(r.minUsd) }, fallback: f.buyReply(r) };
         if (r.match === "not_tradable") return { data: { status: "not_tradable_right_now", ticker: r.target.ticker }, fallback: f.buyReply(r) };
         if (r.match !== "stock" && r.match !== "basket") return { data: { status: r.match === "above_max" ? "over_limit" : "bad_amount" }, fallback: f.buyReply(r) };
+        const hint = p.status === "not_enabled" ? f.turnOnHint() : null;
         return {
           data: {
             status: "link_ready",
@@ -142,9 +169,9 @@ export function createTools(api: Api, sender: string, config: BotConfig, opts: {
             amount: f.plainUsd(r.amountUsd),
             link: r.url,
             ...(r.closed.length ? { warning: `The market is closed for ${r.closed.join(", ")}. It may not be buyable until it opens. Say only that.` } : {}),
-            instruction: "Nothing has been bought. Give the user the link and tell them to tap it and confirm in the app.",
+            instruction: `Nothing has been bought. Buy by text is off for this user, so give them the link and tell them to tap it and confirm in the app.${hint ? ` You may add: ${hint}` : ""}`,
           },
-          fallback: f.buyReply(r),
+          fallback: hint ? `${f.buyReply(r)}\n${hint}` : f.buyReply(r),
           mustInclude: [r.url],
         };
       }

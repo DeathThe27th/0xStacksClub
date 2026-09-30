@@ -41,6 +41,15 @@ These exact commands skip the model and answer instantly: `help`, `stocks`, `mov
 overloaded or rate limited, the bot tries `GEMINI_FALLBACK_MODEL`, then falls back to keyword
 matching. Without a key it only uses the commands.
 
+### Buying by text
+
+`buy 20 NVDA` (or "put 20 bucks into nvidia") calls the site's `/api/bot/trade/prepare`. If the
+user has turned on Buy by text in the app, the bot asks "Buy $20 of NVDA? Fee $0.20. Reply YES to
+buy, or NO to cancel." and remembers the order for 5 minutes. Only a plain yes from the user makes
+the bot call `/api/bot/trade/confirm`; that match is done in code and the model can't trigger it.
+The bot then reports what the site says happened. If Buy by text is off, the same request returns a
+link that opens the buy form instead. The bot itself still holds no wallet keys: the site signs.
+
 The free Gemini tier often takes 5 to 15 seconds per call, and a reply that needs data takes two
 calls, so conversational replies can take 10 to 30 seconds. A paid key is much faster.
 

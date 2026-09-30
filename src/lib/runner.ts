@@ -14,6 +14,12 @@ import type { Intent, Leg } from "@/lib/client/types";
 export type Signer = {
   address: Address;
   sendTransaction: (tx: { to: Address; data: `0x${string}`; value?: bigint; gas?: bigint; nonce?: number }) => Promise<Hash>;
+  /**
+   * Optional fast path: sign every transaction at once and broadcast them ourselves, instead of
+   * one wallet round trip per transaction. Each tx arrives with its nonce. Must either send all of
+   * them in order or, if nothing was broadcast, fall back to sending them one by one itself.
+   */
+  sendBatch?: (txs: { to: Address; data: `0x${string}`; value?: bigint; gas?: bigint; nonce: number }[]) => Promise<Hash[]>;
   signTypedData: (payload: {
     domain: Record<string, unknown>;
     types: Record<string, { name: string; type: string }[]>;
@@ -125,15 +131,24 @@ export function createRunner(deps: { chain: ChainReader; vault: () => Address })
     return n;
   }
 
-  /** One transaction with a tracked nonce. A failed send clears the local count. */
-  async function sendOne(signer: Signer, tx: Tx): Promise<Hash> {
+  /** Sends transactions with consecutive tracked nonces. A failed send clears the local count. */
+  async function send(signer: Signer, txs: Tx[]): Promise<Hash[]> {
     try {
-      return await signer.sendTransaction({ ...tx, nonce: await takeNonce(signer.address) });
+      if (signer.sendBatch) {
+        const first = await takeNonce(signer.address);
+        nextNonce.set(signer.address, { n: first + txs.length, at: Date.now() });
+        return await signer.sendBatch(txs.map((tx, i) => ({ ...tx, nonce: first + i })));
+      }
+      const hashes: Hash[] = [];
+      for (const tx of txs) hashes.push(await signer.sendTransaction({ ...tx, nonce: await takeNonce(signer.address) }));
+      return hashes;
     } catch (e) {
       nextNonce.delete(signer.address);
       throw e;
     }
   }
+
+  const sendOne = async (signer: Signer, tx: Tx): Promise<Hash> => (await send(signer, [tx]))[0]!;
 
   /**
    * Sends transactions back to back with consecutive nonces, without waiting for each to be mined,
@@ -141,8 +156,7 @@ export function createRunner(deps: { chain: ChainReader; vault: () => Address })
    * always lands before the call that spends it. On BSC this turns N block waits into about one.
    */
   async function sendInOrder(signer: Signer, txs: Tx[], opts: { onlyLastMustSucceed?: boolean } = {}): Promise<Hash[]> {
-    const hashes: Hash[] = [];
-    for (const tx of txs) hashes.push(await sendOne(signer, tx));
+    const hashes = await send(signer, txs);
     const receipts = await Promise.all(hashes.map((h) => chain.waitReceipt(h)));
     const bad = receipts.findIndex((r) => r.status !== "success");
     if (bad >= 0 && (!opts.onlyLastMustSucceed || bad === receipts.length - 1 || receipts.at(-1)!.status !== "success")) {

@@ -106,6 +106,43 @@ const news = z.discriminatedUnion("match", [
   none,
 ]);
 
+// Text buys. `prepare` parks an order and spends nothing; `confirm` runs it after the user's yes.
+const prepared = z.discriminatedUnion("status", [
+  z.object({
+    status: z.literal("ready"),
+    orderId: z.string(),
+    kind: z.enum(["stock", "basket"]),
+    name: z.string(),
+    ticker: z.string(),
+    amountUsd: z.number(),
+    feeUsd: z.number(),
+    usdtBalance: z.number(),
+    marketClosed: z.boolean(),
+    expiresInSec: z.number(),
+  }),
+  z.object({ status: z.literal("not_enabled"), url: z.string().url() }),
+  z.object({ status: z.literal("unavailable") }),
+  z.object({ status: z.literal("wallet"), reason: z.string(), url: z.string().url() }),
+  z.object({ status: z.literal("over_cap"), capUsd: z.number(), url: z.string().url() }),
+  z.object({ status: z.literal("over_daily"), leftUsd: z.number(), dailyUsd: z.number() }),
+  z.object({ status: z.literal("below_min"), minUsd: z.number(), name: z.string() }),
+  z.object({ status: z.literal("no_usdt"), usdtBalance: z.number(), amountUsd: z.number() }),
+  z.object({ status: z.literal("no_gas"), url: z.string().url() }),
+  z.object({ status: z.literal("not_tradable"), name: z.string() }),
+  z.object({ status: z.literal("busy") }),
+  z.object({ status: z.literal("bad_amount") }),
+  z.object({ status: z.literal("many"), options: z.array(option).min(1) }),
+  z.object({ status: z.literal("none") }),
+]);
+const confirmed = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("done"), label: z.string(), amountUsd: z.number(), url: z.string().url(), positionId: z.number().nullable() }),
+  z.object({ status: z.literal("failed"), label: z.string(), amountUsd: z.number(), error: z.string(), feePaid: z.boolean(), url: z.string().url() }),
+  z.object({ status: z.literal("expired") }),
+  z.object({ status: z.literal("nothing") }),
+]);
+
+export type Prepared = z.infer<typeof prepared>;
+export type Confirmed = z.infer<typeof confirmed>;
 export type News = z.infer<typeof news>;
 export type NewsItem = z.infer<typeof newsItem>;
 export type StockItem = z.infer<typeof stockItem>;
@@ -125,14 +162,14 @@ export type Api = ReturnType<typeof createApi>;
 export function createApi(opts: { siteUrl: string; secret: string; fetchImpl?: typeof fetch; timeoutMs?: number }) {
   const doFetch = opts.fetchImpl ?? fetch;
 
-  async function call<T extends z.ZodType>(method: "GET" | "POST", path: string, schema: T, body?: unknown): Promise<z.infer<T>> {
+  async function call<T extends z.ZodType>(method: "GET" | "POST", path: string, schema: T, body?: unknown, timeoutMs = opts.timeoutMs ?? 25_000): Promise<z.infer<T>> {
     let res: Response;
     try {
       res = await doFetch(`${opts.siteUrl}/api/bot/${path}`, {
         method,
         headers: { "x-bot-secret": opts.secret, ...(body ? { "content-type": "application/json" } : {}) },
         body: body ? JSON.stringify(body) : undefined,
-        signal: AbortSignal.timeout(opts.timeoutMs ?? 25_000),
+        signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (e) {
       throw new ApiError(0, "network", e instanceof Error ? e.name : "network error");
@@ -157,6 +194,9 @@ export function createApi(opts: { siteUrl: string; secret: string; fetchImpl?: t
     baskets: (sender: string) => call("POST", "baskets", baskets, { sender }),
     portfolio: (sender: string, week = false) => call("POST", "portfolio", portfolio, { sender, week }),
     club: (sender: string, query: string) => call("POST", "club", club, { sender, query }),
+    tradePrepare: (sender: string, query: string, amount: number) => call("POST", "trade/prepare", prepared, { sender, query, amount }),
+    // The whole buy runs inside this one request (fee, swap, and a deposit for a basket).
+    tradeConfirm: (sender: string, orderId?: string) => call("POST", "trade/confirm", confirmed, { sender, ...(orderId ? { orderId } : {}) }, 280_000),
     news: (sender: string, query?: string) => call("POST", "news", news, { sender, ...(query ? { query } : {}) }),
   };
 }

@@ -1,6 +1,5 @@
--- The texting assistant, part two: Telegram as a second channel. The last two tables are reserved
--- for buys made by text (off by default, capped); nothing reads or writes them yet. All four
--- tables are server-only: RLS on, no policies. Additive only.
+-- The texting assistant, part two: Telegram as a second channel, and buys made by text for users
+-- who turn that on. All four tables are server-only: RLS on, no policies. Additive only.
 
 -- A Telegram account connected to a profile. One per profile, one profile per account.
 create table telegram_links (
@@ -22,8 +21,8 @@ create table telegram_link_codes (
   created_at timestamptz not null default now()
 );
 
--- Reserved, not used yet. Text buys would be off until the user turns them on, and capped. Per
--- profile, so the same limits apply on iMessage and Telegram.
+-- Text buys are off until the user turns them on, and capped. Per profile, so the same limits
+-- apply on iMessage and Telegram.
 create table assistant_settings (
   profile_id uuid primary key references profiles(id) on delete cascade,
   trade_enabled boolean not null default false,
@@ -32,8 +31,8 @@ create table assistant_settings (
   updated_at timestamptz not null default now()
 );
 
--- Reserved, not used yet. One row per buy asked for by text: `pending` until the user replies
--- yes. For the confirmation step, the daily cap and the audit trail.
+-- One row per buy asked for by text: `pending` until the user replies yes; only then is an intent
+-- created and run. Used for the confirmation step, the daily cap and the audit trail.
 create table bot_orders (
   id uuid primary key default gen_random_uuid(),
   profile_id uuid not null references profiles(id) on delete cascade,

@@ -43,6 +43,7 @@ If two docs disagree, this file wins, then the more specific doc wins over `ARCH
 - Assets are identified by provider + chain ID + checksum address, never by ticker alone.
 - Only allowlisted asset contracts can be used in Stacks or the vault. Never accept an arbitrary token address from the client.
 - The app never custodies user funds outside the vault contract and never uses a hot wallet for user trades. Users sign their own transactions and pay their own BNB gas.
+  - One exception, decided by the owner on 2026-09-30: **Buy by text**. A user can turn it on in the app, which adds the app's Privy signer to their own embedded wallet. The server may then sign a buy with that wallet, only after the user replies YES to the texting assistant, only within the limits they set (default $50 a buy, $200 a day), and only through the same intent checks as the site (`src/server/botTrade.ts`). It never sells, withdraws or sends funds elsewhere. Funds stay in the user's wallet and they still pay their own gas. Turning it off removes the signer.
 - Chain state is the source of truth for recipes, position owners, units and fees. Supabase is a cache and social store only. Never trust client-reported balances, ownership or "confirmed" status.
 - A signed or submitted RFQ order is not a completed trade. Only FILLED status plus a verified balance increase counts.
 - Never claim a Stack buy or sell is atomic. Legs run in sequence and every leg's status is persisted.

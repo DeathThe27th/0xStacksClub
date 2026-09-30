@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/States";
 import { useToast } from "@/components/ui/Toast";
 import { APP_NAME } from "@/lib/constants";
 import { useApi } from "@/lib/client/api";
+import { TextBuys } from "./TextBuys";
 
 export type TelegramStatus = {
   available: boolean;
@@ -76,6 +77,7 @@ export function TelegramConnect() {
             <p className="text-secondary text-text-muted">Message the bot like you would a person.</p>
           </div>
         </div>
+        <TextBuys />
         {bot && (
           <a href={`https://t.me/${bot}`} target="_blank" rel="noreferrer" className="block">
             <Button className="w-full">Open Telegram</Button>

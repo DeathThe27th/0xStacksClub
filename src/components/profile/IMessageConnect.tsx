@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/Toast";
 import { APP_NAME } from "@/lib/constants";
 import { useApi } from "@/lib/client/api";
 import { normalizePhone } from "@/lib/phone";
+import { TextBuys } from "./TextBuys";
 
 export type IMessageStatus = {
   available: boolean;
@@ -90,9 +91,8 @@ export function IMessageConnect() {
             <p className="text-secondary text-text-muted">Connected. Text &ldquo;help&rdquo; to see what you can ask.</p>
           </div>
         </div>
-        <p className="text-secondary text-text-muted">
-          Texts can show prices and your portfolio and open a buy for you to confirm here. Nothing is ever bought or signed over text.
-        </p>
+        <TextBuys />
+        <p className="text-secondary text-text-muted">Texts can show prices, news and your portfolio. With Buy by text off, a buy is only ever a link for you to confirm here.</p>
         <Button variant="secondary" className="w-full text-down" loading={stop.isPending} onClick={() => stop.mutate()}>
           Disconnect iMessage
         </Button>
