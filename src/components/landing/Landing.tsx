@@ -1,35 +1,37 @@
 "use client";
 
-import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from "framer-motion";
+import { motion, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
 import { Loader2, MessageCircle, Minus, Plus, UserPlus, type LucideIcon } from "lucide-react";
-import { useRef, type RefObject } from "react";
+import { useRef } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Change } from "@/components/ui/Change";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
-import { useIsDesktop } from "@/lib/client/media";
-import { APP_NAME, BOT_TRADE_CAP_DEFAULT_USD, MIN_BUY_USD_SMALL } from "@/lib/constants";
+import { APP_NAME, BOT_TRADE_CAP_DEFAULT_USD } from "@/lib/constants";
 import { price as fmtPrice } from "@/lib/format";
-import { useLandingStocks, type LandingStock } from "./data";
+import { useLandingStocks } from "./data";
+import { useScrollProgress } from "./scroll";
+import { StackSpread } from "./StackSpread";
+import { Week, WeekKey } from "./Week";
 
 export type Start = { onStart: () => void; ready: boolean; opening: boolean };
 
 /**
- * Public landing. One continuous scroll in which the product assembles itself: stock cards and
- * text bubbles converge into the headline, the four verbs stack up, a violet panel rises where a
- * text conversation plays out in a phone, then the real stock list, the rules and the close.
- * With reduced motion every section renders in its finished state at natural height.
+ * Public landing, framed around the hours Wall Street is shut. One continuous scroll: a pile of
+ * night photos and app cards scatters to reveal the headline, the four verbs stack up, a violet
+ * panel rises where a text conversation plays out in a phone, the real stock list, a dial of the
+ * week's 168 hours, baskets and the close. With reduced motion every section renders finished.
  */
 export function Landing(props: Start & { notice?: React.ReactNode }) {
   const still = !!useReducedMotion();
   const stocks = useLandingStocks();
   return (
     <main id="top" className="overflow-x-clip bg-bg text-text">
-      <Hero stocks={stocks} still={still} />
+      <StackSpread nvda={stocks.pick("NVDA", 0)} tsla={stocks.pick("TSLA", 1)} still={still} action={<StartButton start={props} />} />
       <Verbs still={still} />
       <TextPanel stocks={stocks} still={still} />
       <Market stocks={stocks} still={still} start={props} />
-      <Statement still={still} />
+      <Hours still={still} />
       <Baskets stocks={stocks} still={still} />
       <Close start={props} />
       <PillNav start={props} notice={props.notice} />
@@ -38,158 +40,23 @@ export function Landing(props: Start & { notice?: React.ReactNode }) {
 }
 
 type Stocks = ReturnType<typeof useLandingStocks>;
-type Offset = NonNullable<Parameters<typeof useScroll>[0]>["offset"];
-
-/**
- * Scroll progress through `ref`, passed through a plain function so framer-motion can't hand the
- * animations to the browser's native ScrollTimeline. That path dropped every value back to its
- * start once the section was scrolled past (the hero headline came back, the verbs vanished).
- */
-function useProgress(ref: RefObject<HTMLElement | null>, offset: Offset) {
-  const { scrollYProgress } = useScroll({ target: ref, offset });
-  return useTransform(scrollYProgress, (v) => v);
-}
-
-/* ------------------------------------------------------------------------------------------ */
-/* Hero: the headline, with real stock cards and a text exchange drifting in from the edges.   */
-
-type Spot = { x: string; y: string; r: number };
-// Start positions relative to the viewport centre. Phone spots keep the middle clear for the headline.
-const SPOTS: { desk: Spot; phone: Spot | null }[] = [
-  { desk: { x: "-33vw", y: "-25svh", r: -6 }, phone: { x: "-21vw", y: "-35svh", r: -5 } },
-  { desk: { x: "31vw", y: "-27svh", r: 4 }, phone: { x: "19vw", y: "-25svh", r: 4 } },
-  { desk: { x: "35vw", y: "17svh", r: 5 }, phone: { x: "21vw", y: "26svh", r: 5 } },
-  { desk: { x: "-30vw", y: "21svh", r: -3 }, phone: { x: "-18vw", y: "35svh", r: -3 } },
-  { desk: { x: "10vw", y: "35svh", r: -4 }, phone: null },
-];
-
-function Hero({ stocks, still }: { stocks: Stocks; still: boolean }) {
-  const ref = useRef<HTMLElement>(null);
-  const desk = useIsDesktop();
-  const p = useProgress(ref, ["start start", "end end"]);
-  const scale = useTransform(p, [0, 0.75], [1, 0.8]);
-  const opacity = useTransform(p, [0.5, 0.85], [1, 0]);
-  const nvda = stocks.pick("NVDA", 0);
-  const tsla = stocks.pick("TSLA", 1);
-  const trio = [stocks.pick("NVDA", 0), stocks.pick("MSFT", 2), stocks.pick("META", 3)];
-  const cards = [
-    <StockCard key="a" s={nvda} />,
-    <Bubble key="b" out>
-      buy $20 of {nvda.ticker.toLowerCase()}
-    </Bubble>,
-    <StockCard key="c" s={tsla} />,
-    <Bubble key="d">Buy $20 of {nvda.ticker}? Reply YES to buy.</Bubble>,
-    <BasketChip key="e" stocks={trio} />,
-  ];
-  return (
-    <section ref={ref} aria-labelledby="hero-title" className={still ? "relative" : "relative h-[200svh]"}>
-      <div className="sticky top-0 grid h-[100svh] place-items-center overflow-hidden">
-        {cards.map((card, i) => {
-          const spot = desk ? SPOTS[i]!.desk : SPOTS[i]!.phone;
-          if (!spot) return null;
-          return (
-            <Drift key={i} p={p} spot={spot} still={still} delay={i * 0.06}>
-              {card}
-            </Drift>
-          );
-        })}
-        <motion.div style={still ? undefined : { scale, opacity }} className="relative z-10 px-gutter text-center">
-          <h1 id="hero-title" className="font-display text-[clamp(60px,16vw,148px)] font-extrabold leading-[0.88] tracking-[-0.045em] text-link [text-wrap:balance]">
-            Stocks, made easy.
-          </h1>
-          <p className="mx-auto mt-6 max-w-[30ch] text-[17px] leading-snug text-text-muted lg:text-[21px]">
-            Nvidia, Tesla or the S&amp;P 500, onchain from ${MIN_BUY_USD_SMALL}. Or just text it.
-          </p>
-        </motion.div>
-      </div>
-    </section>
-  );
-}
-
-/** A card that starts at its spot, floats a little, then converges on the centre and fades. */
-function Drift({ p, spot, still, delay, children }: { p: MotionValue<number>; spot: Spot; still: boolean; delay: number; children: React.ReactNode }) {
-  const end = 0.62 + delay * 0.4;
-  const x = useTransform(p, [0, end], [spot.x, "0vw"]);
-  const y = useTransform(p, [0, end], [spot.y, "0svh"]);
-  const rotate = useTransform(p, [0, end], [spot.r, spot.r * 0.25]);
-  const scale = useTransform(p, [0, end], [1, 0.62]);
-  // Gone before they reach the headline, so they never sit on top of its letters.
-  const opacity = useTransform(p, [end - 0.3, end - 0.08], [1, 0]);
-  return (
-    <motion.div
-      aria-hidden
-      className="pointer-events-none absolute left-1/2 top-1/2"
-      style={still ? { transform: `translate(${spot.x}, ${spot.y}) rotate(${spot.r}deg)` } : { x, y, rotate, scale, opacity }}
-    >
-      <div className="-translate-x-1/2 -translate-y-1/2">{children}</div>
-    </motion.div>
-  );
-}
-
-function StockCard({ s }: { s: LandingStock }) {
-  return (
-    <div className="flex w-[176px] items-center gap-3 rounded-card border border-border bg-surface p-3 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.55)] lg:w-[220px] lg:p-4">
-      <TokenLogo src={s.logo} label={s.ticker} size={36} />
-      <div className="min-w-0 flex-1">
-        <p className="text-[15px] font-semibold leading-tight lg:text-[17px]">{s.ticker}</p>
-        {s.price !== null ? (
-          <p className="flex items-center gap-2 text-[13px] leading-5 lg:text-[14px]">
-            <span className="tnum">{fmtPrice(s.price)}</span>
-            <Change value={s.change} />
-          </p>
-        ) : (
-          <p className="truncate text-[13px] leading-5 text-text-muted">{s.name}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/** iMessage bubble. These are drawings of Messages, so they keep Messages' own colours in every theme. */
-function Bubble({ out, children, className }: { out?: boolean; children: React.ReactNode; className?: string }) {
-  return (
-    <p
-      className={cn(
-        "w-fit max-w-[220px] rounded-[20px] px-3.5 py-2 text-[15px] leading-[1.3] lg:max-w-[250px] lg:text-[16px]",
-        out ? "rounded-br-[6px] bg-[#0A84FF] text-white" : "rounded-bl-[6px] bg-[#E9E9EB] text-[#111]",
-        className,
-      )}
-    >
-      {children}
-    </p>
-  );
-}
-
-function BasketChip({ stocks }: { stocks: LandingStock[] }) {
-  return (
-    <div className="flex items-center gap-3 rounded-full border border-border bg-surface py-2 pl-2 pr-5 shadow-[0_18px_40px_-18px_rgb(0_0_0/0.55)]">
-      <span className="flex -space-x-2.5">
-        {stocks.map((s) => (
-          <TokenLogo key={s.ticker} src={s.logo} label={s.ticker} size={30} className="ring-2 ring-surface" />
-        ))}
-      </span>
-      <span className="text-[15px] font-semibold">Your basket</span>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------------------------------ */
 /* Verbs: four words that stack up one by one.                                                */
 
 const VERBS: { word: string; line: string; icon: LucideIcon; tile: string; ink: string }[] = [
-  { word: "Buy", line: `Any stock, from $${MIN_BUY_USD_SMALL}`, icon: Plus, tile: "bg-up", ink: "text-up" },
-  { word: "Sell", line: "Straight back to USDT", icon: Minus, tile: "bg-down", ink: "text-down" },
-  { word: "Text", line: "Trade from iMessage", icon: MessageCircle, tile: "bg-primary", ink: "text-link" },
-  { word: "Follow", line: "See what people trade", icon: UserPlus, tile: "bg-warn", ink: "text-warn" },
+  { word: "Buy", line: "Nvidia at midnight", icon: Plus, tile: "bg-up", ink: "text-up" },
+  { word: "Sell", line: "Back to USDT, any hour", icon: Minus, tile: "bg-down", ink: "text-down" },
+  { word: "Text", line: "From iMessage, from bed", icon: MessageCircle, tile: "bg-primary", ink: "text-link" },
+  { word: "Follow", line: "The night owls worth following", icon: UserPlus, tile: "bg-warn", ink: "text-warn" },
 ];
 
 function Verbs({ still }: { still: boolean }) {
   const ref = useRef<HTMLElement>(null);
-  // The section tucks 70svh up under the hero, so the verbs arrive as the headline leaves.
-  const p = useProgress(ref, ["start 75%", "end end"]);
+    const p = useScrollProgress(ref, 0.75, 1);
   return (
-    <section ref={ref} aria-label="What you can do" className={still ? "py-24" : "relative -mt-[70svh] h-[250svh]"}>
-      <div className={cn("grid place-items-center", !still && "sticky top-0 h-[100svh]")}>
+    <section ref={ref} aria-label="What you can do" className={still ? "py-24" : "relative h-[220svh]"}>
+      <div className={cn("grid place-items-center", !still && "sticky top-0 h-[calc(100svh/var(--app-zoom))]")}>
         <ul className="flex flex-col gap-1 lg:gap-2">
           {VERBS.map((v, i) => (
             <Verb key={v.word} v={v} p={p} at={0.02 + i * 0.16} still={still} />
@@ -220,7 +87,7 @@ function Verb({ v, p, at, still }: { v: (typeof VERBS)[number]; p: MotionValue<n
 
 function TextPanel({ stocks, still }: { stocks: Stocks; still: boolean }) {
   const ref = useRef<HTMLElement>(null);
-  const p = useProgress(ref, ["start start", "end end"]);
+  const p = useScrollProgress(ref);
   const phoneScale = useTransform(p, [0, 0.2], [0.6, 1]);
   const phoneY = useTransform(p, [0, 0.2], ["12svh", "0svh"]);
   const s = stocks.pick("NVDA", 0);
@@ -240,13 +107,13 @@ function TextPanel({ stocks, still }: { stocks: Stocks; still: boolean }) {
   ];
   return (
     <section id="text" ref={ref} aria-labelledby="text-title" className={cn("scroll-mt-0 bg-primary text-on-primary", !still && "relative h-[330svh]")}>
-      <div className={cn("mx-auto grid max-w-[1180px] items-center gap-8 px-gutter lg:grid-cols-[1fr_auto_1fr] lg:gap-14 lg:px-8", still ? "py-24" : "sticky top-0 h-[100svh] content-center py-6")}>
+      <div className={cn("mx-auto grid max-w-[1180px] items-center gap-8 px-gutter lg:grid-cols-[1fr_auto_1fr] lg:gap-14 lg:px-8", still ? "py-24" : "sticky top-0 h-[calc(100svh/var(--app-zoom))] content-center py-6")}>
         <div className="text-center lg:text-left">
           <h2 id="text-title" className="font-display text-[clamp(44px,11vw,104px)] font-extrabold leading-[0.9] tracking-[-0.045em]">
             Or just text&nbsp;it.
           </h2>
           <p className="mx-auto mt-4 max-w-[34ch] text-[16px] leading-snug text-on-primary/85 lg:mx-0 lg:mt-6 lg:text-[19px]">
-            Ask the {APP_NAME} assistant on iMessage for a price, the news or your portfolio.
+            Ask the {APP_NAME} assistant on iMessage for a price, the news or your portfolio. It&apos;s up when you are.
           </p>
         </div>
         <motion.div style={still ? undefined : { scale: phoneScale, y: phoneY }} className="mx-auto origin-bottom">
@@ -309,17 +176,17 @@ function Phone({ className, children }: { className?: string; children: React.Re
 
 function Market({ stocks, still, start }: { stocks: Stocks; still: boolean; start: Start }) {
   const ref = useRef<HTMLElement>(null);
-  const p = useProgress(ref, ["start end", "end start"]);
+  const p = useScrollProgress(ref, 1, 0);
   const listY = useTransform(p, [0.2, 0.85], [0, -260]);
   const rows = stocks.list.length ? stocks.list : ["NVDA", "TSLA", "AAPL", "SPY", "META", "MSFT"].map((t, i) => stocks.pick(t, i));
   return (
     <section id="stocks" ref={ref} aria-labelledby="stocks-title" className="mx-auto grid max-w-[1180px] items-center gap-14 px-gutter py-28 lg:grid-cols-2 lg:gap-20 lg:px-8 lg:py-40">
       <div>
         <h2 id="stocks-title" className="font-display text-[clamp(44px,10vw,92px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
-          The big names, from ${MIN_BUY_USD_SMALL}.
+          The big names, after hours.
         </h2>
         <p className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-text-muted lg:text-[19px]">
-          Tokenized stocks from bStocks and Ondo on BNB Chain. Deposit USDT, buy what you like, sell back to USDT. A 1% fee on the way in and 1% on the way out.
+          Tokenized stocks from bStocks and Ondo on BNB Chain. Deposit USDT, buy what you like, sell back to USDT, on your schedule rather than the exchange&apos;s. A 1% fee on the way in and 1% on the way out.
         </p>
         <StartButton start={start} className="mt-8" />
       </div>
@@ -362,30 +229,41 @@ function Market({ stocks, still, start }: { stocks: Stocks; still: boolean; star
 }
 
 /* ------------------------------------------------------------------------------------------ */
-/* Statement: three lines that light up as they pass.                                           */
+/* Hours: the week as a dial. Wall Street's 32½ hours light up, then the rest of the 168.       */
 
-const LINES = [`Start with $${MIN_BUY_USD_SMALL}? Sure.`, "Pay in USDT? Check.", "Buy by text? Also check."];
-
-function Statement({ still }: { still: boolean }) {
+function Hours({ still }: { still: boolean }) {
+  const ref = useRef<HTMLElement>(null);
+  const p = useScrollProgress(ref);
   return (
-    <section aria-label="The short version" className="px-gutter py-28 text-center lg:py-44">
-      {LINES.map((l) => (
-        <LitLine key={l} still={still}>
-          {l}
-        </LitLine>
-      ))}
+    <section
+      id="hours"
+      ref={ref}
+      aria-labelledby="hours-title"
+      className={cn("[--uvh:calc(1svh/var(--app-zoom))]", !still && "relative h-[calc(300*var(--uvh))]")}
+    >
+      <div
+        className={cn(
+          "mx-auto grid max-w-[1180px] items-center gap-8 px-gutter lg:grid-cols-[1fr_auto] lg:gap-16 lg:px-8",
+          still ? "py-24" : "sticky top-0 h-[calc(100*var(--uvh))] content-center",
+        )}
+      >
+        <div className="text-center lg:text-left">
+          <h2 id="hours-title" className="font-display text-[clamp(40px,9vw,92px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
+            Markets close. Onchain doesn&apos;t.
+          </h2>
+          <p className="mx-auto mt-5 max-w-[38ch] text-[16px] leading-snug text-text-muted lg:mx-0 lg:mt-6 lg:text-[19px]">
+            Wall Street keeps banker&apos;s hours. Tokenized stocks live on BNB Chain, which never clocks out.
+          </p>
+          <div className="mt-6 hidden lg:block">
+            <WeekKey />
+            <p className="mt-6 max-w-[46ch] text-[13px] leading-5 text-text-dim">
+              Most stocks trade onchain at any hour. A few pause while their home market is closed, and the app says so before any money moves.
+            </p>
+          </div>
+        </div>
+        <Week progress={p} still={still} />
+      </div>
     </section>
-  );
-}
-
-function LitLine({ still, children }: { still: boolean; children: React.ReactNode }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const p = useProgress(ref, ["start 88%", "start 50%"]);
-  const opacity = useTransform(p, [0, 1], [0.18, 1]);
-  return (
-    <motion.p ref={ref} style={still ? undefined : { opacity }} className="font-display text-[clamp(36px,8vw,84px)] font-extrabold leading-[1.05] tracking-[-0.04em] text-link">
-      {children}
-    </motion.p>
   );
 }
 
@@ -394,7 +272,7 @@ function LitLine({ still, children }: { still: boolean; children: React.ReactNod
 
 function Baskets({ stocks, still }: { stocks: Stocks; still: boolean }) {
   const ref = useRef<HTMLElement>(null);
-  const p = useProgress(ref, ["start end", "end start"]);
+  const p = useScrollProgress(ref, 1, 0);
   const rotateY = useTransform(p, [0.1, 0.9], [-28, 22]);
   const rotateZ = useTransform(p, [0.1, 0.9], [-9, 5]);
   const y = useTransform(p, [0.1, 0.9], [60, -40]);
@@ -458,7 +336,7 @@ function Close({ start }: { start: Start }) {
       <h2>
         <Wordmark size="clamp(96px, 30vw, 300px)" className="text-text" />
       </h2>
-      <p className="mt-4 text-[19px] text-text-muted lg:text-[22px]">Stocks, made easy.</p>
+      <p className="mt-4 text-[19px] text-text-muted lg:text-[22px]">Stocks, whenever.</p>
       <StartButton start={start} className="mt-10" />
       <p className="mx-auto mt-14 max-w-[62ch] text-[12px] leading-5 text-text-muted">
         Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
@@ -486,6 +364,7 @@ function StartButton({ start, className, small }: { start: Start; className?: st
 
 const LINKS = [
   { href: "#stocks", label: "Stocks" },
+  { href: "#hours", label: "Hours" },
   { href: "#text", label: "Text" },
   { href: "#baskets", label: "Baskets" },
 ];

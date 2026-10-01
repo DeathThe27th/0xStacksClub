@@ -95,6 +95,25 @@
   color-scheme: dark;
 }
 
+/* Always-dark island (the landing hero is night in every theme): the dark palette, scoped. */
+.theme-night {
+  --bg: 0 0 0;
+  --surface: 14 14 16;
+  --surface-2: 26 26 29;
+  --border: 38 38 42;
+  --text: 255 255 255;
+  --text-muted: 150 150 158;
+  --text-dim: 92 92 100;
+  --primary: 108 71 255;
+  --primary-press: 88 52 230;
+  --on-primary: 255 255 255;
+  --link: 160 140 255;
+  --up: 34 197 94;
+  --down: 255 68 48;
+  --warn: 245 165 36;
+  color-scheme: dark;
+}
+
 /*
  * Desktop renders at 80%, which is the density the layout was tuned for. `zoom` scales viewport
  * units too, so anything sized from dvh divides by --app-zoom, and the chart counter-zooms (its

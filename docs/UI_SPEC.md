@@ -241,15 +241,15 @@ Social is about the people on the app and what they trade.
 - CTA row: `Sell` and `Redeem stocks`.
 
 ### 8.6 Onboarding
-- `/` is the landing page (`src/components/landing/`), one scroll-driven page in the app's own tokens, following the theme:
-  1. Hero: "Stocks, made easy." in the display face, with real stock cards (from `/api/assets`) and an iMessage exchange drifting in from the edges; on scroll they converge and fade and the headline shrinks away.
+- `/` is the landing page (`src/components/landing/`), one scroll-driven page in the app's own tokens, following the theme. It is framed around the hours Wall Street is shut ("Trade while Wall Street sleeps"), never around the minimum buy:
+  1. Hero (always dark, in every theme): a fanned pile of night photos (`public/landing/`, from Unsplash) and app cards (live NVDA and TSLA, a late-night text exchange, the visitor's own clock with NYSE open/closed) sits on the wordmark at poster size, under the line "It's 9:41 PM where you are. Wall Street is asleep." On scroll the pile scatters to the edges, the wordmark swells away, and "Trade while Wall Street sleeps." comes up with a live `NYSE closed · opens in 2d 16h` pill and `Get started`. Once spread, the cards drift against the pointer on desktop. A dusk gradient leads into the rest of the page.
   2. Verbs: `Buy`, `Sell`, `Text`, `Follow` stack up one by one, each with a coloured icon tile and a short line.
   3. Text panel: a full-bleed `primary` field, "Or just text it.", where a phone grows in and a texting-assistant chat (price, buy, YES, done) plays out as you scroll, with the Trade by text limits beside it.
-  4. Stocks: "The big names, from $1." with the real stock list scrolling inside a phone.
-  5. A centred three-line statement that lights up line by line.
+  4. Stocks: "The big names, after hours." with the real stock list scrolling inside a phone.
+  5. Hours: "Markets close. Onchain doesn't." beside a dial of the week's 336 half hours (Monday 00:00 New York time at the top). Wall Street's regular session lights in `warn` and the count reads 32½; a `link` sweep then runs round the rest and the count climbs to 168. A note says a few stocks pause while their home market is closed and the app says so before any money moves. NYSE hours and holidays live in `clock.ts` and are display only.
   6. Baskets and Social, with a basket card that turns as you scroll.
-  7. Close: the wordmark at poster size, `Get started`, and the provider and region notice.
-  A floating pill nav at the bottom carries the wordmark, section links (desktop) and `Get started`, which opens Privy login (email, Google, X, and external wallet). Prices are never invented: without data the cards show tickers and names. With reduced motion every section renders finished at natural height. Signed-in visitors go straight to `/app`.
+  7. Close: the wordmark at poster size, "Stocks, whenever.", `Get started`, and the provider and region notice.
+  A floating pill nav at the bottom carries the wordmark, section links (desktop) and `Get started`, which opens Privy login (email, Google, X, and external wallet). Prices are never invented: without data the cards show tickers and names. Scroll progress is measured with `getBoundingClientRect` (`scroll.ts`), because framer-motion's `useScroll` misreads it under the desktop's 80% zoom. With reduced motion every section renders finished at natural height. Signed-in visitors go straight to `/app`.
 - After first login, a single onboarding screen: avatar upload, username (3 to 20, lowercase letters, numbers, underscore), bio, optional X URL. Then land on `/app`.
 
 ## 9. States, motion and polish
