@@ -10,7 +10,7 @@ All amounts are raw bigint units. USDT on BSC has 18 decimals, but always read d
 
 - Privy embedded wallet is created on login for users without one. External wallets (MetaMask, Binance Wallet, Trust) are also allowed.
 - Configure Privy with BSC mainnet as the default chain and set embedded wallet confirmation modals off (`showWalletUIs: false`) so the progress checklist is the only UI. External wallets will still show their own prompts. That's expected.
-- Before any flow, check the user has enough BNB for the estimated gas. If not, show "You need about 0.002 BNB for network fees". When the gas starter is offered (`GET /api/gas` says eligible), the button is `Cover my network fees`, which claims it; otherwise it links to the Deposit sheet.
+- Before any flow, check the user has enough BNB for the estimated gas. If not, show "You need about 0.002 BNB for network fees" with a `Get BNB for fees` button that opens the Deposit sheet (BNB by card, or by transfer).
 - Approvals: approve exact amounts only, never unlimited.
 
 ## 1. Deposit
@@ -23,15 +23,13 @@ Crypto:
 
 No server state involved.
 
-Card (Privy funding, provider enabled in the Privy dashboard):
+Card (Privy funding, provider enabled in the Privy dashboard), for USDT to trade or BNB for network fees:
 
-1. Read the wallet's USDT balance as a baseline, then open Privy's `useAddFunds` with destination USDT on `eip155:56` and the user's own wallet, default $50. The provider takes the card (or Apple Pay), does its own checks, and sends USDT to that wallet. Closing the checkout returns to the options.
-2. Show the steps (`TradeSteps`): Pay by card, USDT arrives in your wallet (polled from chain every 5 seconds until it rises above the baseline), then Network fees.
-3. When the USDT lands, ask `GET /api/gas`. If the wallet is eligible, `POST /api/gas` sends the one-time gas starter; if it already has BNB, say so; if the starter is paused, ask for a little BNB.
+1. Read the wallet's balance of that asset as a baseline, then open Privy's `useAddFunds` with destination `eip155:56`, the user's own wallet, and the asset: USDT's address (default $50), or the zero address for BNB (default $20; Privy's code uses the zero address for a chain's native coin, to be confirmed on the first live purchase). The provider takes the card (or Apple Pay), does its own checks, and sends the asset to that wallet. Closing the checkout returns to the options.
+2. Show the steps (`TradeSteps`): Pay by card, then USDT (or BNB) arrives in your wallet, polled from chain every 5 seconds until it rises above the baseline.
+3. After USDT lands, if the wallet has less BNB than one stock buy needs, explain network fees and offer `Buy BNB for fees` (the same flow for BNB).
 
-The app never touches the card money. The only server state is the gas starter row.
-
-Gas starter (`src/server/gasStarter.ts`, table `gas_starters`): eligible when the chain shows at least 5 USDT and less BNB than one buy needs (gas price x 800k), there is no earlier starter for the profile or the wallet, today's count is under `GAS_STARTER_DAILY_MAX` and the gift wallet can afford it. The claim re-runs every check, writes the row first (unique on profile and on wallet, so a race can't pay twice), sends `GAS_STARTER_BNB` (default 0.0005 BNB) to the wallet, and records the hash; a failed send deletes the row.
+The app never touches the card money and keeps no server state for it.
 
 ## 2. Buy a single stock
 

@@ -67,7 +67,6 @@ All inputs validated with zod. All user-scoped routes verify the Privy access to
 | `/api/stacks/[id]` | GET | Recipe from chain (cached in Supabase), metadata, index, holders count, creator earned |
 | `/api/stacks/[id]/index` | GET | Index series for the chart (see `FLOWS.md` 6) |
 | `/api/stacks/metadata` | POST | Upload the Stack image to Supabase Storage and store metadata JSON. Returns `metadataURI`. |
-| `/api/gas` | GET, POST | Gas starter (`src/server/gasStarter.ts`). GET: `{ available, eligible, reason?, amountBnb }` for the acting wallet, read from chain; `available: false` when it isn't set up. POST: re-checks everything and sends the one-time BNB gift to that wallet, returns `{ txHash, amountBnb }`. |
 | `/api/quote` | POST | Fresh quote for one leg. Body: `from`, `to`, `amount` (raw string). Server checks both tokens are USDT or allowlisted. Returns mode (`SWAP` or `RFQ`), expected out, min out, expiry, and the typed data or tx to sign. |
 | `/api/orders` | POST | Submit a signed RFQ order. Body: `intentId`, `legIndex`, `signature`, `quoteRef`. Uses `intentId:legIndex` as the idempotency key. |
 | `/api/orders/[id]` | GET | Order status, normalized to `PENDING`, `FILLED`, `FAILED`, `EXPIRED` |
@@ -99,7 +98,7 @@ Rate limit write routes per user (simple Supabase or in-memory token bucket is f
 
 ## 4. Supabase schema (`supabase/migrations/0001_init.sql`)
 
-Later migrations, all additive: `0002_clubs.sql` (`club_posts`, retired UI), `0003_club_links.sql` (`club_links`, `club_link_reports`), `0004_imessage.sql` (`phone_links`, `phone_link_codes`), `0005_assistant.sql` (`telegram_links`, `telegram_link_codes`, `assistant_settings`, `bot_orders`), `0006_gas_starter.sql` (`gas_starters`). The tables from 0003 on have RLS on and no policies: only the server reads them. The SQL below is the original design; the migration files are what is deployed.
+Later migrations, all additive: `0002_clubs.sql` (`club_posts`, retired UI), `0003_club_links.sql` (`club_links`, `club_link_reports`), `0004_imessage.sql` (`phone_links`, `phone_link_codes`), `0005_assistant.sql` (`telegram_links`, `telegram_link_codes`, `assistant_settings`, `bot_orders`). The tables from 0003 on have RLS on and no policies: only the server reads them. The SQL below is the original design; the migration files are what is deployed.
 
 ```sql
 create extension if not exists citext;

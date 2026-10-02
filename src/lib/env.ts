@@ -40,11 +40,6 @@ const serverSchema = z.object({
   // Private half of the Privy authorization key (the quorum in NEXT_PUBLIC_PRIVY_SIGNER_ID). Lets
   // the server sign with the embedded wallet of a user who turned on text buys. Server only.
   PRIVY_SIGNER_PRIVATE_KEY: z.string().min(1).optional(),
-  // Gas starter (src/server/gasStarter.ts): a wallet that only holds BNB for gifting users their
-  // first network fees. Never holds user funds. Off when unset.
-  GAS_STARTER_PRIVATE_KEY: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "must be a 0x-prefixed 32-byte hex key").optional().or(z.literal("").transform(() => undefined)),
-  GAS_STARTER_BNB: z.string().regex(/^\d+(\.\d+)?$/).optional(), // per user, default 0.0005
-  GAS_STARTER_DAILY_MAX: z.coerce.number().int().positive().optional(), // payouts per 24h, default 100
 });
 
 export type PublicEnv = z.infer<typeof publicSchema>;

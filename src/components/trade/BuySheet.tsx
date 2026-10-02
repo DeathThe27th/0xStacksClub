@@ -12,8 +12,6 @@ import { usd } from "@/lib/format";
 import { allocate, buyFee } from "@/lib/math";
 import { ApiError, useApi } from "@/lib/client/api";
 import { usePortfolio, useUsdtDecimals } from "@/lib/client/queries";
-import { useToast } from "@/components/ui/Toast";
-import { useGasStarter } from "@/lib/client/gas";
 import { gasNeededWei } from "@/lib/client/runner";
 import type { Intent } from "@/lib/client/types";
 import { IntentProgress } from "./IntentSheet";
@@ -141,8 +139,6 @@ export function BuyForm({
             : null;
 
   const needsGas = validation?.startsWith("You need") ?? false;
-  const starter = useGasStarter(needsGas);
-  const toast = useToast();
 
   const previews = useQuery({
     queryKey: ["preview", components.map((c) => c.address).join(","), gross.toString()],
@@ -252,23 +248,9 @@ export function BuyForm({
             </p>
           )}
           <div className="mt-5">
-            {needsGas && starter.eligible ? (
-              // USDT but no BNB: the one-time gas starter covers the first network fees.
-              <Button
-                className="w-full"
-                loading={starter.claim.isPending}
-                onClick={() =>
-                  starter.claim.mutate(undefined, {
-                    onSuccess: (r) => toast({ title: `${r.amountBnb} BNB added for network fees, on us`, tone: "up" }),
-                    onError: (e) => toast({ title: (e as Error).message, tone: "down" }),
-                  })
-                }
-              >
-                Cover my network fees
-              </Button>
-            ) : validation === "Not enough USDT" || needsGas ? (
+            {validation === "Not enough USDT" || needsGas ? (
               <Button className="w-full" onClick={onDeposit}>
-                Deposit
+                {needsGas ? "Get BNB for fees" : "Deposit"}
               </Button>
             ) : (
               <Button className="w-full" disabled={!!validation || gross === 0n} onClick={() => setStep("review")}>
