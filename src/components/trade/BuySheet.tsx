@@ -260,45 +260,47 @@ export function BuyForm({
       ) : (
         <>
           <div className="mb-4 flex items-center justify-between text-secondary">
-            <span className="font-semibold text-text">Review · fresh quotes</span>
+            <span className="font-semibold text-text">{intentId ? "Your buy, step by step" : "Review · fresh quotes"}</span>
             {!intentId && (
               <span className={cn("tnum", quoteAge !== null && quoteAge < 8 ? "text-warn" : "text-text-muted")}>
                 {previews.isFetching ? "Refreshing…" : quoteAge !== null ? `Refreshes in ${quoteAge}s` : ""}
               </span>
             )}
           </div>
-          <div className="space-y-3 rounded-card bg-surface-2 p-4">
-            {components.map((c, i) => {
-              const p = previews.data?.[i];
-              return (
-                <div key={c.address} className="flex items-center gap-3">
-                  <TokenLogo src={c.logoUrl} label={c.ticker} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-semibold">
-                      {c.ticker} <span className="font-normal text-text-muted">{decimals !== undefined ? usd(Number(formatUnits(alloc[i]!, decimals))) : ""}</span>
-                    </p>
-                    {p && "error" in p ? (
-                      <p className="text-secondary text-down">{p.error}</p>
-                    ) : p ? (
-                      <p className="text-secondary text-text-muted">
-                        Min received {Number(formatUnits(BigInt(p.minOut), c.decimals)).toFixed(6)} · {p.mode}
+          {!intentId && (
+            <div className="space-y-3 rounded-card bg-surface-2 p-4">
+              {components.map((c, i) => {
+                const p = previews.data?.[i];
+                return (
+                  <div key={c.address} className="flex items-center gap-3">
+                    <TokenLogo src={c.logoUrl} label={c.ticker} size={32} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[15px] font-semibold">
+                        {c.ticker} <span className="font-normal text-text-muted">{decimals !== undefined ? usd(Number(formatUnits(alloc[i]!, decimals))) : ""}</span>
                       </p>
-                    ) : (
-                      <p className="text-secondary text-text-muted">Getting quote…</p>
-                    )}
+                      {p && "error" in p ? (
+                        <p className="text-secondary text-down">{p.error}</p>
+                      ) : p ? (
+                        <p className="text-secondary text-text-muted">
+                          Min received {Number(formatUnits(BigInt(p.minOut), c.decimals)).toFixed(6)} · {p.mode}
+                        </p>
+                      ) : (
+                        <p className="text-secondary text-text-muted">Getting quote…</p>
+                      )}
+                    </div>
+                    <span className="text-[15px] tnum">{p && !("error" in p) ? Number(formatUnits(BigInt(p.expectedOut), c.decimals)).toFixed(6) : ""}</span>
                   </div>
-                  <span className="text-[15px] tnum">{p && !("error" in p) ? Number(formatUnits(BigInt(p.expectedOut), c.decimals)).toFixed(6) : ""}</span>
-                </div>
-              );
-            })}
-          </div>
-          {isStack && (
+                );
+              })}
+            </div>
+          )}
+          {isStack && !intentId && (
             <p className="mt-4 text-secondary text-text-muted">
               Each stock is bought in turn, then deposited into your own position. If one step fails you can retry it or keep what was bought.
             </p>
           )}
           {error && <p className="mt-3 text-center text-secondary text-down">{error}</p>}
-          <div className="mt-5">
+          <div className={intentId ? undefined : "mt-5"}>
             {intentId ? (
               <IntentProgress intentId={intentId} title={buyingTitle(target)} onFinished={finished} onRunning={(r) => {
                   setRunning(r);

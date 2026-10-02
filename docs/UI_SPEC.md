@@ -194,7 +194,8 @@ All trade actions happen in bottom sheets, never full pages.
 - For a Stack position, a segmented control at the top: `Sell for USDT` / `Redeem stocks`.
 
 ### 6.4 Progress checklist
-- A vertical list of steps, each with a status icon (empty circle, spinner, green check, red x) and a label, e.g. `Pay fee`, `Buy NVDA (bStocks)`, `Buy MSFT (Ondo)`, `Approve tokens`, `Create position`.
+- `TradeSteps`: the trade's steps as a vertical line of nodes joined by connectors, in a `surface-2` card above the spinning button, for every stock and basket buy, sell and redeem. Nodes: empty circle (waiting), spinning `primary` ring (active), `up` check (done, and the connector below fills), `down` x (failed). Labels: `Pay the 1% fee`, `Buy NVDA`, `Sell NVDA for USDT`, `Approve the stocks`, `Create your position`, `Pay the 1% sell fee`.
+- The active step says what it's doing, from the runner's own phases ("Getting the best price", "Signing the order", "Waiting for the order to fill", "Swapping on BNB Chain", "Confirming on BNB Chain") with its running time; a done step says how long it took (or just Done when it finished before the sheet opened). On success the last node fills for a moment before the sheet closes. In the buy sheet the quote card gives way to the steps once the buy starts.
 - Failed step shows the reason and two buttons: `Retry` and `Stop and keep tokens`.
 - Success state: big check, "Position #123 created", and `View position`.
 

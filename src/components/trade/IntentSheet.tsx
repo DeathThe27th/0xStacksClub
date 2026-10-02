@@ -10,18 +10,19 @@ import { runIntent, StopError, type StepKey, type StepState } from "@/lib/client
 import type { Intent } from "@/lib/client/types";
 import { useSigner } from "@/lib/client/wallet";
 import { useToast } from "@/components/ui/Toast";
+import { TradeSteps } from "./TradeSteps";
 
 function stepsFor(intent: Intent, label: (a: string) => string): { key: StepKey; label: string }[] {
   const s: { key: StepKey; label: string }[] = [];
-  if (intent.kind.startsWith("buy")) s.push({ key: "fee", label: "Pay fee" });
+  if (intent.kind.startsWith("buy")) s.push({ key: "fee", label: "Pay the 1% fee" });
   if (intent.kind === "sell_stack") s.push({ key: "release", label: "Release from position" });
   if (intent.kind === "redeem") s.push({ key: "release", label: "Redeem stocks" });
   for (const l of intent.legs) {
     if (l.status === "skipped") continue;
-    s.push({ key: `leg-${l.leg_index}`, label: intent.kind.startsWith("buy") ? `Buy ${label(l.to_token)}` : `Sell ${label(l.from_token)}` });
+    s.push({ key: `leg-${l.leg_index}`, label: intent.kind.startsWith("buy") ? `Buy ${label(l.to_token)}` : `Sell ${label(l.from_token)} for USDT` });
   }
-  if (intent.kind === "buy_stack") s.push({ key: "approve", label: "Approve tokens" }, { key: "deposit", label: "Create position" });
-  if (intent.kind === "sell_stock" || intent.kind === "sell_stack") s.push({ key: "sellfee", label: "Pay sell fee" });
+  if (intent.kind === "buy_stack") s.push({ key: "approve", label: "Approve the stocks" }, { key: "deposit", label: "Create your position" });
+  if (intent.kind === "sell_stock" || intent.kind === "sell_stack") s.push({ key: "sellfee", label: "Pay the 1% sell fee" });
   return s;
 }
 
@@ -48,8 +49,8 @@ const doneTitle: Record<Intent["kind"], (i: Intent, label: (a: string) => string
 };
 
 /**
- * Runs one intent behind a single button that keeps spinning until the trade is done, in place of
- * the confirm button that started it. Legs still run in sequence and each is persisted
+ * Runs one intent: its steps as a vertical progress line (TradeSteps) above a button that keeps
+ * spinning until the trade is done, in place of the confirm button that started it. Legs still run in sequence and each is persisted
  * server-side; on failure it offers Retry and "Stop and keep tokens" (FLOWS §3 failure handling).
  * On success it toasts and calls onFinished.
  */
@@ -93,6 +94,8 @@ export function IntentProgress({ intentId, title, onFinished, onRunning }: { int
       });
       setIntent(final);
       if (final.status === "done") {
+        // Let the last node fill before the sheet goes.
+        await new Promise((r) => setTimeout(r, 900));
         toast({ title: doneTitle[final.kind](final, assets.label), tone: "up" });
         onFinished();
       }
@@ -149,6 +152,11 @@ export function IntentProgress({ intentId, title, onFinished, onRunning }: { int
 
   return (
     <div>
+      {steps.length > 0 && (
+        <div className="mb-5 rounded-card bg-surface-2 px-4 pb-3 pt-4">
+          <TradeSteps steps={steps} states={states} />
+        </div>
+      )}
       {failed ? (
         <div className="space-y-2">
           <p className="text-center text-secondary text-down" role="alert">

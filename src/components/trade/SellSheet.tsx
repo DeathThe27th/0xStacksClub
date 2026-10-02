@@ -172,7 +172,7 @@ export function SellForm({
           </div>
         )}
       </div>
-      {mode === "sell" && target.kind === "stack" && (
+      {mode === "sell" && target.kind === "stack" && !started && (
         <p className="mt-3 text-secondary text-text-muted">The position is reduced first, then each stock is sold in turn. If a sale fails, the unsold tokens stay in your wallet.</p>
       )}
       {error && <p className="mt-3 text-center text-secondary text-down">{error}</p>}
