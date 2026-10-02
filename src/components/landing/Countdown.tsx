@@ -36,7 +36,7 @@ export function NyseCountdown({ now, className }: { now: Date | null; className?
     <div
       role="timer"
       aria-label={p && now ? `NYSE ${p.open ? "closes" : "opens"} in ${clockCountdown(now, p.next)}` : "NYSE status"}
-      className={cn("relative aspect-square", className)}
+      className={cn("relative aspect-square [container-type:inline-size]", className)}
     >
       <svg viewBox="-10 -10 420 420" className="absolute inset-0 h-full w-full overflow-visible" aria-hidden>
         {TICKS.map((t, i) => {
@@ -59,14 +59,14 @@ export function NyseCountdown({ now, className }: { now: Date | null; className?
 
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
-          <p className="flex items-center justify-center gap-2 text-[15px] font-medium text-text-muted">
+          <p className="flex items-center justify-center gap-2 text-[max(14px,4.4cqw)] font-medium text-text-muted">
             <span className={cn("size-2 rounded-full", !p ? "bg-text-dim" : p.open ? "bg-up" : "animate-live-dot bg-primary")} />
             {!p ? "NYSE" : p.open ? "NYSE closes in" : "NYSE opens in"}
           </p>
-          <p className="tnum mt-2 font-sans text-[clamp(44px,5.4vw,64px)] font-semibold leading-none tracking-[-0.04em] text-text">
+          <p className="tnum mt-2 font-sans text-[17cqw] font-semibold leading-none tracking-[-0.04em] text-text">
             {p && now ? clockCountdown(now, p.next) : "–:––:––"}
           </p>
-          <p className="mt-3 text-[14px] text-text-muted">{p ? `${nextFmt.format(p.next)} your time` : " "}</p>
+          <p className="mt-3 text-[max(13px,3.8cqw)] text-text-muted">{p ? `${nextFmt.format(p.next)} your time` : " "}</p>
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ export function Landing(props: Start & { notice?: React.ReactNode }) {
   const stocks = useLandingStocks();
   return (
     <main className="overflow-x-clip bg-bg text-text">
-      <Hero start={props} stocks={stocks} still={still} />
+      <Hero start={props} still={still} />
       <Verbs still={still} />
       <TextPanel stocks={stocks} still={still} />
       <Market stocks={stocks} still={still} start={props} />
