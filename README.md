@@ -10,7 +10,7 @@ The display name lives in one place: `APP_NAME` in `src/lib/constants.ts`. Code,
 contract still say "stack" (e.g. `stacks`, `StacksClubVault`, `/api/stacks`): a basket is a
 `Stack` onchain and in the database.
 
-- Live: https://0x-stacks-club.vercel.app
+- Live: https://www.trade3am.xyz
 - Vault: [`0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17`](https://bscscan.com/address/0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17) (BSC, verified)
 - Specs: [`CLAUDE.md`](CLAUDE.md) and [`docs/`](docs). Binance API facts: [`docs/binance-notes.md`](docs/binance-notes.md).
 
@@ -80,7 +80,7 @@ cp .env.example .env.local        # fill in the values below
 | `PINATA_JWT`, `PINATA_GATEWAY_URL` | optional | not used yet; Stack images go to Supabase Storage |
 | `NEXT_PUBLIC_VAULT_ADDRESS` | Vercel + local | `0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17` |
 | `NEXT_PUBLIC_USDT_ADDRESS` | Vercel + local | `0x55d398326f99059fF775485246999027B3197955` |
-| `NEXT_PUBLIC_APP_URL` | Vercel + local | `https://0x-stacks-club.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | Vercel + local | `https://www.trade3am.xyz` |
 | `CRON_SECRET` | Vercel + local | `openssl rand -hex 32` |
 | `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
 | `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
@@ -105,7 +105,7 @@ cp .env.example .env.local        # fill in the values below
 ### Privy
 
 In the Privy dashboard: enable email, Google, X and wallet login; create embedded wallets for users
-without one; add `https://0x-stacks-club.vercel.app` and your preview domains to allowed origins.
+without one; add `https://www.trade3am.xyz`, `https://trade3am.xyz`, `https://0x-stacks-club.vercel.app` and your preview domains to allowed origins.
 
 ## Contracts
 
@@ -123,7 +123,7 @@ tokens (46 bStocks, 40 Ondo) round-tripped unit for unit.
 ### Seed the asset allowlist
 
 ```bash
-SEED_BASE_URL=https://0x-stacks-club.vercel.app CRON_SECRET=... pnpm seed:assets [--allow-closed]
+SEED_BASE_URL=https://www.trade3am.xyz CRON_SECRET=... pnpm seed:assets [--allow-closed]
 BSC_RPC_URL=... NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SECRET_KEY=... FORGE_BIN=forge pnpm tsx scripts/mark-vault-ok.ts
 ```
 
