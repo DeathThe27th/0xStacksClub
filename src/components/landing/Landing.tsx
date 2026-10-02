@@ -1,39 +1,45 @@
 "use client";
 
 import { motion, useReducedMotion, useTransform, type MotionValue } from "framer-motion";
-import { Loader2, MessageCircle, Minus, Plus, UserPlus, type LucideIcon } from "lucide-react";
-import { useRef } from "react";
+import { MessageCircle, Minus, Plus, UserPlus, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Change } from "@/components/ui/Change";
 import { TokenLogo } from "@/components/ui/TokenLogo";
 import { cn } from "@/lib/cn";
 import { APP_NAME, BOT_TRADE_CAP_DEFAULT_USD } from "@/lib/constants";
+import { useThemeLock } from "@/lib/client/theme";
 import { price as fmtPrice } from "@/lib/format";
+import { nyseStatus, until, useNow } from "./clock";
 import { useLandingStocks } from "./data";
+import { Hero } from "./Hero";
+import { LINKS, Phone, StartButton, type Start } from "./parts";
 import { useScrollProgress } from "./scroll";
-import { StackSpread } from "./StackSpread";
 import { Week, WeekKey } from "./Week";
 
-export type Start = { onStart: () => void; ready: boolean; opening: boolean };
+export type { Start };
 
 /**
- * Public landing, framed around the hours Wall Street is shut. One continuous scroll: a pile of
- * night photos and app cards scatters to reveal the headline, the four verbs stack up, a violet
- * panel rises where a text conversation plays out in a phone, the real stock list, a dial of the
- * week's 168 hours, baskets and the close. With reduced motion every section renders finished.
+ * Public landing, framed around the hours Wall Street is shut, always in the light theme. One
+ * continuous scroll: the promise beside a phone where the texting assistant's messages arrive on
+ * the lock screen, the four verbs stack up, a violet panel where a text conversation plays out,
+ * the real stock list, a dial of the week's 168 hours, baskets, the close and the footer. With
+ * reduced motion every section renders finished.
  */
 export function Landing(props: Start & { notice?: React.ReactNode }) {
+  useThemeLock("light");
   const still = !!useReducedMotion();
   const stocks = useLandingStocks();
   return (
-    <main id="top" className="overflow-x-clip bg-bg text-text">
-      <StackSpread nvda={stocks.pick("NVDA", 0)} tsla={stocks.pick("TSLA", 1)} still={still} action={<StartButton start={props} />} />
+    <main className="overflow-x-clip bg-bg text-text">
+      <Hero start={props} stocks={stocks} still={still} />
       <Verbs still={still} />
       <TextPanel stocks={stocks} still={still} />
       <Market stocks={stocks} still={still} start={props} />
       <Hours still={still} />
       <Baskets stocks={stocks} still={still} />
       <Close start={props} />
+      <Footer start={props} />
       <PillNav start={props} notice={props.notice} />
     </main>
   );
@@ -156,18 +162,6 @@ function ChatLine({ p, at, still, out, children }: { p: MotionValue<number>; at:
     <motion.div style={still ? undefined : { opacity, y, scale }} className={cn("flex", out ? "origin-bottom-right justify-end" : "origin-bottom-left")}>
       <p className={cn("max-w-[78%] rounded-[18px] px-3 py-[7px] text-[14px] leading-[1.3]", out ? "rounded-br-[5px] bg-[#0A84FF]" : "rounded-bl-[5px] bg-[#26262A]")}>{children}</p>
     </motion.div>
-  );
-}
-
-/** A phone drawn in CSS: frame, island, screen. Height sets the size; width follows at 9:19.5. */
-function Phone({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <div className={cn("relative aspect-[9/19.5] rounded-[2.9rem] bg-[#111] p-[9px] shadow-[0_40px_80px_-30px_rgb(0_0_0/0.6),inset_0_0_0_1.5px_rgb(255_255_255/0.14)]", className)}>
-      <div className="relative h-full overflow-hidden rounded-[2.35rem]">
-        <span aria-hidden className="absolute left-1/2 top-2.5 z-10 h-[22px] w-[84px] -translate-x-1/2 rounded-full bg-black" />
-        {children}
-      </div>
-    </div>
   );
 }
 
@@ -328,52 +322,127 @@ function Baskets({ stocks, still }: { stocks: Stocks; still: boolean }) {
 }
 
 /* ------------------------------------------------------------------------------------------ */
-/* Close and nav.                                                                               */
+/* Close, footer and nav.                                                                      */
 
+/** The close: how long until Wall Street opens (or shuts), live, and the one action. */
 function Close({ start }: { start: Start }) {
+  const now = useNow(30_000);
+  const s = now ? nyseStatus(now) : null;
   return (
-    <section aria-label="Get started" className="border-t border-border px-gutter pb-[calc(120px+env(safe-area-inset-bottom))] pt-24 text-center lg:pt-32">
-      <h2>
-        <Wordmark size="clamp(96px, 30vw, 300px)" className="text-text" />
+    <section aria-labelledby="close-title" className="mx-auto max-w-[1240px] px-gutter pb-24 pt-8 text-center lg:px-8 lg:pb-36">
+      <h2 id="close-title" className="mx-auto max-w-[16ch] font-display text-[clamp(44px,9vw,104px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
+        <span className="block text-text-muted">
+          {!s || !now ? "Wall Street keeps hours." : s.open ? `Wall Street shuts in ${until(now, s.next)}.` : `Wall Street opens in ${until(now, s.next)}.`}
+        </span>
+        <span className="block">{s?.open ? "You don’t have to stop." : "You don’t have to wait."}</span>
       </h2>
-      <p className="mt-4 text-[19px] text-text-muted lg:text-[22px]">Stocks, whenever.</p>
-      <StartButton start={start} className="mt-10" />
-      <p className="mx-auto mt-14 max-w-[62ch] text-[12px] leading-5 text-text-muted">
-        Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
-      </p>
+      <StartButton start={start} className="mt-10 lg:mt-12" />
     </section>
   );
 }
 
-function StartButton({ start, className, small }: { start: Start; className?: string; small?: boolean }) {
+function Footer({ start }: { start: Start }) {
   return (
-    <button
-      onClick={start.onStart}
-      disabled={!start.ready}
-      className={cn(
-        "press inline-flex items-center justify-center gap-2 rounded-full bg-primary font-semibold text-on-primary transition-colors hover:bg-primary-press disabled:cursor-progress",
-        small ? "h-10 px-5 text-[15px]" : "h-14 px-8 text-[17px]",
-        className,
-      )}
-    >
-      {!start.ready && <Loader2 size={small ? 16 : 18} className="animate-spin" aria-hidden />}
-      {start.opening ? `Opening ${APP_NAME}` : "Get started"}
-    </button>
+    <footer id="footer" className="relative overflow-hidden border-t border-border bg-surface">
+      <div className="mx-auto max-w-[1240px] px-gutter pt-14 lg:px-8 lg:pt-20">
+        <div className="grid gap-12 md:grid-cols-[1.4fr_1fr_1fr]">
+          <div>
+            <Wordmark size={30} />
+            <p className="mt-3 max-w-[30ch] text-[16px] leading-snug text-text-muted">Tokenized stocks on BNB Chain, in the app or by text. Any hour.</p>
+          </div>
+          <nav aria-label="Footer">
+            <p className="text-[14px] font-semibold text-text">On this page</p>
+            <ul className="mt-4 space-y-3">
+              {LINKS.map((l) => (
+                <li key={l.href}>
+                  <a href={l.href} className="text-[15px] text-text-muted underline-offset-4 transition-colors hover:text-text hover:underline">
+                    {l.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+          <div>
+            <p className="text-[14px] font-semibold text-text">Start</p>
+            <p className="mt-4 max-w-[26ch] text-[15px] leading-snug text-text-muted">Sign in with email or a wallet, deposit USDT and buy from $1.</p>
+            <StartButton start={start} small className="mt-5" />
+          </div>
+        </div>
+
+        <div className="mt-14 flex flex-col gap-4 border-t border-border pt-6 text-[13px] leading-5 text-text-muted lg:mt-20 lg:flex-row lg:items-start lg:justify-between lg:gap-16">
+          <p className="max-w-[78ch]">
+            Tokenized stocks on BNB Chain from bStocks and Ondo. Tokens are issued by those providers and aren&apos;t direct shares. Trading isn&apos;t available in the US, UK, Canada or the Netherlands.
+          </p>
+          <p className="shrink-0">
+            &copy; {new Date().getFullYear()} {APP_NAME}
+          </p>
+        </div>
+      </div>
+
+      <FitWordmark />
+    </footer>
   );
 }
 
-const LINKS = [
-  { href: "#stocks", label: "Stocks" },
-  { href: "#hours", label: "Hours" },
-  { href: "#text", label: "Text" },
-  { href: "#baskets", label: "Baskets" },
-];
+/**
+ * The wordmark at the footer's full width, its lower part running off the bottom edge. Sized by
+ * measuring the set word, since glyph widths (and the desktop zoom) make a fixed ratio unreliable.
+ */
+function FitWordmark() {
+  const box = useRef<HTMLDivElement>(null);
+  const word = useRef<HTMLSpanElement>(null);
+  const [size, setSize] = useState<number | null>(null);
+  useEffect(() => {
+    const fit = () => {
+      if (!box.current || !word.current) return;
+      const w = word.current.offsetWidth;
+      if (w) setSize((cur) => ((cur ?? 100) * box.current!.clientWidth) / w);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (box.current) ro.observe(box.current);
+    document.fonts?.ready.then(fit);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div aria-hidden className="mx-auto mt-10 max-w-[1240px] px-gutter lg:px-8">
+      <div ref={box} className="overflow-hidden" style={{ height: size ? size * 0.64 : 0 }}>
+        <span ref={word} className="inline-block" style={{ visibility: size ? "visible" : "hidden" }}>
+          <Wordmark size={size ?? 100} className="block text-primary" />
+        </span>
+      </div>
+    </div>
+  );
+}
 
+/** The floating pill: shows once the hero's own header has scrolled away, and steps aside for the footer. */
 function PillNav({ start, notice }: { start: Start; notice?: React.ReactNode }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const hero = document.getElementById("top");
+    const footer = document.getElementById("footer");
+    if (!hero || !footer) return;
+    const seen = new Map<Element, boolean>();
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => seen.set(e.target, e.isIntersecting));
+      setShown(!seen.get(hero) && !seen.get(footer));
+    });
+    io.observe(hero);
+    io.observe(footer);
+    return () => io.disconnect();
+  }, []);
   return (
     <div className="pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-2 px-gutter" style={{ bottom: "calc(16px + env(safe-area-inset-bottom))" }}>
       {notice}
-      <nav aria-label="Main" className="pointer-events-auto flex items-center gap-1 rounded-full border border-border bg-surface/85 p-1.5 pl-5 shadow-[0_16px_40px_-16px_rgb(0_0_0/var(--nav-shadow))] backdrop-blur-xl">
+      <nav
+        aria-label="Main"
+        aria-hidden={!shown}
+        inert={!shown}
+        className={cn(
+          "flex items-center gap-1 rounded-full border border-border bg-bg/85 p-1.5 pl-5 shadow-[0_2px_6px_rgb(0_0_0/0.05),0_16px_40px_-16px_rgb(0_0_0/var(--nav-shadow))] backdrop-blur-xl transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          shown ? "pointer-events-auto translate-y-0 opacity-100" : "translate-y-6 opacity-0",
+        )}
+      >
         <a href="#top" aria-label={`${APP_NAME}, back to top`} className="mr-2 rounded-full">
           <Wordmark size={21} />
         </a>

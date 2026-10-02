@@ -54,4 +54,8 @@ const FALLBACK_NAMES: Record<string, string> = {
   SPY: "S&P 500 ETF",
   META: "Meta",
   MSFT: "Microsoft",
+  AMZN: "Amazon",
+  GOOGL: "Alphabet",
+  QQQ: "Nasdaq 100 ETF",
+  COIN: "Coinbase",
 };

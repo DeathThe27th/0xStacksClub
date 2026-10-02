@@ -22,8 +22,32 @@ function resolve(choice: ThemeChoice): ResolvedTheme {
 }
 
 function apply(choice: ThemeChoice) {
-  document.documentElement.dataset.theme = resolve(choice);
+  const root = document.documentElement;
+  root.dataset.theme = root.dataset.themeLock ?? resolve(choice);
   window.dispatchEvent(new Event(EVENT));
+}
+
+/**
+ * Holds the page in one theme while mounted (the landing is always light), whatever the visitor
+ * chose, and puts their own theme back on the way out. The boot script sets the same lock before
+ * first paint on routes listed in THEME_LOCKS, so there is no flash.
+ */
+export function useThemeLock(theme: ResolvedTheme) {
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.themeLock = theme;
+    root.dataset.theme = theme;
+    // The browser chrome follows the device scheme by default; match the locked page instead.
+    const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
+    const was = metas.map((m) => m.content);
+    const bg = getComputedStyle(root).backgroundColor;
+    metas.forEach((m) => (m.content = bg));
+    return () => {
+      delete root.dataset.themeLock;
+      metas.forEach((m, i) => (m.content = was[i]!));
+      apply(readChoice());
+    };
+  }, [theme]);
 }
 
 /** Current choice and resolved theme; `set` persists and applies. Follows the device on "system". */
