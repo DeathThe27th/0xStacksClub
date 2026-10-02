@@ -35,11 +35,11 @@ export function Landing(props: Start & { notice?: React.ReactNode }) {
       <Hero start={props} still={still} />
       <Verbs still={still} />
       <TextPanel stocks={stocks} still={still} />
-      <Market stocks={stocks} still={still} start={props} />
+      <Market stocks={stocks} still={still} />
       <Hours still={still} />
       <Baskets stocks={stocks} still={still} />
       <Close start={props} />
-      <Footer start={props} />
+      <Footer />
       <PillNav start={props} notice={props.notice} />
     </main>
   );
@@ -168,7 +168,7 @@ function ChatLine({ p, at, still, out, children }: { p: MotionValue<number>; at:
 /* ------------------------------------------------------------------------------------------ */
 /* Market: the real list, scrolling inside the app on a phone.                                  */
 
-function Market({ stocks, still, start }: { stocks: Stocks; still: boolean; start: Start }) {
+function Market({ stocks, still }: { stocks: Stocks; still: boolean }) {
   const ref = useRef<HTMLElement>(null);
   const p = useScrollProgress(ref, 1, 0);
   const listY = useTransform(p, [0.2, 0.85], [0, -260]);
@@ -182,7 +182,6 @@ function Market({ stocks, still, start }: { stocks: Stocks; still: boolean; star
         <p className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-text-muted lg:text-[19px]">
           Tokenized stocks from bStocks and Ondo on BNB Chain. Deposit USDT, buy what you like, sell back to USDT, on your schedule rather than the exchange&apos;s. A 1% fee on the way in and 1% on the way out.
         </p>
-        <StartButton start={start} className="mt-8" />
       </div>
       <div className="relative mx-auto">
         <Phone className="h-[min(78svh,620px)]">
@@ -341,7 +340,7 @@ function Close({ start }: { start: Start }) {
   );
 }
 
-function Footer({ start }: { start: Start }) {
+function Footer() {
   return (
     <footer id="footer" className="relative overflow-hidden border-t border-border bg-surface">
       <div className="mx-auto max-w-[1240px] px-gutter pt-14 lg:px-8 lg:pt-20">
@@ -363,9 +362,8 @@ function Footer({ start }: { start: Start }) {
             </ul>
           </nav>
           <div>
-            <p className="text-[14px] font-semibold text-text">Start</p>
-            <p className="mt-4 max-w-[26ch] text-[15px] leading-snug text-text-muted">Sign in with email or a wallet, deposit USDT and buy from $1.</p>
-            <StartButton start={start} small className="mt-5" />
+            <p className="text-[14px] font-semibold text-text">Getting started</p>
+            <p className="mt-4 max-w-[28ch] text-[15px] leading-snug text-text-muted">Sign in with email or a wallet, add USDT by card or crypto, and buy from $1.</p>
           </div>
         </div>
 

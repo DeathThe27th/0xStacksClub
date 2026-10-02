@@ -22,7 +22,7 @@ const display = Bricolage_Grotesque({
 
 export const metadata: Metadata = {
   title: APP_NAME,
-  description: "Trade stocks while Wall Street sleeps. Tokenized stocks on BNB Chain, in the app or by text.",
+  description: "Wall Street keeps hours. You don't. Tokenized stocks on BNB Chain, any time, in the app or by text.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
 };
 

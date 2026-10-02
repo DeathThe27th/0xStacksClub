@@ -50,7 +50,8 @@ export function Hero({ start, still }: { start: Start; still: boolean }) {
       <div className="mx-auto grid max-w-[1320px] items-center gap-14 px-gutter pb-20 pt-10 lg:min-h-[calc(100*var(--uvh)-80px)] lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:px-8 lg:pb-16 lg:pt-0">
         <motion.div {...rise(0)} className="max-lg:text-center">
           <h1 id="hero-title" className="text-[clamp(46px,10.5vw,112px)] font-semibold leading-[0.95] tracking-[-0.04em] [text-wrap:balance] max-lg:mx-auto max-lg:max-w-[12ch]">
-            Trade while Wall&nbsp;Street sleeps.
+            <span className="block">Wall&nbsp;Street keeps&nbsp;hours.</span>
+            <span className="block text-primary">You don’t.</span>
           </h1>
           <p className="mt-6 max-w-[40ch] text-[17px] leading-[1.45] text-text/75 max-lg:mx-auto lg:mt-8 lg:text-[21px]">
             Nvidia, Tesla, Apple and more as tokens on BNB Chain. Buy after the bell, sell on a Sunday, or just text it at 3am.
