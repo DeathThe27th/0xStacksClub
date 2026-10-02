@@ -85,6 +85,8 @@ cp .env.example .env.local        # fill in the values below
 | `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
 | `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
 | `NEXT_PUBLIC_PRIVY_SIGNER_ID`, `PRIVY_SIGNER_PRIVATE_KEY` | Vercel + local, optional | Privy authorization key for Trade by text. The private key is server only. |
+| `GAS_STARTER_PRIVATE_KEY` | Vercel, optional | Key of a wallet that only holds BNB for the gas starter. Create a fresh one, fund it with a little BNB, never reuse it. Off when unset. |
+| `GAS_STARTER_BNB`, `GAS_STARTER_DAILY_MAX` | Vercel, optional | Gift per user (default `0.0005`) and payouts per 24h (default `100`) |
 | `NEXT_PUBLIC_TELEGRAM_BOT` | Vercel + local, optional | Telegram bot username without `@`; turns on Connect Telegram |
 | `BSCSCAN_API_KEY` | local shell | contract verification |
 | `DEPLOYER_PRIVATE_KEY`, `PLATFORM_FEE_RECIPIENT`, `USDT_ADDRESS` | your shell only | never in Vercel or any file |
@@ -95,8 +97,9 @@ cp .env.example .env.local        # fill in the values below
 
 1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
    buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
-   link reports), `0004_imessage.sql` (phone links for the iMessage bot) and `0005_assistant.sql`
-   (Telegram links, Trade by text settings and orders) in order.
+   link reports), `0004_imessage.sql` (phone links for the iMessage bot), `0005_assistant.sql`
+   (Telegram links, Trade by text settings and orders) and `0006_gas_starter.sql` (gas starter
+   payouts) in order.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
    the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
    you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,

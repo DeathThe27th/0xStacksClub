@@ -25,7 +25,7 @@ Social market for tokenized stocks on BNB Smart Chain mainnet (chain ID 56), wit
 - `docs/BACKEND.md` for the Binance client, API routes and Supabase schema
 - `docs/FLOWS.md` for the create, buy, sell, redeem and deposit state machines
 
-If two docs disagree, this file wins, then the more specific doc wins over `ARCHITECTURE.md`. `ARCHITECTURE.md` mentions BNB, USDC, xStocks and PancakeSwap. Those are out of scope for this build (see below).
+If two docs disagree, this file wins, then the more specific doc wins over `ARCHITECTURE.md`. `ARCHITECTURE.md` mentions BNB, USDC, xStocks and PancakeSwap. Those are out of scope for this build (see below), apart from BNB sent by the gas starter.
 
 ## Stack
 
@@ -44,6 +44,8 @@ If two docs disagree, this file wins, then the more specific doc wins over `ARCH
 - Only allowlisted asset contracts can be used in Stacks or the vault. Never accept an arbitrary token address from the client.
 - The app never custodies user funds outside the vault contract and never uses a hot wallet for user trades. Users sign their own transactions and pay their own BNB gas.
   - One exception, decided by the owner on 2026-09-30: **Trade by text**. A user can turn it on in the app, which adds the app's Privy signer to their own embedded wallet. The server may then sign a buy or a sell of a single stock with that wallet, only after the user replies YES to the texting assistant and only through the same intent checks as the site (`src/server/botTrade.ts`). Buys stay within the limits the user set (default $50 a buy, $200 a day); a sell returns USDT to the same wallet. It never withdraws or sends funds elsewhere, funds stay in the user's wallet, and they still pay their own gas. Turning it off removes the signer. Trades started on the site are still signed in the browser.
+  - **Card deposits**, decided by the owner on 2026-10-02: the Deposit sheet's card option opens Privy's funding flow (`useAddFunds`), where a licensed on-ramp provider enabled in the Privy dashboard (MoonPay) sells USDT on BNB Chain straight to the user's own wallet. The app never receives, holds or forwards the money; it only watches the chain for the USDT to land.
+  - **Gas starter**, same date: a wallet funded only with USDT can't pay its first network fee. Once per profile and once per wallet, ever, the server may send a small BNB gift (`GAS_STARTER_BNB`, default 0.0005) from a dedicated gift wallet (`GAS_STARTER_PRIVATE_KEY`) to the user's own wallet, only when the chain shows at least $5 of USDT there and too little BNB for one buy, within a daily cap (`src/server/gasStarter.ts`). The gift wallet holds only the gift budget and only ever sends BNB to users. Trades are untouched: users still sign and send every trade from their own wallet and pay its gas, and the server still rejects any trade transaction not sent from it. Gas sponsorship through a relayer is not used because it would break that check.
 - Chain state is the source of truth for recipes, position owners, units and fees. Supabase is a cache and social store only. Never trust client-reported balances, ownership or "confirmed" status.
 - A signed or submitted RFQ order is not a completed trade. Only FILLED status plus a verified balance increase counts.
 - Never claim a Stack buy or sell is atomic. Legs run in sequence and every leg's status is persisted.
@@ -61,7 +63,7 @@ If two docs disagree, this file wins, then the more specific doc wins over `ARCH
 - Sell converts a fraction of every component to USDT. Redeem returns that fraction of the stock tokens unchanged.
 - Input and settlement token is USDT (BEP-20, `0x55d398326f99059fF775485246999027B3197955`) only.
 - Providers in scope: bStocks (default) and Ondo, both from the Binance RWA API.
-- Out of scope: xStocks, PancakeSwap data, BNB/USDC as input, fiat on-ramps, fungible Stack tokens, rebalancing, DCA, leverage, perps, position NFT transfers.
+- Out of scope: xStocks, PancakeSwap data, BNB/USDC as input, fungible Stack tokens, rebalancing, DCA, leverage, perps, position NFT transfers. Fiat comes in only through the card on-ramp above, as USDT.
 
 ## Build order (one-shot)
 

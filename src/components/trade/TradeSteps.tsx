@@ -5,11 +5,12 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import type { StepKey, StepState } from "@/lib/client/runner";
 
-export type StepRow = { key: StepKey; label: string };
+/** Trade steps use the runner's StepKeys; other flows (a card deposit) bring their own keys and lines. */
+export type StepRow = { key: StepKey | (string & {}); label: string };
 export type StepStatus = { state: StepState; note?: string; error?: string };
 
 /** What an active step is doing right now, from the runner's own notes. */
-function activeLine(key: StepKey, note?: string): string {
+function activeLine(key: string, note?: string): string {
   if (key.startsWith("leg-")) {
     if (note === "Sign order") return "Signing the order";
     if (note === "Settling") return "Waiting for the order to fill";
@@ -21,7 +22,7 @@ function activeLine(key: StepKey, note?: string): string {
   if (key === "release") return "Releasing from your position";
   if (key === "approve") return "Approving each stock for the vault";
   if (key === "deposit") return "Depositing into your position";
-  return "Working on it";
+  return note ?? "Working on it";
 }
 
 function secs(ms: number) {
@@ -35,8 +36,8 @@ function secs(ms: number) {
  * Times are measured here, from when a step was seen starting; steps already done when the sheet
  * opened (a resumed trade) just say Done.
  */
-export function TradeSteps({ steps, states }: { steps: StepRow[]; states: Partial<Record<StepKey, StepStatus>> }) {
-  const [times, setTimes] = useState<Partial<Record<StepKey, { from: number; to?: number }>>>({});
+export function TradeSteps({ steps, states }: { steps: StepRow[]; states: Partial<Record<string, StepStatus>> }) {
+  const [times, setTimes] = useState<Partial<Record<string, { from: number; to?: number }>>>({});
   useEffect(() => {
     setTimes((prev) => {
       const at = Date.now();
@@ -84,7 +85,7 @@ export function TradeSteps({ steps, states }: { steps: StepRow[]; states: Partia
                   {t && <span className="tnum text-text-dim">{secs(Math.max(now, t.from) - t.from)}</span>}
                 </p>
               )}
-              {st.state === "done" && <p className="text-secondary text-up">{t?.to ? `Done in ${secs(t.to - t.from)}` : "Done"}</p>}
+              {st.state === "done" && <p className="text-secondary text-up">{st.note ?? (t?.to ? `Done in ${secs(t.to - t.from)}` : "Done")}</p>}
               {st.state === "failed" && <p className="text-secondary text-down">{st.error ?? "Didn't go through"}</p>}
             </div>
           </li>

@@ -201,12 +201,12 @@ All trade actions happen in bottom sheets, never full pages.
 
 ## 7. Deposit sheet
 
-Title `Deposit with`. Option rows are `surface-2` cards, radius 16px, 72px tall, title 17px / 600 with a subtitle in `text-muted`, icon on the right.
+Title `Deposit`. Option rows are `surface-2` cards, radius 16px, at least 72px tall, title 17px / 600 with a subtitle in `text-muted`, icon on the left.
 
-1. `Crypto`, subtitle `Receive USDT on BNB Chain`, QR icon. Opens a sub-view with a QR code of the user's wallet address, the address with a copy button, a network warning ("Only send USDT on BNB Smart Chain (BEP-20)"), and a note that they also need a little BNB for gas. Poll the USDT balance every 5 seconds and show a toast when it increases.
-2. `Binance`, subtitle `Withdraw from your Binance account`, Binance-style yellow diamond icon (use a generic icon, not Binance's trademark). Opens the same address view with step-by-step instructions to withdraw USDT and BNB via BNB Smart Chain.
-3. `Apple Pay` with `Soon` badge, disabled.
-4. `Debit card` with `Soon` badge, disabled.
+1. `Deposit with card`, subtitle `Debit card or Apple Pay, arrives as USDT`. Opens Privy's funding checkout for USDT on BNB Chain to the user's own wallet (FLOWS 1). Behind it, the sheet (`Deposit with card`) shows the steps as nodes: `Pay by card`, `USDT arrives in your wallet` (with "Usually a few minutes. You can close this; it lands either way"), then `Network fees` ("0.0005 BNB added, on us" when the gas starter is sent, or "You have BNB for network fees"). The button reads `Close`, then `Start trading` once it's all done. Closing the checkout goes back to the options.
+2. `Deposit crypto`, subtitle `Send USDT on BNB Chain`. Opens a sub-view with a QR code of the user's wallet address, the address with a copy button, and a network warning ("USDT on BNB Chain (BEP-20) only. Keep a little BNB for gas."). Polls USDT and BNB every 5 seconds and toasts each increase.
+
+In the buy sheet, a wallet with USDT but too little BNB sees `Cover my network fees` (the one-time gas starter) in place of `Deposit` when it's eligible.
 
 ## 8. Other screens
 
