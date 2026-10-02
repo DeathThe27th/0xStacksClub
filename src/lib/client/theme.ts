@@ -10,9 +10,10 @@ const EVENT = "stacksclub:theme";
 function readChoice(): ThemeChoice {
   try {
     const v = localStorage.getItem(KEY);
-    return v === "light" || v === "dark" || v === "rainbow" || v === "binance" ? v : "system";
+    // Light until the visitor picks something else; "system" follows the device.
+    return v === "light" || v === "dark" || v === "rainbow" || v === "binance" || v === "system" ? v : "light";
   } catch {
-    return "system";
+    return "light";
   }
 }
 
@@ -24,7 +25,17 @@ function resolve(choice: ThemeChoice): ResolvedTheme {
 function apply(choice: ThemeChoice) {
   const root = document.documentElement;
   root.dataset.theme = root.dataset.themeLock ?? resolve(choice);
+  syncThemeColor();
   window.dispatchEvent(new Event(EVENT));
+}
+
+/** Points the browser chrome (theme-color) at the page's own background. */
+export function syncThemeColor() {
+  const bg = getComputedStyle(document.documentElement).backgroundColor;
+  document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => {
+    m.removeAttribute("media");
+    m.content = bg;
+  });
 }
 
 /**
@@ -37,14 +48,9 @@ export function useThemeLock(theme: ResolvedTheme) {
     const root = document.documentElement;
     root.dataset.themeLock = theme;
     root.dataset.theme = theme;
-    // The browser chrome follows the device scheme by default; match the locked page instead.
-    const metas = [...document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')];
-    const was = metas.map((m) => m.content);
-    const bg = getComputedStyle(root).backgroundColor;
-    metas.forEach((m) => (m.content = bg));
+    syncThemeColor();
     return () => {
       delete root.dataset.themeLock;
-      metas.forEach((m, i) => (m.content = was[i]!));
       apply(readChoice());
     };
   }, [theme]);
@@ -62,7 +68,7 @@ export function useTheme() {
       };
     },
     readChoice,
-    () => "system" as ThemeChoice,
+    () => "light" as ThemeChoice,
   );
   const resolved = useSyncExternalStore<ResolvedTheme>(
     (cb) => {
@@ -77,12 +83,13 @@ export function useTheme() {
     },
     () => {
       const t = document.documentElement.dataset.theme;
-      return t === "light" || t === "rainbow" || t === "binance" ? t : "dark";
+      return t === "dark" || t === "rainbow" || t === "binance" ? t : "light";
     },
-    () => "dark" as const,
+    () => "light" as const,
   );
 
-  // Keep following the device while on "system".
+  // Match the browser chrome on first load, then keep following the device while on "system".
+  useEffect(syncThemeColor, []);
   useEffect(() => {
     if (choice !== "system") return;
     const m = window.matchMedia("(prefers-color-scheme: light)");

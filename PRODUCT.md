@@ -42,7 +42,7 @@ others buy their own position in. Each basket can have a holders-only Telegram c
 web
 
 Mobile-first (390–430px column). Desktop uses a wider layout with a market pane and a trade panel.
-Four themes: dark (default, follows the device), light, Rainbow and Binance.
+Four themes: light (default), dark, Rainbow and Binance, or System to follow the device.
 
 ## Binding visual spec
 

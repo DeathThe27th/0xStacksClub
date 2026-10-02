@@ -27,10 +27,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#000000" },
-    { media: "(prefers-color-scheme: light)", color: "#FFFFFF" },
-  ],
+  // Light by default; the theme hook repoints it at the chosen theme's background.
+  themeColor: "#FFFFFF",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
@@ -38,7 +36,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${sans.variable} ${display.variable}`} data-theme="dark" suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${display.variable}`} data-theme="light" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
       </head>

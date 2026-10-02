@@ -8,7 +8,7 @@ Target viewport is 390 to 430px wide. From 1024px up the app uses a desktop layo
 
 ## 1. Design tokens
 
-Tokens are CSS variables (RGB channels) in `src/app/globals.css`, mapped in `tailwind.config.ts`. There are four themes, chosen in Settings > Appearance and stored in `localStorage`: **dark** (default, follows the device when set to System), **light**, **Rainbow** and **Binance**. Every colour in the UI comes from a token, so each theme only redefines the variables.
+Tokens are CSS variables (RGB channels) in `src/app/globals.css`, mapped in `tailwind.config.ts`. There are four themes, chosen in Settings > Appearance and stored in `localStorage`: **light** (default), **dark**, **Rainbow** and **Binance**, or System to follow the device. Every colour in the UI comes from a token, so each theme only redefines the variables.
 
 Dark theme values:
 
