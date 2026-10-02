@@ -4,9 +4,9 @@ import { cn } from "@/lib/cn";
 import { clockCountdown, nysePeriod } from "./clock";
 
 /*
- * Wall Street's clock as a ring of 60 ticks. The lit arc is what's left of the current closure
- * (violet: 3AM's hours) or session (green), draining clockwise from 12 o'clock as the seconds
- * tick down in the middle.
+ * Wall Street's clock as a ring of 60 ticks. The lit arc (violet) is what's left of the current
+ * closure or session, draining clockwise from 12 o'clock as the seconds tick down in the middle;
+ * the status dot says which (green open, amber closed, as in the week dial).
  */
 
 const N = 60;
@@ -50,17 +50,17 @@ export function NyseCountdown({ now, className }: { now: Date | null; className?
               y2={t.y2}
               strokeWidth={t.major ? 6 : 4}
               strokeLinecap="round"
-              className={cn("transition-colors duration-700", on ? (p?.open ? "stroke-up" : "stroke-primary") : "stroke-white/80")}
+              className={cn("transition-colors duration-700", on ? "stroke-primary" : "stroke-white/80")}
             />
           );
         })}
-        {p && <circle cx={dx} cy={dy} r={9} className={cn(p.open ? "fill-up" : "fill-primary")} />}
+        {p && <circle cx={dx} cy={dy} r={9} className="fill-primary" />}
       </svg>
 
       <div className="absolute inset-0 grid place-items-center text-center">
         <div>
           <p className="flex items-center justify-center gap-2 text-[max(14px,4.4cqw)] font-medium text-text/70">
-            <span className={cn("size-2 rounded-full", !p ? "bg-text-dim" : p.open ? "bg-up" : "animate-live-dot bg-primary")} />
+            <span className={cn("size-2 rounded-full", !p ? "bg-text-dim" : p.open ? "animate-live-dot bg-up" : "bg-warn")} />
             {!p ? "NYSE" : p.open ? "NYSE closes in" : "NYSE opens in"}
           </p>
           <p className="tnum mt-2 font-sans text-[17cqw] font-semibold leading-none tracking-[-0.04em] text-text">

@@ -11,8 +11,8 @@ import { LINKS, StartButton, type Start } from "./parts";
 
 /*
  * Hero. The page's own header, then the promise beside Wall Street's clock: a large ring that
- * ticks down to the next NYSE open or close, all over a drifting cloud sky (a WebGL shader) that
- * fades into the page at the bottom. With reduced motion it renders finished and the clouds hold.
+ * ticks down to the next NYSE open or close, all over a drifting cloud sky (a WebGL shader) in
+ * the violet's own family, periwinkle easing to lilac, that fades into the page at the bottom. With reduced motion it renders finished and the clouds hold.
  *
  * Heights are in viewport units divided by --app-zoom (desktop renders at 80%), as --uvh.
  */
@@ -26,7 +26,7 @@ export function Hero({ start, still }: { start: Start; still: boolean }) {
   return (
     <section id="top" aria-labelledby="hero-title" className="relative isolate overflow-hidden [--uvh:calc(1svh/var(--app-zoom))]">
       <div aria-hidden className="absolute inset-0 -z-10">
-        <CloudShader className="absolute inset-0 min-h-0" count={5} speed={0.8} cloudColor="#ffffff" skyTopColor="#7db4e6" skyBottomColor="#e8f2fb" />
+        <CloudShader className="absolute inset-0 min-h-0" count={5} speed={0.8} cloudColor="#ffffff" skyTopColor="#8b9ff0" skyBottomColor="#f0eefc" />
         <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-b from-transparent to-bg" />
       </div>
       <header className="mx-auto flex h-16 max-w-[1320px] items-center justify-between px-gutter lg:h-20 lg:px-8">
@@ -66,9 +66,6 @@ export function Hero({ start, still }: { start: Start; still: boolean }) {
 
         <motion.div {...rise(0.2)} className="mx-auto w-[min(84vw,360px)] lg:w-[min(100%,calc(66*var(--uvh)),600px)]">
           <NyseCountdown now={now} />
-          <p className="mx-auto mt-6 max-w-[30ch] text-center text-[15px] leading-snug text-text/75 lg:text-[17px]">
-            Wall Street keeps banker&apos;s hours. On {APP_NAME} the stocks don&apos;t stop.
-          </p>
         </motion.div>
       </div>
     </section>

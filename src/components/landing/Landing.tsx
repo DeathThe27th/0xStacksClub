@@ -82,8 +82,8 @@ function Verb({ v, p, at, still }: { v: (typeof VERBS)[number]; p: MotionValue<n
       <span className={cn("grid size-[0.62em] shrink-0 place-items-center rounded-[0.17em] text-bg", v.tile)}>
         <Icon className="size-[0.42em]" strokeWidth={3} aria-hidden />
       </span>
-      <span className={cn("sm:min-w-[3.3em]", v.ink)}>{v.word}</span>
-      <span className="hidden max-w-[12ch] font-sans text-[17px] font-medium leading-tight tracking-normal text-text-muted sm:block">{v.line}</span>
+      <span className={cn("sm:min-w-[3em]", v.ink)}>{v.word}</span>
+      <span className="hidden max-w-[13ch] font-sans text-[19px] font-medium leading-tight tracking-normal text-text-muted sm:block lg:text-[22px]">{v.line}</span>
     </motion.li>
   );
 }
