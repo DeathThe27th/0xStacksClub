@@ -2,7 +2,9 @@
 
 // Cloud Shader from Aceternity UI (https://ui.aceternity.com/registry/cloud-shader.json), by Manu Arora.
 // Local changes: imports, a CSS sky behind the canvas for when WebGL is missing, pixel ratio capped
-// at 1.5, and drawing stops while the canvas is off screen.
+// at 1.5, drawing stops while the canvas is off screen, and the canvas never shows black: it is
+// transparent over the CSS sky, keeps its last frame, and redraws at once after a resize (opening
+// the sign-in modal's blurred backdrop briefly flashed it black).
 
 import React, { useEffect, useRef } from "react";
 import { cn } from "@/lib/cn";
@@ -255,9 +257,10 @@ export const CloudShader = ({
     if (!canvas) return;
 
     const gl = canvas.getContext("webgl", {
-      alpha: false,
+      alpha: true,
       antialias: false,
       premultipliedAlpha: false,
+      preserveDrawingBuffer: true,
     });
     if (!gl) return;
 
@@ -299,6 +302,23 @@ export const CloudShader = ({
       "(prefers-reduced-motion: reduce)",
     ).matches;
 
+    const start = performance.now();
+    // One frame. The shader writes alpha 1, so the transparent canvas shows only when it's empty.
+    const render = (now: number) => {
+      const p = paramsRef.current;
+      const elapsed = reduceMotion ? 0 : ((now - start) / 1000) * p.speed;
+      const cloud = parseHex(p.cloudColor);
+      const skyTop = parseHex(p.skyTopColor);
+      const skyBottom = parseHex(p.skyBottomColor);
+
+      gl.uniform1f(loc.time, elapsed);
+      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
+      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
+      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
+      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const width = canvas.clientWidth;
@@ -308,6 +328,11 @@ export const CloudShader = ({
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
+        gl.viewport(0, 0, w, h);
+        gl.uniform2f(loc.res, w, h);
+        // Resizing wipes the canvas; draw straight away rather than show an empty frame.
+        if (running) render(performance.now());
+        return;
       }
       gl.viewport(0, 0, w, h);
       gl.uniform2f(loc.res, w, h);
@@ -326,21 +351,9 @@ export const CloudShader = ({
     });
     io.observe(canvas);
 
-    const start = performance.now();
     const draw = (now: number) => {
       if (!running || !visible) return;
-      const p = paramsRef.current;
-      const elapsed = reduceMotion ? 0 : ((now - start) / 1000) * p.speed;
-      const cloud = parseHex(p.cloudColor);
-      const skyTop = parseHex(p.skyTopColor);
-      const skyBottom = parseHex(p.skyBottomColor);
-
-      gl.uniform1f(loc.time, elapsed);
-      gl.uniform1f(loc.count, Math.min(6, Math.max(1, p.count)));
-      gl.uniform3f(loc.cloud, cloud[0], cloud[1], cloud[2]);
-      gl.uniform3f(loc.skyTop, skyTop[0], skyTop[1], skyTop[2]);
-      gl.uniform3f(loc.skyBottom, skyBottom[0], skyBottom[1], skyBottom[2]);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      render(now);
       frame = requestAnimationFrame(draw);
     };
 
