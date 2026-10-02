@@ -51,6 +51,22 @@ export function nyseStatus(now: Date): { open: boolean; next: Date } {
   return { open, next: new Date(t) };
 }
 
+/** The session or closure we're in: whether it's open, when it began and when it ends. */
+export function nysePeriod(now: Date): { open: boolean; since: Date; next: Date } {
+  const { open, next } = nyseStatus(now);
+  let t = Math.floor(now.getTime() / HALF_HOUR) * HALF_HOUR;
+  for (let i = 0; i < 24 * 2 * 10 && nyseOpenAt(new Date(t - HALF_HOUR)) === open; i++) t -= HALF_HOUR;
+  return { open, since: new Date(t), next };
+}
+
+/** "6:28:14", or "64:04:11" over a weekend: total hours, minutes, seconds. */
+export function clockCountdown(from: Date, to: Date): string {
+  const s = Math.max(0, Math.floor((to.getTime() - from.getTime()) / 1000));
+  const h = Math.floor(s / 3600);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${h}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
 /** "2d 4h", "3h 20m", "12m". */
 export function until(from: Date, to: Date): string {
   const m = Math.max(0, Math.ceil((to.getTime() - from.getTime()) / 60_000));

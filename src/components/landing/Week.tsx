@@ -98,7 +98,7 @@ export function Week({ progress, still }: { progress: MotionValue<number>; still
               Onchain, it&apos;s
             </motion.p>
           </div>
-          <p className="font-display text-[clamp(72px,19vw,150px)] font-extrabold leading-[0.95] tracking-[-0.05em] tnum">
+          <p className="font-sans text-[clamp(72px,19vw,150px)] font-semibold leading-[0.95] tracking-[-0.04em] tnum">
             {still ? "168" : <motion.span>{countText}</motion.span>}
           </p>
           <p className="text-[15px] font-medium text-text-muted lg:text-[17px]">hours a week</p>

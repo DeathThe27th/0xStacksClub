@@ -78,7 +78,7 @@ function Verb({ v, p, at, still }: { v: (typeof VERBS)[number]; p: MotionValue<n
   const y = useTransform(p, [at, at + 0.12], [48, 0]);
   const Icon = v.icon;
   return (
-    <motion.li style={still ? undefined : { opacity, y }} className="flex items-center gap-[0.22em] text-[clamp(64px,17vw,150px)] font-display font-extrabold leading-[1.02] tracking-[-0.045em]">
+    <motion.li style={still ? undefined : { opacity, y }} className="flex items-center gap-[0.22em] text-[clamp(64px,17vw,150px)] font-sans font-semibold leading-[1.02] tracking-[-0.04em]">
       <span className={cn("grid size-[0.62em] shrink-0 place-items-center rounded-[0.17em] text-bg", v.tile)}>
         <Icon className="size-[0.42em]" strokeWidth={3} aria-hidden />
       </span>
@@ -115,7 +115,7 @@ function TextPanel({ stocks, still }: { stocks: Stocks; still: boolean }) {
     <section id="text" ref={ref} aria-labelledby="text-title" className={cn("scroll-mt-0 bg-primary text-on-primary", !still && "relative h-[330svh]")}>
       <div className={cn("mx-auto grid max-w-[1180px] items-center gap-8 px-gutter lg:grid-cols-[1fr_auto_1fr] lg:gap-14 lg:px-8", still ? "py-24" : "sticky top-0 h-[calc(100svh/var(--app-zoom))] content-center py-6")}>
         <div className="text-center lg:text-left">
-          <h2 id="text-title" className="font-display text-[clamp(44px,11vw,104px)] font-extrabold leading-[0.9] tracking-[-0.045em]">
+          <h2 id="text-title" className="font-sans text-[clamp(44px,11vw,104px)] font-semibold leading-[0.9] tracking-[-0.04em]">
             Or just text&nbsp;it.
           </h2>
           <p className="mx-auto mt-4 max-w-[34ch] text-[16px] leading-snug text-on-primary/85 lg:mx-0 lg:mt-6 lg:text-[19px]">
@@ -176,7 +176,7 @@ function Market({ stocks, still, start }: { stocks: Stocks; still: boolean; star
   return (
     <section id="stocks" ref={ref} aria-labelledby="stocks-title" className="mx-auto grid max-w-[1180px] items-center gap-14 px-gutter py-28 lg:grid-cols-2 lg:gap-20 lg:px-8 lg:py-40">
       <div>
-        <h2 id="stocks-title" className="font-display text-[clamp(44px,10vw,92px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
+        <h2 id="stocks-title" className="font-sans text-[clamp(44px,10vw,92px)] font-semibold leading-[0.92] tracking-[-0.04em] [text-wrap:balance]">
           The big names, after hours.
         </h2>
         <p className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-text-muted lg:text-[19px]">
@@ -242,7 +242,7 @@ function Hours({ still }: { still: boolean }) {
         )}
       >
         <div className="text-center lg:text-left">
-          <h2 id="hours-title" className="font-display text-[clamp(40px,9vw,92px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
+          <h2 id="hours-title" className="font-sans text-[clamp(40px,9vw,92px)] font-semibold leading-[0.92] tracking-[-0.04em] [text-wrap:balance]">
             Markets close. Onchain doesn&apos;t.
           </h2>
           <p className="mx-auto mt-5 max-w-[38ch] text-[16px] leading-snug text-text-muted lg:mx-0 lg:mt-6 lg:text-[19px]">
@@ -288,7 +288,7 @@ function Baskets({ stocks, still }: { stocks: Stocks; still: boolean }) {
               <TokenLogo key={s.ticker} src={s.logo} label={s.ticker} size={56} className="ring-4 ring-surface" />
             ))}
           </span>
-          <p className="mt-6 font-display text-[30px] font-extrabold leading-none tracking-[-0.03em]">Your basket</p>
+          <p className="mt-6 font-sans text-[30px] font-semibold leading-none tracking-[-0.03em]">Your basket</p>
           <p className="mt-1 text-[14px] text-text-muted">3 stocks, one buy</p>
           <ul className="mt-6 space-y-3">
             {recipe.map(({ s, w }) => (
@@ -306,7 +306,7 @@ function Baskets({ stocks, still }: { stocks: Stocks; still: boolean }) {
         </motion.div>
       </div>
       <div>
-        <h2 id="baskets-title" className="font-display text-[clamp(40px,8vw,76px)] font-extrabold leading-[0.95] tracking-[-0.045em] [text-wrap:balance]">
+        <h2 id="baskets-title" className="font-sans text-[clamp(40px,8vw,76px)] font-semibold leading-[0.95] tracking-[-0.04em] [text-wrap:balance]">
           Baskets, if you want them.
         </h2>
         <p className="mt-6 max-w-[40ch] text-[17px] leading-relaxed text-text-muted lg:text-[19px]">
@@ -330,7 +330,7 @@ function Close({ start }: { start: Start }) {
   const s = now ? nyseStatus(now) : null;
   return (
     <section aria-labelledby="close-title" className="mx-auto max-w-[1240px] px-gutter pb-24 pt-8 text-center lg:px-8 lg:pb-36">
-      <h2 id="close-title" className="mx-auto max-w-[16ch] font-display text-[clamp(44px,9vw,104px)] font-extrabold leading-[0.92] tracking-[-0.045em] [text-wrap:balance]">
+      <h2 id="close-title" className="mx-auto max-w-[16ch] font-sans text-[clamp(44px,9vw,104px)] font-semibold leading-[0.92] tracking-[-0.04em] [text-wrap:balance]">
         <span className="block text-text-muted">
           {!s || !now ? "Wall Street keeps hours." : s.open ? `Wall Street shuts in ${until(now, s.next)}.` : `Wall Street opens in ${until(now, s.next)}.`}
         </span>

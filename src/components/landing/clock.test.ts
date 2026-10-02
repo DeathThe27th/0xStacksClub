@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nyseOpenAt, nyseStatus, until, WALL_STREET_WEEK_HOURS } from "./clock";
+import { clockCountdown, nyseOpenAt, nysePeriod, nyseStatus, until, WALL_STREET_WEEK_HOURS } from "./clock";
 
 // Thursday 2026-10-01. New York is on EDT (UTC-4).
 const at = (iso: string) => new Date(iso);
@@ -34,5 +34,26 @@ describe("NYSE session", () => {
 
   it("counts 32.5 regular hours a week", () => {
     expect(WALL_STREET_WEEK_HOURS).toBe(32.5);
+  });
+});
+
+describe("nysePeriod", () => {
+  it("spans the overnight closure before the open", () => {
+    const p = nysePeriod(at("2026-10-02T12:00:00Z")); // Friday 8:00 New York
+    expect(p.open).toBe(false);
+    expect(p.since.toISOString()).toBe("2026-10-01T20:00:00.000Z");
+    expect(p.next.toISOString()).toBe("2026-10-02T13:30:00.000Z");
+  });
+
+  it("spans the session while open", () => {
+    const p = nysePeriod(at("2026-10-02T15:10:00Z"));
+    expect(p.open).toBe(true);
+    expect(p.since.toISOString()).toBe("2026-10-02T13:30:00.000Z");
+    expect(p.next.toISOString()).toBe("2026-10-02T20:00:00.000Z");
+  });
+
+  it("formats the countdown in total hours", () => {
+    expect(clockCountdown(at("2026-10-02T13:31:46Z"), at("2026-10-02T20:00:00Z"))).toBe("6:28:14");
+    expect(clockCountdown(at("2026-10-02T20:00:00Z"), at("2026-10-05T13:30:00Z"))).toBe("65:30:00");
   });
 });
