@@ -23,8 +23,3 @@ contracts/lib
 
 # filled-in copies with secrets
 supabase/*.local.sql
-
-# demo video work (large media, not part of the app)
-demo-out/
-*.mp4
-*.mp3
