@@ -1,68 +1,186 @@
 # 3AM
 
-A social market for tokenized stocks on BNB Smart Chain mainnet. Stocks come first: users buy and
-sell provider-issued stock tokens (bStocks, Ondo) with USDT, see what other people on the app trade,
-and can ask for prices, news and their portfolio, and buy or sell, by texting the assistant on
-iMessage. They can also build immutable baskets of 2 to 5 stocks, buy their own positions in other
-people's baskets, and join a basket's holders-only Telegram club.
+[![CI](https://github.com/DeathThe27th/0xStacksClub/actions/workflows/ci.yml/badge.svg)](https://github.com/DeathThe27th/0xStacksClub/actions/workflows/ci.yml)
 
-The display name lives in one place: `APP_NAME` in `src/lib/constants.ts`. Code, tables and the
-contract still say "stack" (e.g. `stacks`, `StacksClubVault`, `/api/stacks`): a basket is a
-`Stack` onchain and in the database.
+**Wall Street keeps hours. You don't.**
 
-- Live: https://www.trade3am.xyz
-- Vault: [`0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17`](https://bscscan.com/address/0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17) (BSC, verified)
-- Specs: [`CLAUDE.md`](CLAUDE.md) and [`docs/`](docs). Binance API facts: [`docs/binance-notes.md`](docs/binance-notes.md).
+3AM is a social market for tokenized US stocks on BNB Smart Chain. You can buy and sell Nvidia,
+Tesla, Microsoft and more at any hour, from the web app or just by texting it on iMessage. Users
+sign in with email, Google or X, get their own self-custodial wallet, fund it by card, and trade
+bStocks and Ondo tokens priced and routed by the Binance Web3 API.
 
-## How it works
+| | |
+| --- | --- |
+| **Live app** | https://www.trade3am.xyz |
+| **Vault contract** | [`0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17`](https://bscscan.com/address/0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17) on BSC mainnet (verified) |
+| **Plain-English write-up** | [`docs/WRITEUP.md`](docs/WRITEUP.md) |
+| **Chain** | BNB Smart Chain mainnet (56), settled in USDT |
+| **Tokenized stocks** | bStocks (default) and Ondo, through the Binance Web3 RWA API |
 
-- **Positions are exact lots.** Buying a basket pays a 1% fee to the vault, buys each component in
-  turn with the user's own wallet (Binance Web3 Trading API, SWAP or RFQ), then deposits the exact
-  tokens received into `StacksClubVault`, which mints a non-transferable position NFT. No
-  rebalancing, no fungible basket token.
-- **Nothing is atomic, and the UI says so.** Every buy, sell and redeem is a persisted intent
-  (`intents`, `intent_legs`). The server verifies each step against the chain or Binance before
-  saving it, so a closed tab resumes from the right step without buying twice.
-- **Fees.** 1% buy fee on the gross amount, collected by the vault. On basket buys 25% of it is the
-  creator's, claimable onchain. 1% sell fee on actual proceeds goes to the platform.
-  **The sell fee is app-enforced, not contract-enforced:** the contract can't see offchain sale
-  proceeds, so the app calls `paySellFee` after the sale settles.
-- **Chain is the source of truth** for recipes, owners, units and fees. Supabase is a cache and
-  social store.
+Built for **BNB Hack: Tokenized Stocks Edition**, main track (Tokenized Stocks Products & Agents).
 
-## Stack
+---
 
-Next.js 15 (App Router, TypeScript strict), Tailwind, Privy (`@privy-io/react-auth`,
-`@privy-io/node`), viem, TanStack Query, lightweight-charts, Supabase (Postgres, RLS, Storage,
-Realtime), Foundry with OpenZeppelin v5, Binance Web3 API, Alchemy BSC RPC.
+## For judges: a 5-minute tour
+
+1. **Open https://www.trade3am.xyz** and click **Get started**. Sign in with Google, email or X. An
+   embedded wallet is created for you, with no seed phrase.
+2. **Browse:** pick any stock (for example NVDA). You'll see the live price, chart, news, the
+   real share's reference price, the token's premium and a "Market closed" label outside US hours.
+3. **Fund (optional):** **Deposit → Deposit with card** opens a MoonPay checkout that sends USDT
+   straight to your own wallet. You can also send USDT on BSC to the address under
+   **Deposit crypto**. Trades need a few cents of BNB for gas.
+4. **Trade:** buy $1 or more. The panel shows the fee, a fresh quote with a guaranteed minimum,
+   and each step as it runs. Sell from the same panel.
+5. **Text it:** open **Settings → Connect iMessage** on your profile, enter your number and send
+   the code. Then try "price NVDA", "how's my portfolio?" or "put 5 bucks into nvidia" → YES
+   (after turning on Trade by text and setting a limit).
+6. **Baskets:** **Create basket** lets you pick 2 to 5 stocks, drag the weights and launch. Each
+   buy becomes an onchain position in the vault.
+
+> **Region note.** The Binance Web3 API refuses requests from the US, UK, Canada, the Netherlands
+> and a few other regions, checking both the server's and the client's IP. 3AM's servers run in
+> Singapore (`sin1`), and trading routes return HTTP 451 to visitors from restricted regions.
+> Browsing works everywhere. To try a trade from a restricted region, use a VPN to an allowed one.
+
+### Where the hackathon requirements live in the code
+
+| Requirement | Where |
+| --- | --- |
+| Tokenized stock platform at the centre | bStocks and Ondo catalog, prices and trading: [`src/server/binance`](src/server/binance), [`src/server/assets`](src/server/assets), [`scripts/seed-assets.ts`](scripts/seed-assets.ts) |
+| BSC mainnet only | Chain 56 throughout: [`src/lib/constants.ts`](src/lib/constants.ts) (`CHAIN_ID = 56`), [`src/server/chain.ts`](src/server/chain.ts), the vault on BSC mainnet, USDT `0x55d3…7955` |
+| Binance Web3 API integration | Signed client [`src/server/binance/client.ts`](src/server/binance/client.ts) and [`sign.ts`](src/server/binance/sign.ts), typed wrappers [`index.ts`](src/server/binance/index.ts), all API notes in [`docs/binance-notes.md`](docs/binance-notes.md) |
+| Spot only | No leverage or perps. Trades are USDT ↔ stock token. |
+| Agent | The iMessage and Telegram assistant in [`bot/`](bot) and its server routes [`src/app/api/bot`](src/app/api/bot), with text trades in [`src/server/botTrade.ts`](src/server/botTrade.ts) |
+
+---
+
+## Features
+
+| Feature | What it does |
+| --- | --- |
+| **Sign in, own your wallet** | Privy login (email, Google, X) creates a self-custodial embedded wallet. External wallets work too. Users sign every site trade and pay their own gas. |
+| **Deposit by card** | Privy funding flow with a licensed on-ramp (MoonPay) delivers USDT, or BNB for gas, straight to the user's wallet. The app never touches the money and just watches the chain for it to arrive. |
+| **24/7 stock trading** | Buy and sell single stocks from $1 with a 1% fee, a fresh quote, a guaranteed minimum and live step tracking |
+| **Honest market hours** | Token price, the real share's reference price, the premium between them, and the market status with next open time |
+| **Live data** | Prices, candles (1H to ALL), company news, 24h volume, market cap and "traded on 3AM" volume |
+| **Texting assistant** | iMessage and Telegram: prices, movers, news, portfolio and buy or sell in plain English. Replies are checked against real data. |
+| **Trade by text** | Opt-in. Buys and sells only after the user replies YES (matched by code, not the model), within the user's own limits (default $50 a buy, $200 a day). Funds never leave the user's wallet. |
+| **Social** | Weekly top trades, Hall of Fame, live trade toasts, holders with average entry and P&L, comments, follows, public profiles |
+| **Baskets** | Immutable 2 to 5 stock recipes. Each buy is its own soulbound position NFT in the vault with exact units. Creators earn 25% of the buy fee and can attach a holders-only Telegram club. |
+| **Safety** | Price guard (refuses quotes more than 5% worse than market), simulated gas, resumable trades, exact approvals only |
+
+---
+
+## How it uses the Binance Web3 API
+
+All calls are server-side and HMAC-signed (`X-OC-APIKEY`, `X-OC-TIMESTAMP`, `X-OC-SIGN`). Every
+response is validated with zod, errors are typed with Binance's code and request ID, and order
+submission is never retried automatically.
+
+| Module | Endpoint | Used for |
+| --- | --- | --- |
+| RWA Data | `rwa/platforms`, `rwa/tokens` | Provider list, full BSC catalog, token metadata, market status (seed script and price cron) |
+| RWA Data | `rwa/price` | Live batched prices (up to 100 tokens per call), and the price guard |
+| RWA Data | `rwa/search` | Search by ticker, company or address |
+| RWA Data | `rwa/underlying-market` | The real share's reference price, 52-week range and market status |
+| Market | `market/candles` | Charts and 24h change |
+| Trading | `aggregator/quote` | Quotes for every buy and sell leg (SWAP or RFQ) |
+| Trading | `aggregator/approve-transaction` | Exact-amount approvals for the quoted router or vendor |
+| Trading | `aggregator/swap` | Builds SWAP transactions (re-simulated for gas before the user signs) |
+| Trading | `aggregator/order/submit`, `aggregator/order/{id}` | RFQ orders: user-signed EIP-712, submitted with an idempotency key, polled to `FILLED` |
+
+Where the live API behaved differently from its docs (Ondo routing, `/swap` gas, null candle
+fields, the Ondo minimum order size), it's recorded in
+[`docs/binance-notes.md` §6](docs/binance-notes.md#6-differences-from-our-docs).
+
+---
+
+## Architecture
 
 ```
-src/app          routes and pages (/app is the product, /api the server)
-src/components   UI
-src/lib          shared logic (math, formatting, env, client hooks, generated vault ABI)
-src/server       server-only code (Binance client, chain, intents, Supabase)
-contracts/       Foundry project: StacksClubVault, tests, deploy script
-supabase/        migration and pg_cron schedule
-scripts/         seed, ABI export, fork-test bookkeeping
+ Browser (Next.js, Privy wallet)  ── user signs every site trade ──▶  BNB Smart Chain
+        │ /api/* (Privy auth)                                       StacksClubVault, USDT,
+        ▼                                                           bStocks / Ondo tokens
+ Vercel functions, sin1 (server-only) ──────────────────────────────▶ (reads + verification)
+   • Binance Web3 API client (signed)       ──▶ Binance Web3 API
+   • Intent state machine + chain checks
+   • Price guard, region gate, rate limits
+   • /api/bot/* for the assistant           ◀── bot/ (iMessage + Telegram, no keys, no signing)
+        │
+        ▼
+ Supabase Postgres (cache + social, RLS, Realtime, Storage)
 ```
 
-## Region restrictions
+**Trust rules the code follows:**
+- The chain is the source of truth for recipes, owners, units and fees. Supabase is only a cache
+  and social store.
+- A submitted order isn't a completed trade. Only Binance `FILLED` *plus* a verified balance
+  increase at the user's own address counts.
+- Every buy, sell and redeem is a persisted intent (`intents`, `intent_legs`). The server verifies
+  each step before saving it, so a closed tab resumes without buying twice.
+- Basket buys are never claimed to be atomic. Legs run in sequence, each persisted, and no position
+  is minted until every component is deposited.
+- Assets are identified by provider + chain + checksummed address and must be on the allowlist.
+  The server never accepts an arbitrary token address from the client.
+- All money math uses raw `bigint` units.
+- Secrets (Binance, Supabase service and Privy signer keys) stay server-side.
 
-The Binance Web3 API refuses requests from the US, UK, Canada, the Netherlands and a few other
-regions, checking both the server and the client IP (see `docs/binance-notes.md` §1).
+**Fees:** 1% on buys, taken once from the gross amount (on basket buys, 25% to the creator and 75%
+to the platform), and 1% on actual sell proceeds. Creating a basket is free. The sell fee is
+app-enforced, because the contract can't see offchain sale proceeds.
 
-- `vercel.json` pins functions to `sin1` (Singapore). Don't move them to a US or UK region.
-- Trading routes return HTTP 451 to visitors from restricted regions (`src/middleware.ts`).
-- You can't call Binance from a restricted machine, so `pnpm seed:assets` calls the deployed app's
-  `/api/cron/seed-assets` route instead of Binance directly.
+---
 
-## Setup
+## Repository layout
+
+```
+src/app            Next.js routes: /app is the product, /api the server routes
+src/components     UI components
+src/lib            shared logic: fee and allocation math, trade runner, env, chain, formatting
+src/server         server-only code: Binance client, intents, chain checks, assistant, social
+bot/               the iMessage and Telegram assistant (separate package, runs on a VPS)
+contracts/         Foundry project: StacksClubVault, tests, deploy script, deployment record
+supabase/          SQL migrations and the pg_cron schedule
+scripts/           asset seeding, fork-test bookkeeping, ABI export, local demo data
+docs/              specs and notes (see below)
+```
+
+| Doc | What's in it |
+| --- | --- |
+| [`docs/WRITEUP.md`](docs/WRITEUP.md) | Plain-English explanation of the product and how it works |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Product background, trust boundaries and design decisions |
+| [`docs/BACKEND.md`](docs/BACKEND.md) | Binance client, API routes, Supabase schema |
+| [`docs/FLOWS.md`](docs/FLOWS.md) | Deposit, buy, sell, redeem and claim state machines |
+| [`docs/CONTRACTS.md`](docs/CONTRACTS.md) | Vault contract spec |
+| [`docs/UI_SPEC.md`](docs/UI_SPEC.md) | Screens, components and design tokens |
+| [`docs/binance-notes.md`](docs/binance-notes.md) | Every Binance Web3 API fact we rely on, with sources, plus where the live API differed |
+| [`bot/README.md`](bot/README.md) | The texting assistant: tools, guardrails, setup |
+| [`contracts/README.md`](contracts/README.md) | Vault functions, tests and deployment |
+| [`CLAUDE.md`](CLAUDE.md) | Engineering rules for the codebase (also used by AI coding agents) |
+
+---
+
+## Tests
+
+| Suite | Command | Result |
+| --- | --- | --- |
+| App (Vitest) | `pnpm test` | 73 passing: trade runner against a simulated wallet and chain, fee and allocation math, release rounding, position valuation and P&L, Binance request signing, RFQ typed-data parsing, phone handling |
+| Contracts (Foundry) | `cd contracts && forge test` | 45 passing (unit + invariant). The 2 BSC fork tests run with `BSC_RPC_URL`: 86 real tokens round-tripped through the vault. |
+| Bot | `cd bot && pnpm test` | 49 passing: parser, reply formatting, handler, send quota |
+| Static checks | `pnpm lint && pnpm typecheck` | clean |
+
+---
+
+## Run it locally
 
 Requirements: Node 20+, pnpm, [Foundry](https://getfoundry.sh).
 
 ```bash
 pnpm install
 cp .env.example .env.local        # fill in the values below
+pnpm dev                          # needs a network region Binance allows (see Region note)
+pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 ### Environment variables
@@ -77,12 +195,12 @@ cp .env.example .env.local        # fill in the values below
 | `BSC_RPC_URL` | Vercel + local | Alchemy BSC mainnet |
 | `NEXT_PUBLIC_BSC_RPC_URL` | Vercel + local | browser reads (restrict the key's allowed origins in Alchemy) |
 | `BINANCE_WEB3_API_KEY`, `BINANCE_WEB3_SECRET_KEY` | Vercel + local | server only |
-| `PINATA_JWT`, `PINATA_GATEWAY_URL` | optional | not used yet; Stack images go to Supabase Storage |
+| `PINATA_JWT`, `PINATA_GATEWAY_URL` | optional | not used yet; basket images go to Supabase Storage |
 | `NEXT_PUBLIC_VAULT_ADDRESS` | Vercel + local | `0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17` |
 | `NEXT_PUBLIC_USDT_ADDRESS` | Vercel + local | `0x55d398326f99059fF775485246999027B3197955` |
 | `NEXT_PUBLIC_APP_URL` | Vercel + local | `https://www.trade3am.xyz` |
 | `CRON_SECRET` | Vercel + local | `openssl rand -hex 32` |
-| `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the iMessage bot |
+| `BOT_API_SECRET` | Vercel + local + `bot/.env` | `openssl rand -hex 32`, shared with the bot |
 | `SPECTRUM_PROJECT_ID`, `SPECTRUM_PROJECT_SECRET` | Vercel + local + `bot/.env` | Photon project; the app registers phones with it |
 | `NEXT_PUBLIC_PRIVY_SIGNER_ID`, `PRIVY_SIGNER_PRIVATE_KEY` | Vercel + local, optional | Privy authorization key for Trade by text. The private key is server only. |
 | `NEXT_PUBLIC_TELEGRAM_BOT` | Vercel + local, optional | Telegram bot username without `@`; turns on Connect Telegram |
@@ -93,32 +211,21 @@ cp .env.example .env.local        # fill in the values below
 
 ### Supabase
 
-1. In the Supabase SQL editor, run `supabase/migrations/0001_init.sql` (tables, RLS, views, storage
-   buckets, Realtime), then `0002_clubs.sql` and `0003_club_links.sql` (Telegram club links and
-   link reports), `0004_imessage.sql` (phone links for the iMessage bot) and `0005_assistant.sql`
-   (Telegram links, Trade by text settings and orders) in order.
+1. In the Supabase SQL editor, run the migrations in `supabase/migrations/` in order: `0001_init.sql`
+   (tables, RLS, views, storage buckets, Realtime), `0002_clubs.sql`, `0003_club_links.sql`,
+   `0004_imessage.sql` and `0005_assistant.sql`.
 2. After the first deploy, run `supabase/cron.sql` with your `CRON_SECRET` filled in. It schedules
-   the cron routes with pg_cron, because Vercel Hobby only runs cron jobs once a day. On Vercel Pro
-   you can use Vercel Cron instead (`/api/cron/prices` and `/api/cron/sync` every minute,
+   the cron routes with pg_cron (`/api/cron/prices` and `/api/cron/sync` every minute,
    `/api/cron/index` every 5 minutes, each with `Authorization: Bearer $CRON_SECRET`).
 
 ### Privy
 
-In the Privy dashboard: enable email, Google, X and wallet login; create embedded wallets for users
-without one; add `https://www.trade3am.xyz`, `https://trade3am.xyz`, `https://0x-stacks-club.vercel.app` and your preview domains to allowed origins.
-
-## Contracts
-
-```bash
-cd contracts
-forge install --no-git foundry-rs/forge-std OpenZeppelin/openzeppelin-contracts@v5.4.0
-forge build
-forge test                                   # unit + invariant tests; fork tests skip without BSC_RPC_URL
-BSC_RPC_URL=... forge test --match-contract Fork -vv   # real bStocks/Ondo tokens through the vault
-```
-
-The fork test is the check that provider tokens can sit in the vault. On 2026-09-27 all 86 tested
-tokens (46 bStocks, 40 Ondo) round-tripped unit for unit.
+In the Privy dashboard:
+- Enable email, Google, X and wallet login.
+- Create embedded wallets for users without one.
+- Enable card funding (MoonPay) for BSC.
+- Add `https://www.trade3am.xyz`, `https://trade3am.xyz` and your preview domains to the allowed
+  origins.
 
 ### Seed the asset allowlist
 
@@ -127,13 +234,15 @@ SEED_BASE_URL=https://www.trade3am.xyz CRON_SECRET=... pnpm seed:assets [--allow
 BSC_RPC_URL=... NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SECRET_KEY=... FORGE_BIN=forge pnpm tsx scripts/mark-vault-ok.ts
 ```
 
-`seed:assets` pulls bStocks and Ondo tokens from the Binance RWA API (through the deployed app),
-checks each contract on BSC, probes for a USDT route, upserts `assets`, and writes
-`contracts/test/fork-assets.json` and `contracts/deploy/assets.json`. `mark-vault-ok` runs the
-per-token fork test and sets `vault_ok`; only tokens with a route **and** a passing fork test get
-`can_trade`/`can_stack`. After seeding, call `/api/cron/mirror-logos` (same bearer secret) to copy token logos into Supabase Storage; `supabase/cron.sql` also runs it daily. `--allow-closed` includes fork-tested tokens whose only quote error is
-"market closed" in the vault allowlist. For preview deployments behind Vercel Authentication, set
-`VERCEL_AUTOMATION_BYPASS_SECRET`.
+`seed:assets`:
+- pulls bStocks and Ondo tokens from the Binance RWA API (through the deployed app, since Binance
+  can't be called from a restricted region)
+- checks each contract on BSC and probes for a USDT route
+- upserts `assets`, and writes `contracts/test/fork-assets.json` and `contracts/deploy/assets.json`
+
+`mark-vault-ok` runs the per-token fork test. Only tokens with a route **and** a passing fork test
+can be traded or used in baskets. After seeding, call `/api/cron/mirror-logos` to copy token logos
+into Supabase Storage.
 
 ### Deploy the vault
 
@@ -147,87 +256,26 @@ cd .. && pnpm export-abi                   # writes src/lib/contracts/vault.ts f
 ```
 
 The deployer gets `DEFAULT_ADMIN_ROLE`, `ASSET_ADMIN_ROLE` and `PAUSER_ROLE`. No role can move
-position tokens or creators' claimable fees; `withdrawPlatformFees` is capped at accrued platform
-fees. To hand admin to a safer wallet:
+position tokens or creators' claimable fees, and `withdrawPlatformFees` is capped at accrued
+platform fees.
 
-```bash
-V=0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17
-for ROLE in $(cast keccak ASSET_ADMIN_ROLE) $(cast keccak PAUSER_ROLE) 0x0000000000000000000000000000000000000000000000000000000000000000; do
-  cast send $V "grantRole(bytes32,address)" $ROLE $NEW_ADMIN --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $BSC_RPC_URL
-done
-cast send $V "setPlatformFeeRecipient(address)" $NEW_RECIPIENT --private-key $DEPLOYER_PRIVATE_KEY --rpc-url $BSC_RPC_URL
-# then, from the new admin, renounce or revoke the deployer's roles
-```
+### Deploy the app to Vercel
 
-## App
+Set the environment variables above for Production and Preview, then push. `vercel.json` pins the
+functions to `sin1` (Singapore). Don't move them to a US or UK region, because Binance refuses
+those.
 
-```bash
-pnpm dev          # needs a non-restricted network for anything that calls Binance
-pnpm lint && pnpm typecheck && pnpm test && pnpm build
-pnpm seed:demo    # LOCAL ONLY: labelled demo profiles and comments; --clean removes them
-```
+### Run the assistant
 
-### Deploy to Vercel
+See [`bot/README.md`](bot/README.md): Photon Spectrum for iMessage and Telegram, optional Gemini
+for conversation, run with pm2 on a VPS. The bot holds no Binance, Supabase or wallet secrets. It
+only calls `/api/bot/*` with a shared secret.
 
-Set the environment variables above for **Production and Preview** in the Vercel project
-(`vercel env add NAME production` and `vercel env add NAME preview`), then push the branch.
-`vercel.json` sets the framework to Next.js and the function region to `sin1`.
+---
 
-## Texting assistant (iMessage and Telegram)
+## Naming
 
-Users can text the app like a person: stock prices, movers, their portfolio, and a link that opens
-the buy form with the amount filled in. It is on Home and beside the trade panel, not only in
-Settings. The bot lives in [`bot/`](bot) as its own package and runs as a long-lived process on a
-VPS; see [`bot/README.md`](bot/README.md) for setup, Telegram, terminal testing and pm2.
-
-- The bot never calls Binance, Supabase or the vault and never signs anything. It calls
-  `/api/bot/*` with the `x-bot-secret` header (`BOT_API_SECRET`), and those routes reuse
-  `src/server`. They sit outside the region block in `src/middleware.ts` because they only read
-  data and build links; anyone opening a link still hits the block on the trading routes.
-- A user connects a phone from Settings on their profile (**Connect iMessage**): they enter their
-  number, get a 10-minute code and text `link <code>` to us. Links live in `phone_links`
-  (`0004_imessage.sql`), readable by the server only.
-- On Photon's shared pool each phone is registered as a Photon user and gets its own number, so the
-  app needs `SPECTRUM_PROJECT_ID` and `SPECTRUM_PROJECT_SECRET` too.
-- `/app/stock/[provider]/[address]?buy=25` and `/app/basket/[id]?buy=25` open the normal buy form
-  with the amount filled in.
-- Telegram users connect from **Connect Telegram** (a `t.me/<bot>?start=<code>` link). Links live
-  in `telegram_links` (`0005_assistant.sql`), server only.
-
-### Trade by text
-
-Off by default. In the app's iMessage (or Telegram) settings a user can turn on **Trade by text** and
-set a limit per buy and per day (default $50 and $200). Turning it on adds the app's Privy signer to
-their embedded wallet; turning it off removes it. It doesn't work with a connected external wallet.
-
-A text buy is two messages. "buy 20 NVDA" makes `/api/bot/trade/prepare` check the limits, the
-balance and the wallet's permission and park an order; nothing is spent. Only the user's "yes"
-makes the bot call `/api/bot/trade/confirm`, which runs the same intent state machine as the site
-(`src/lib/runner.ts`, `src/server/botTrade.ts`) with the wallet signing through Privy. The
-assistant's model never confirms anything; that reply is matched by code. Orders are logged in
-`bot_orders`. A sell of a single stock works the same way through `/api/bot/trade/sell` (a preview,
-then the sale after the user's yes); proceeds stay in the user's wallet as USDT. There is no
-withdraw or transfer by text, and trades started on the site are still signed in the browser.
-
-## Trade speed
-
-A buy or sell is several transactions and several server checks. The runner
-([`src/lib/runner.ts`](src/lib/runner.ts), shared by the browser) keeps the waits short:
-
-- Router approvals for every leg go out in the same burst as the fee, so a leg doesn't stop to
-  approve and re-quote. Legs that share a spender get one approval for their exact total.
-- Transactions are sent back to back with consecutive nonces and awaited together.
-- The database is about 0.2s per query from the function region, so the trade routes load an intent
-  with its legs in one query, cache the profile and allowlist rows briefly, rate limit in memory
-  and write the trade rows after the response.
-- The swap's hash is saved while it is being mined; independent Binance calls run in parallel.
-- The Privy wallet lookup behind every API call is cached for a minute per server instance.
-
-## Tests
-
-- `contracts/test`: 44 unit tests (validation, fee math and rounding, receipt misuse, fee-on-transfer
-  rejection, partial and full release, soulbound, pause, claims, withdrawal caps), 4 invariants,
-  2 BSC fork tests.
-- `src/**/*.test.ts` (Vitest): the trade runner against a simulated wallet and chain, basket name
-  matching, phone handling, fee and allocation math, release rounding, Stack index, position
-  valuation and PnL, Binance request signing against the auth doc's example, RFQ typed-data parsing.
+The user-facing name lives in one place: `APP_NAME` in `src/lib/constants.ts`. Users see
+"baskets". In code, tables and the contract, a basket is a **Stack** (`stacks`, `StacksClubVault`,
+`/api/stacks`), because stored data and the deployed contract depend on that name. The project
+was previously called StacksClub, hence the repository name.
