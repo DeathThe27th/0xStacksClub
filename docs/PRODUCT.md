@@ -46,6 +46,6 @@ Four themes: light (default), dark, Rainbow and Binance, or System to follow the
 
 ## Binding visual spec
 
-`docs/UI_SPEC.md` (tokens, type scale, layout, components, motion) and `docs/design/*.png` for
+`docs/UI_SPEC.md` (tokens, type scale, layout, components, motion) and the live app for
 layout reference. The brand is the wordmark (Bricolage Grotesque 800), not a logo mark; the UI font
 is Geist; icons are Lucide. No other app's brand assets.
