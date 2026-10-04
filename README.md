@@ -12,6 +12,7 @@ bStocks and Ondo tokens priced and routed by the Binance Web3 API.
 | | |
 | --- | --- |
 | **Live app** | https://www.trade3am.xyz |
+| **Demo video** | [Watch on X](https://x.com/noturtwntysevn/status/2106689661884039244) (3:54) |
 | **Vault contract** | [`0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17`](https://bscscan.com/address/0x2a03793A4E00cD639F1811Fc2c0d3f14c78Aec17) on BSC mainnet (verified) |
 | **Plain-English write-up** | [`docs/WRITEUP.md`](docs/WRITEUP.md) |
 | **Chain** | BNB Smart Chain mainnet (56), settled in USDT |
