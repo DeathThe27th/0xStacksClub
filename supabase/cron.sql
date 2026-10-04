@@ -6,7 +6,7 @@ create extension if not exists pg_cron;
 create extension if not exists pg_net;
 
 select vault.create_secret('<CRON_SECRET>', 'stacksclub_cron_secret');
-select vault.create_secret('https://0x-stacks-club.vercel.app', 'stacksclub_app_url');
+select vault.create_secret('https://www.trade3am.xyz', 'stacksclub_app_url');
 
 create or replace function stacksclub_call(path text) returns void language sql security definer as $$
   select net.http_get(
